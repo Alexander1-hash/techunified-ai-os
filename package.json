@@ -23,7 +23,7 @@
     "recharts": "latest",
     "sonner": "latest",
     "tailwind-merge": "latest",
-    "tailwindcss": "^3.4.17",
+    "tailwindcss": "^4.3.3",
     "tailwindcss-animate": "latest",
     "typescript": "latest"
   },
@@ -32,6 +32,6 @@
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "postcss": "^8.4.49"
+    "postcss": "^8.5.26"
   }
 }

@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
 :root { --background:#071019; --foreground:#e8f0f5; --card:#0c1822; --card-foreground:#e8f0f5; --muted:#101f2b; --muted-foreground:#8fa4b3; --border:#1c3140; --primary:#5eead4; --primary-foreground:#06201e; --accent:#f6c766; --destructive:#f87171; --radius:0.75rem; }
 * { border-color: var(--border); }
