@@ -1,0 +1,2 @@
+import type {Config} from 'tailwindcss';
+const config:Config={darkMode:'class',content:['./app/**/*.{ts,tsx}','./components/**/*.{ts,tsx}','./lib/**/*.{ts,tsx}'],theme:{extend:{colors:{background:'var(--background)',foreground:'var(--foreground)',card:'var(--card)',muted:'var(--muted)',border:'var(--border)',primary:'var(--primary)',accent:'var(--accent)','muted-foreground':'var(--muted-foreground)','primary-foreground':'var(--primary-foreground)'},borderRadius:{xl:'var(--radius)'}}}}; export default config;

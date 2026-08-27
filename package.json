@@ -1,0 +1,37 @@
+{
+  "name": "techunified-ai-os",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@hookform/resolvers": "latest",
+    "@radix-ui/react-dialog": "latest",
+    "@radix-ui/react-dropdown-menu": "latest",
+    "@radix-ui/react-slot": "latest",
+    "autoprefixer": "^10.4.20",
+    "class-variance-authority": "latest",
+    "clsx": "latest",
+    "lucide-react": "latest",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "recharts": "latest",
+    "sonner": "latest",
+    "tailwind-merge": "latest",
+    "tailwindcss": "^3.4.17",
+    "tailwindcss-animate": "latest",
+    "typescript": "latest"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "postcss": "^8.4.49"
+  }
+}
