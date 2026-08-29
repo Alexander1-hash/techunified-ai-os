@@ -27,3 +27,7 @@ The Build 5 SQL migration creates `generations`, `generation_assets`, `generatio
 ### Security
 
 Credits are checked server-side, generation ownership is filtered by authenticated user, and worker secrets never enter client bundles. Production should move credit reservation/refund into a single transactional Postgres function or server-only RPC before enabling paid usage.
+
+### Supabase Auth URL configuration
+
+For email confirmation and password recovery, configure the Supabase Auth Site URL as `https://techunified-ai-os.vercel.app` and allow the redirect URL `https://techunified-ai-os.vercel.app/auth/callback`. The app also uses the current browser origin for preview deployments, optionally routed through `NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL` when provided. Sessions are stored in Supabase SSR cookies; passwords and service-role credentials are never handled by the browser.
