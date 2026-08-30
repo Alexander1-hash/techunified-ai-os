@@ -26,13 +26,13 @@ export async function updateSession(request: NextRequest) {
   // API handlers own their JSON 401 responses. Page requests are redirected here.
   if (!user && !publicPath && !isApi) {
     const redirect = NextResponse.redirect(new URL('/login', request.url))
-    response.headers.getSetCookie().forEach((cookie) => redirect.headers.append('set-cookie', cookie))
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie.name, cookie.value, cookie))
     return redirect
   }
 
   if (user && pathname === '/login') {
     const redirect = NextResponse.redirect(new URL('/dashboard', request.url))
-    response.headers.getSetCookie().forEach((cookie) => redirect.headers.append('set-cookie', cookie))
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie.name, cookie.value, cookie))
     return redirect
   }
 
