@@ -1,0 +1,12 @@
+import Link from 'next/link'
+import { ArrowLeft, Bot, Workflow } from 'lucide-react'
+import { departments, agents } from '@/lib/data'
+import { Card, PageHeader, Status } from '@/components/ui'
+
+export default async function DepartmentWorkspace({ params }: { params: Promise<{ departmentId: string }> }) {
+  const { departmentId } = await params
+  const department = departments.find((item) => item.id === departmentId)
+  if (!department) return <main className="p-8">Department not found.</main>
+  const departmentAgents = agents.filter((agent) => agent.department === department.name)
+  return <main className="min-h-screen bg-background p-5 lg:p-8"><div className="mx-auto max-w-6xl"><Link href="/departments" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft size={16} /> Back to Departments</Link><PageHeader eyebrow="Department workspace" title={department.name} subtitle={department.description} /><div className="grid gap-6 md:grid-cols-3"><Card><p className="text-sm text-muted-foreground">Agents</p><p className="mt-2 text-3xl font-semibold">{department.agents}</p></Card><Card><p className="text-sm text-muted-foreground">Active agents</p><p className="mt-2 text-3xl font-semibold">{department.active}</p></Card><Card><p className="text-sm text-muted-foreground">Status</p><div className="mt-3"><Status value={department.status} /></div></Card></div><div className="mt-6 grid gap-6 lg:grid-cols-2"><Card><div className="flex items-center gap-2"><Bot size={17} className="text-primary" /><h2 className="font-medium">Relevant agents</h2></div><div className="mt-4 flex flex-col gap-3">{departmentAgents.length ? departmentAgents.map((agent) => <Link key={agent.id} href={`/agents/${agent.id}`} className="flex items-center justify-between rounded-lg border p-3 hover:border-primary/50"><span className="text-sm">{agent.name}</span><Status value={agent.status} /></Link>) : <p className="text-sm text-muted-foreground">No agents assigned yet.</p>}</div></Card><Card><div className="flex items-center gap-2"><Workflow size={17} className="text-primary" /><h2 className="font-medium">Tasks and workflows</h2></div><p className="mt-4 text-sm text-muted-foreground">No connected tasks or workflow executions are available.</p><Link href="/workflows" className="mt-5 inline-block text-sm text-primary hover:underline">View workflows</Link></Card></div></div></main>
+}
