@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { creditCost, models, type GenerationRequest, type GenerationType, type Quality } from '@/lib/ai/types'
-import { enqueueGeneration } from '@/lib/ai/inference'
+import { enqueueGeneration, workerConfigured } from '@/lib/ai/inference'
 
 const MAX_PROMPT_LENGTH = 4000
 
@@ -16,6 +16,10 @@ export async function POST(request: Request) {
   }
   if (body.prompt.length > MAX_PROMPT_LENGTH) {
     return NextResponse.json({ error: `Prompt must be ${MAX_PROMPT_LENGTH} characters or fewer.` }, { status: 400 })
+  }
+
+  if (!workerConfigured && body.type !== 'image') {
+    return NextResponse.json({ success: false, error: 'Real video generation is not configured yet.' }, { status: 503 })
   }
 
   const type: GenerationType = body.type === 'image' ? 'image' : 'video'
@@ -38,7 +42,7 @@ export async function POST(request: Request) {
   const { data: existing } = await supabase.from('generations').select('id,status,credits_reserved').eq('user_id', user.id).eq('idempotency_key', idempotencyKey).maybeSingle()
   if (existing) return NextResponse.json({ success: true, generationId: existing.id, jobId: existing.id, status: existing.status, cost: existing.credits_reserved ?? cost, duplicate: true })
 
-  const { data: created, error: createError } = await supabase.from('generations').insert({ user_id: user.id, ...requestData, credits_reserved: cost, status: 'queued', provider: 'mock' }).select('id').single()
+  const { data: created, error: createError } = await supabase.from('generations').insert({ user_id: user.id, ...requestData, credits_reserved: cost, status: 'queued', provider: 'remote-worker' }).select('id').single()
   if (createError || !created) return NextResponse.json({ error: 'Unable to create the generation job.' }, { status: 500 })
 
   const { data: remaining, error: reserveError } = await supabase.rpc('reserve_generation_credits', { p_user_id: user.id, p_generation_id: created.id, p_amount: cost, p_description: `Reserved credits for ${type} generation` })
@@ -51,7 +55,7 @@ export async function POST(request: Request) {
   try {
     const result = await enqueueGeneration({ id: created.id, userId: user.id, request: requestData })
     await supabase.from('generations').update({ status: 'processing', worker_job_id: result.workerJobId, started_at: new Date().toISOString() }).eq('id', created.id).eq('user_id', user.id)
-    return NextResponse.json({ success: true, generationId: created.id, jobId: created.id, status: 'processing', cost, remainingCredits: remaining, developmentMode: true, provider: 'mock' })
+    return NextResponse.json({ success: true, generationId: created.id, jobId: created.id, status: 'processing', cost, remainingCredits: remaining, developmentMode: false, provider: 'remote-worker' })
   } catch {
     await supabase.rpc('refund_generation_credits', { p_user_id: user.id, p_generation_id: created.id, p_amount: cost, p_description: 'Generation provider failed; credits refunded' })
     await supabase.from('generations').update({ status: 'failed', error: 'Video generation failed. Your credits have been refunded.', completed_at: new Date().toISOString() }).eq('id', created.id).eq('user_id', user.id)
