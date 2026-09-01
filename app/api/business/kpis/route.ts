@@ -1,0 +1,4 @@
+import { NextResponse } from 'next/server'
+import { getBusinessTable, insertBusinessRecord } from '@/lib/business/repository'
+export async function GET() { const result = await getBusinessTable('business_kpis'); if (!result.user) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 }); return NextResponse.json({ data: result.data }) }
+export async function POST(request: Request) { const body = await request.json().catch(() => null); if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Invalid request.' }, { status: 400 }); const result = await insertBusinessRecord('business_kpis', body as Record<string, unknown>); if (result.error) return NextResponse.json({ error: result.error.message === 'Unauthorized' ? result.error.message : 'Could not create KPI.' }, { status: result.error.message === 'Unauthorized' ? 401 : 400 }); return NextResponse.json({ data: result.data }, { status: 201 }) }
