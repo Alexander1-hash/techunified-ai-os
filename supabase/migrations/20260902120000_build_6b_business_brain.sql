@@ -3,7 +3,7 @@
 
 create table public.company_objectives (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references public.organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete restrict,
   name text not null,
   description text,
   target numeric,
@@ -17,7 +17,7 @@ create table public.company_objectives (
 
 create table public.business_kpis (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references public.organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete restrict,
   name text not null,
   description text,
   category text not null,
@@ -36,7 +36,7 @@ create table public.business_kpis (
 
 create table public.business_insights (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references public.organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete restrict,
   title text not null,
   description text not null,
   category text,
@@ -51,7 +51,7 @@ create table public.business_insights (
 
 create table public.business_recommendations (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references public.organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete restrict,
   title text not null,
   problem text,
   recommended_action text not null,
@@ -68,7 +68,7 @@ create table public.business_recommendations (
 
 create table public.business_reports (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references public.organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete restrict,
   title text not null,
   report_type text not null,
   content text not null,
@@ -81,7 +81,7 @@ create table public.business_reports (
 
 create table public.business_data_sources (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references public.organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete restrict,
   name text not null,
   provider text not null,
   category text not null,
