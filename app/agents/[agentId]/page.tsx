@@ -1,14 +1,15 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
-import { agents } from '@/lib/data'
+import { getServerAgent } from '@/lib/repositories/workspace-server'
 import { Card, PageHeader, Status } from '@/components/ui'
 import { AgentWorkspaceClient } from './agent-workspace-client'
 
 export default async function AgentWorkspace({ params }: { params: Promise<{ agentId: string }> }) {
   const { agentId } = await params
-  const agent = agents.find((item) => item.id === agentId)
-  if (!agent) notFound()
+  const agentRecord = await getServerAgent(agentId)
+  if (!agentRecord) notFound()
+  const agent = { ...agentRecord, department: 'Organization', model: typeof agentRecord.configuration?.model === 'string' ? agentRecord.configuration.model : 'Configured', lastActivity: agentRecord.updated_at ? new Date(agentRecord.updated_at).toLocaleDateString() : 'No activity', tasks: 0 }
 
   return <main className="min-h-screen bg-background p-5 lg:p-8">
     <div className="mx-auto max-w-6xl">

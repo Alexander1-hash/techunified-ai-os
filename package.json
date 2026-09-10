@@ -25,6 +25,7 @@
     "react-dom": "latest",
     "recharts": "latest",
     "sonner": "latest",
+    "swr": "^2.5.1",
     "tailwind-merge": "latest",
     "tailwindcss": "^4.3.3",
     "tailwindcss-animate": "latest",
