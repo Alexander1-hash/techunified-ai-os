@@ -11,7 +11,8 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'Please sign in to generate.' }, { status: 401 })
 
   const body = await request.json().catch(() => null)
-  if (!body || typeof body.prompt !== 'string' || body.prompt.trim().length < 3) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'Invalid generation request.' }, { status: 400 })
+  if (typeof body.prompt !== 'string' || body.prompt.trim().length < 3) {
     return NextResponse.json({ error: 'Describe your generation in at least 3 characters.' }, { status: 400 })
   }
   if (body.prompt.length > MAX_PROMPT_LENGTH) {
@@ -56,7 +57,8 @@ export async function POST(request: Request) {
     const result = await enqueueGeneration({ id: created.id, userId: user.id, request: requestData })
     await supabase.from('generations').update({ status: 'processing', worker_job_id: result.workerJobId, started_at: new Date().toISOString() }).eq('id', created.id).eq('user_id', user.id)
     return NextResponse.json({ success: true, generationId: created.id, jobId: created.id, status: 'processing', cost, remainingCredits: remaining, developmentMode: false, provider: 'remote-worker' })
-  } catch {
+  } catch (error) {
+    console.error('[v0] Generation enqueue failed', error)
     await supabase.rpc('refund_generation_credits', { p_user_id: user.id, p_generation_id: created.id, p_amount: cost, p_description: 'Generation provider failed; credits refunded' })
     await supabase.from('generations').update({ status: 'failed', error: 'Video generation failed. Your credits have been refunded.', completed_at: new Date().toISOString() }).eq('id', created.id).eq('user_id', user.id)
     return NextResponse.json({ error: 'Video generation failed. Your credits have been refunded.' }, { status: 500 })

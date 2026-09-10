@@ -13,7 +13,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ age
   if (!user) return NextResponse.json({ error: 'Please sign in to use this agent.' }, { status: 401 })
 
   const { agentId } = await params
-  if (!agentId || typeof agentId !== 'string') return NextResponse.json({ error: 'This agent could not be found.' }, { status: 404 })
+  if (!agentId || typeof agentId !== 'string' || !/^[0-9a-f-]{36}$/i.test(agentId)) return NextResponse.json({ error: 'This agent could not be found.' }, { status: 404 })
 
   let agent
   try { agent = await getServerAgent(agentId) } catch { return NextResponse.json({ error: 'This agent could not be found.' }, { status: 404 }) }
@@ -31,16 +31,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ age
   const model = process.env.OPENAI_MODEL?.trim() || DEFAULT_MODEL
   const instructions = `You are the TechUnified AI OS ${agent.name}. ${agent.purpose}. Help the authenticated user with tasks related to this organization. Be practical, accurate, and transparent about limitations. Do not claim to have performed actions or accessed systems unless the user provided the information in this conversation.`
 
+  let organizationId: string | null = null
   try {
     const openai = new OpenAI({ apiKey })
     const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user.id).maybeSingle()
-    if (profile?.organization_id) await supabase.from('activity_logs').insert({ organization_id: profile.organization_id, actor_id: user.id, event_type: 'agent_execution_started', description: `${agent.name} execution started`, metadata: { agent_id: agent.id } })
+    organizationId = profile?.organization_id ?? null
+    if (organizationId) await supabase.from('activity_logs').insert({ organization_id: organizationId, actor_id: user.id, event_type: 'agent_execution_started', description: `${agent.name} execution started`, metadata: { agent_id: agent.id } })
     const response = await openai.responses.create({ model, input: [{ role: 'developer', content: instructions }, { role: 'user', content: message }] })
-    if (profile?.organization_id) await supabase.from('activity_logs').insert({ organization_id: profile.organization_id, actor_id: user.id, event_type: 'agent_execution_completed', description: `${agent.name} execution completed`, metadata: { agent_id: agent.id } })
+    if (organizationId) await supabase.from('activity_logs').insert({ organization_id: organizationId, actor_id: user.id, event_type: 'agent_execution_completed', description: `${agent.name} execution completed`, metadata: { agent_id: agent.id } })
     return NextResponse.json({ success: true, agentId, response: response.output_text, model })
   } catch (error: unknown) {
     const status = typeof error === 'object' && error !== null && 'status' in error && typeof error.status === 'number' ? error.status : 500
+    if (organizationId) await supabase.from('activity_logs').insert({ organization_id: organizationId, actor_id: user.id, event_type: 'agent_execution_failed', description: `${agent.name} execution failed`, metadata: { agent_id: agent.id } })
     if (status === 429) return NextResponse.json({ error: 'The AI service is temporarily busy. Please try again.' }, { status: 429 })
+    console.error('[v0] Agent execution failed', error)
     return NextResponse.json({ error: 'The agent could not complete that task. Please try again.' }, { status: 500 })
   }
 }

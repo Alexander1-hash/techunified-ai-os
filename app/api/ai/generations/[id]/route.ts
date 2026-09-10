@@ -4,6 +4,7 @@ import { getGenerationStatus } from '@/lib/ai/inference'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: 'Generation not found.' }, { status: 404 })
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Please sign in to view this generation.' }, { status: 401 })
@@ -24,7 +25,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const update = { status: result.status, result_url: result.outputUrl ?? null, thumbnail_url: result.thumbnailUrl ?? null, completed_at: result.status === 'completed' || result.status === 'failed' || result.status === 'cancelled' ? now : null, error_message: result.error ?? (result.status === 'failed' ? 'Video generation failed. Your credits have been refunded.' : null), credits_used: result.status === 'completed' ? job.credits_reserved : 0 }
     const { data: updated } = await supabase.from('generations').update(update).eq('id', job.id).eq('user_id', user.id).select('id,type,mode,prompt,model,status,provider,result_url,thumbnail_url,aspect_ratio,duration,quality,credits_used,credits_reserved,created_at,completed_at,worker_job_id,error_message').single()
     return NextResponse.json(updated ?? { ...job, ...update })
-  } catch {
+  } catch (error) {
+    console.error('[v0] Generation status lookup failed', error)
     return NextResponse.json({ error: 'Generation status is temporarily unavailable.' }, { status: 500 })
   }
 }
