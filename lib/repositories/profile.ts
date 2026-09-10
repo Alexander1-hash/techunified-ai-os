@@ -1,11 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-export type Profile = { id: string; full_name: string | null; avatar_url: string | null; created_at: string | null }
+export type Profile = { id: string; organization_id: string | null; full_name: string | null; avatar_url: string | null; role: string; created_at: string | null }
 
 export async function getCurrentProfile(supabase: SupabaseClient) {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return { profile: null, user: null, error: authError ?? new Error('Unauthorized') }
-  const { data, error } = await supabase.from('profiles').select('id, full_name, avatar_url, created_at').eq('id', user.id).maybeSingle()
+  const { data, error } = await supabase.from('profiles').select('id, organization_id, full_name, avatar_url, role, created_at').eq('id', user.id).maybeSingle()
   if (error && error.code !== '42P01' && error.code !== 'PGRST205') return { profile: null, user, error }
   return { profile: data as Profile | null, user, error: null }
 }
