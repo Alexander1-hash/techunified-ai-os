@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { Brain, Send, Upload, FileText, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { askCompanyBrain } from '@/lib/brain/service'
 import { listKnowledgeDocuments, uploadKnowledgeDocument } from '@/lib/repositories/knowledge'
 import type { BrainAnswer, ConversationMessage, KnowledgeDocument } from '@/lib/brain/types'
 
@@ -23,7 +22,7 @@ export function BrainWorkspace() {
   async function ask(question = input) {
     if (!question.trim() || busy) return
     setBusy(true); setError(''); setMessages((current) => [...current, { role: 'user', content: question }]); setInput('')
-    try { const result = await askCompanyBrain(question); setAnswer(result); setMessages((current) => [...current, { role: 'assistant', content: result.answer, citations: result.citations }]) } catch { setError('Company Brain could not complete the request. Please try again.') } finally { setBusy(false) }
+    try { const response = await fetch('/api/brain/query', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Company Brain could not complete the request.'); setAnswer(result); setMessages((current) => [...current, { role: 'assistant', content: result.answer, citations: result.citations }]) } catch { setError('Company Brain could not complete the request. Please try again.') } finally { setBusy(false) }
   }
 
   async function upload(file: File) {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
-import { getAgent } from '@/lib/repositories/workspace'
+import { getServerAgent } from '@/lib/repositories/workspace-server'
 
 const MAX_MESSAGE_LENGTH = 10_000
 const DEFAULT_MODEL = 'gpt-5.6-luna'
@@ -16,7 +16,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ age
   if (!agentId || typeof agentId !== 'string') return NextResponse.json({ error: 'This agent could not be found.' }, { status: 404 })
 
   let agent
-  try { agent = await getAgent(agentId) } catch { return NextResponse.json({ error: 'This agent could not be found.' }, { status: 404 }) }
+  try { agent = await getServerAgent(agentId) } catch { return NextResponse.json({ error: 'This agent could not be found.' }, { status: 404 }) }
   if (!agent) return NextResponse.json({ error: 'This agent could not be found.' }, { status: 404 })
 
   let body: unknown
@@ -33,7 +33,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ age
 
   try {
     const openai = new OpenAI({ apiKey })
+    const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user.id).maybeSingle()
+    if (profile?.organization_id) await supabase.from('activity_logs').insert({ organization_id: profile.organization_id, actor_id: user.id, event_type: 'agent_execution_started', description: `${agent.name} execution started`, metadata: { agent_id: agent.id } })
     const response = await openai.responses.create({ model, input: [{ role: 'developer', content: instructions }, { role: 'user', content: message }] })
+    if (profile?.organization_id) await supabase.from('activity_logs').insert({ organization_id: profile.organization_id, actor_id: user.id, event_type: 'agent_execution_completed', description: `${agent.name} execution completed`, metadata: { agent_id: agent.id } })
     return NextResponse.json({ success: true, agentId, response: response.output_text, model })
   } catch (error: unknown) {
     const status = typeof error === 'object' && error !== null && 'status' in error && typeof error.status === 'number' ? error.status : 500
