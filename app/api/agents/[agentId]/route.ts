@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
-import { agents } from '@/lib/data'
+import { getAgent } from '@/lib/repositories/workspace'
 
 const MAX_MESSAGE_LENGTH = 10_000
 const DEFAULT_MODEL = 'gpt-5.6-luna'
@@ -15,7 +15,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ age
   const { agentId } = await params
   if (!agentId || typeof agentId !== 'string') return NextResponse.json({ error: 'This agent could not be found.' }, { status: 404 })
 
-  const agent = agents.find((item) => item.id === agentId)
+  let agent
+  try { agent = await getAgent(agentId) } catch { return NextResponse.json({ error: 'This agent could not be found.' }, { status: 404 }) }
   if (!agent) return NextResponse.json({ error: 'This agent could not be found.' }, { status: 404 })
 
   let body: unknown
@@ -28,7 +29,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ age
   if (!apiKey) return NextResponse.json({ error: 'AI provider configuration is missing.' }, { status: 500 })
 
   const model = process.env.OPENAI_MODEL?.trim() || DEFAULT_MODEL
-  const instructions = `You are the TechUnified AI OS ${agent.name}. ${agent.purpose}. Help the authenticated user with tasks related to ${agent.department}. Be practical, accurate, and transparent about limitations. Do not claim to have performed actions or accessed systems unless the user provided the information in this conversation.`
+  const instructions = `You are the TechUnified AI OS ${agent.name}. ${agent.purpose}. Help the authenticated user with tasks related to this organization. Be practical, accurate, and transparent about limitations. Do not claim to have performed actions or accessed systems unless the user provided the information in this conversation.`
 
   try {
     const openai = new OpenAI({ apiKey })
