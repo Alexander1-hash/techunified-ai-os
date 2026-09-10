@@ -30,9 +30,9 @@ export async function getWorkspaceData() {
   ])
   const failure = [agentsResult, departmentsResult, workflowsResult, documentsResult, activityResult, metricsResult].find(result => result.error)
   if (failure?.error) throw new Error(failure.error.message)
-  const departments = (departmentsResult.data ?? []).map((department) => ({ ...department, agents: 0, active: 0, icon: '◈', status: 'Operational' })) as Department[]
   const departmentNames = new Map((departmentsResult.data ?? []).map(department => [department.id, department.name]))
   const agents = (agentsResult.data ?? []).map((agent) => ({ ...agent, department: departmentNames.get(agent.department_id ?? '') ?? 'Unassigned', model: typeof agent.configuration?.model === 'string' ? agent.configuration.model : 'Configured', lastActivity: agent.updated_at ? new Date(agent.updated_at).toLocaleDateString() : 'No activity', tasks: 0 })) as Agent[]
+  const departments = (departmentsResult.data ?? []).map((department) => { const departmentAgents = (agentsResult.data ?? []).filter((agent) => agent.department_id === department.id); return { ...department, agents: departmentAgents.length, active: departmentAgents.filter((agent) => ['running','active'].includes(agent.status.toLowerCase())).length, icon: '◈', status: 'Operational' } }) as Department[]
   const activity = (activityResult.data ?? []).map((item) => ({ actor: item.actor_id ? 'Team member' : 'System', action: item.description, department: item.event_type, status: 'Success', time: new Date(item.created_at).toLocaleString() })) as Activity[]
   return { organizationId, agents, departments, workflows: (workflowsResult.data ?? []) as WorkspaceWorkflow[], documents: (documentsResult.data ?? []) as WorkspaceDocument[], activity, metrics: (metricsResult.data ?? []) as WorkspaceMetric[] }
 }
