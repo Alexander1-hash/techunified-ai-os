@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Bell, ChevronDown, LogOut, Menu, Search, Sparkles, X } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { nav } from '@/lib/data'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/auth-provider'
@@ -12,6 +12,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname()
   const { user, profile, organization, role } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const notificationsRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!notificationsOpen) return
+    function handlePointerDown(event: PointerEvent) {
+      if (!notificationsRef.current?.contains(event.target as Node)) setNotificationsOpen(false)
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setNotificationsOpen(false)
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [notificationsOpen])
 
   if (path === '/login' || path.startsWith('/auth') || path === '/about' || path.startsWith('/founder')) {
     return <>{children}</>
@@ -54,7 +72,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {mobileOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
         <div className="hidden items-center gap-2 text-sm text-muted-foreground sm:flex"><Search size={16} /><span>Search anything...</span></div>
-        <div className="ml-auto flex items-center gap-2"><button type="button" className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Notifications"><Bell size={18} /></button><div className="hidden size-8 items-center justify-center rounded-full bg-accent text-sm font-semibold text-[#182016] sm:flex">AS</div></div>
+        <div className="ml-auto flex items-center gap-2"><div ref={notificationsRef} className="relative"><button type="button" className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95" aria-label="Notifications" aria-expanded={notificationsOpen} aria-controls="notifications-popover" onClick={() => setNotificationsOpen((open) => !open)}><Bell size={18} /></button>{notificationsOpen && <div id="notifications-popover" role="status" aria-live="polite" className="absolute right-0 top-12 z-50 w-[min(20rem,calc(100vw-2rem))] rounded-xl border bg-card p-4 text-card-foreground shadow-2xl"><div className="flex items-start gap-3"><div className="rounded-lg bg-muted p-2 text-muted-foreground"><Bell size={17} /></div><div><p className="text-sm font-medium">No new notifications</p><p className="mt-1 text-xs leading-5 text-muted-foreground">You&apos;re all caught up. New workspace activity will appear here.</p></div></div></div>}</div><div className="hidden size-8 items-center justify-center rounded-full bg-accent text-sm font-semibold text-[#182016] sm:flex">AS</div></div>
       </header>
 
       {mobileOpen && <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Mobile navigation"><button type="button" className="absolute inset-0 bg-black/50" aria-label="Close navigation menu" onClick={() => setMobileOpen(false)} /><aside className="relative flex h-full w-72 max-w-[85vw] flex-col border-r bg-[#09151e] shadow-xl"><div className="flex h-20 items-center justify-between border-b px-6"><div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><Sparkles size={18} /></div><div><div className="font-semibold tracking-tight">TECHUNIFIED</div><div className="text-[10px] uppercase tracking-[.24em] text-muted-foreground">AI OS</div></div></div><button type="button" className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close navigation menu" onClick={() => setMobileOpen(false)}><X size={18} /></button></div>{navigation}<WorkspaceFooter profile={profile} user={user} organization={organization} role={role} onSignOut={signOut} /></aside></div>}
