@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { integrations } from '@/lib/integrations/registry'
+import { getOpenAIConfiguration, getN8nConfiguration } from '@/lib/integrations/server'
 
 export async function GET() {
   const supabase = await createClient()
@@ -9,5 +10,7 @@ export async function GET() {
 
   const available = Object.fromEntries(integrations.flatMap((provider) => provider.envKeys.map((key) => [key, Boolean(process.env[key])])))
   available.supabase = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
-  return NextResponse.json({ available })
+  available.openai = getOpenAIConfiguration().configured
+  available.n8n = getN8nConfiguration().configured
+  return NextResponse.json({ available, openai: { model: getOpenAIConfiguration().model } })
 }
