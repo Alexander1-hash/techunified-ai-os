@@ -13,6 +13,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, profile, organization, role } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [headerSigningOut, setHeaderSigningOut] = useState(false)
+  const [headerSignOutError, setHeaderSignOutError] = useState('')
   const notificationsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -39,6 +41,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const { error } = await createClient().auth.signOut()
     if (error) throw error
     window.location.assign('/login')
+  }
+
+  async function handleHeaderSignOut() {
+    setHeaderSigningOut(true)
+    setHeaderSignOutError('')
+    try {
+      await signOut()
+    } catch {
+      setHeaderSigningOut(false)
+      setHeaderSignOutError('Unable to sign out. Please try again.')
+    }
   }
 
   const navigation = (
@@ -73,7 +86,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {mobileOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
         <div className="hidden items-center gap-2 text-sm text-muted-foreground sm:flex"><Search size={16} /><span>Search anything...</span></div>
-        <div className="ml-auto flex items-center gap-2"><div ref={notificationsRef} className="relative"><button type="button" className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95" aria-label="Notifications" aria-expanded={notificationsOpen} aria-controls="notifications-popover" onClick={() => setNotificationsOpen((open) => !open)}><Bell size={18} /></button>{notificationsOpen && <div id="notifications-popover" role="status" aria-live="polite" className="absolute right-0 top-12 z-50 w-[min(20rem,calc(100vw-2rem))] rounded-xl border bg-card p-4 text-card-foreground shadow-2xl"><div className="flex items-start gap-3"><div className="rounded-lg bg-muted p-2 text-muted-foreground"><Bell size={17} /></div><div><p className="text-sm font-medium">No new notifications</p><p className="mt-1 text-xs leading-5 text-muted-foreground">You&apos;re all caught up. New workspace activity will appear here.</p></div></div></div>}</div><div className="hidden size-8 items-center justify-center rounded-full bg-accent text-sm font-semibold text-[#182016] sm:flex">AS</div></div>
+        <div className="ml-auto flex items-center gap-2"><button type="button" onClick={handleHeaderSignOut} disabled={headerSigningOut} className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait disabled:opacity-60" aria-label="Log out" title="Log out"><LogOut size={16} /><span className="hidden sm:inline">{headerSigningOut ? 'Logging out…' : 'Log out'}</span></button>{headerSignOutError && <span className="sr-only" role="alert">{headerSignOutError}</span>}<div ref={notificationsRef} className="relative"><button type="button" className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95" aria-label="Notifications" aria-expanded={notificationsOpen} aria-controls="notifications-popover" onClick={() => setNotificationsOpen((open) => !open)}><Bell size={18} /></button>{notificationsOpen && <div id="notifications-popover" role="status" aria-live="polite" className="absolute right-0 top-12 z-50 w-[min(20rem,calc(100vw-2rem))] rounded-xl border bg-card p-4 text-card-foreground shadow-2xl"><div className="flex items-start gap-3"><div className="rounded-lg bg-muted p-2 text-muted-foreground"><Bell size={17} /></div><div><p className="text-sm font-medium">No new notifications</p><p className="mt-1 text-xs leading-5 text-muted-foreground">You&apos;re all caught up. New workspace activity will appear here.</p></div></div></div>}</div><div className="hidden size-8 items-center justify-center rounded-full bg-accent text-sm font-semibold text-[#182016] sm:flex">AS</div></div>
       </header>
 
       {mobileOpen && <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Mobile navigation"><button type="button" className="absolute inset-0 bg-black/50" aria-label="Close navigation menu" onClick={() => setMobileOpen(false)} /><aside className="relative flex h-full w-72 max-w-[85vw] flex-col border-r bg-[#09151e] shadow-xl"><div className="flex h-20 items-center justify-between border-b px-6"><div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><Sparkles size={18} /></div><div><div className="font-semibold tracking-tight">TECHUNIFIED</div><div className="text-[10px] uppercase tracking-[.24em] text-muted-foreground">AI OS</div></div></div><button type="button" className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close navigation menu" onClick={() => setMobileOpen(false)}><X size={18} /></button></div>{navigation}<WorkspaceFooter profile={profile} user={user} organization={organization} role={role} onSignOut={signOut} /></aside></div>}
