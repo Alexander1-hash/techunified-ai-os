@@ -8,34 +8,17 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ connected: false, error: 'Authentication required.' }, { status: 401 })
 
   const configuration = getN8nConfiguration()
-  if (!configuration.configured) return NextResponse.json({ connected: false, error: 'n8n webhook configuration is missing.' }, { status: 503 })
-
-  const url = new URL(configuration.webhookUrl)
-  if (!['http:', 'https:'].includes(url.protocol)) return NextResponse.json({ connected: false, error: 'n8n webhook configuration is invalid.' }, { status: 400 })
+  if (!configuration.valid) return NextResponse.json({ connected: false, error: 'n8n URL configuration is invalid.' }, { status: 400 })
+  if (!configuration.configured) return NextResponse.json({ connected: false, error: 'N8N_WEBHOOK_URL and N8N_WEBHOOK_SECRET are required.' }, { status: 503 })
+  if (!configuration.hasBaseUrl) return NextResponse.json({ connected: false, configured: true, status: 'webhook-configured', message: 'Webhook configured. A live workflow test verifies the active workflow.' }, { status: 200 })
 
   try {
-    const response = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(8000), cache: 'no-store' })
-    return NextResponse.json({ connected: response.ok, configured: true, message: response.ok ? 'Webhook configured. A live workflow test requires a configured n8n workflow.' : 'n8n webhook endpoint rejected the connection.' }, { status: response.ok ? 200 : 502 })
+    const response = await fetch(`${configuration.baseUrl}/healthz`, { method: 'GET', signal: AbortSignal.timeout(8000), cache: 'no-store' })
+    if (response.ok) return NextResponse.json({ connected: true, configured: true, status: 'connected' })
+    return NextResponse.json({ connected: false, configured: true, error: response.status === 401 || response.status === 403 ? 'n8n rejected the server configuration.' : 'n8n instance health check failed.' }, { status: 502 })
   } catch (error) {
     console.error('[v0] n8n connection test failed', error)
     return NextResponse.json({ connected: false, error: safeIntegrationError(error, 'n8n connection failed.') }, { status: 502 })
   }
 }
 
-export async function PUT() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ sent: false, error: 'Authentication required.' }, { status: 401 })
-
-  const configuration = getN8nConfiguration()
-  if (!configuration.configured) return NextResponse.json({ sent: false, error: 'n8n webhook configuration is missing.' }, { status: 503 })
-
-  try {
-    const response = await fetch(configuration.webhookUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source: 'techunified', event: 'integration_test', timestamp: new Date().toISOString(), environment: process.env.VERCEL_ENV || 'production' }), signal: AbortSignal.timeout(10000), cache: 'no-store' })
-    if (!response.ok) return NextResponse.json({ sent: false, error: 'n8n rejected the test event.' }, { status: 502 })
-    return NextResponse.json({ sent: true })
-  } catch (error) {
-    console.error('[v0] n8n webhook test failed', error)
-    return NextResponse.json({ sent: false, error: safeIntegrationError(error, 'n8n test event failed.') }, { status: 502 })
-  }
-}
