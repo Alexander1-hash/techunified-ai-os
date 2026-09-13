@@ -7,8 +7,15 @@ export function getOpenAIConfiguration() {
 }
 
 export function getN8nConfiguration() {
-  const webhookUrl = process.env.N8N_WEBHOOK_URL || process.env.N8N_BASE_URL || ''
-  return { configured: Boolean(webhookUrl), webhookUrl }
+  const baseUrl = process.env.N8N_BASE_URL?.trim().replace(/\/$/, '') || ''
+  const webhookUrl = process.env.N8N_WEBHOOK_URL?.trim() || ''
+  const secret = process.env.N8N_WEBHOOK_SECRET?.trim() || ''
+  let valid = true
+  try {
+    if (webhookUrl) { const url = new URL(webhookUrl); valid = ['http:', 'https:'].includes(url.protocol) }
+    if (baseUrl) { const url = new URL(baseUrl); valid = valid && ['http:', 'https:'].includes(url.protocol) }
+  } catch { valid = false }
+  return { configured: Boolean(webhookUrl && secret && valid), hasBaseUrl: Boolean(baseUrl), hasWebhookUrl: Boolean(webhookUrl), hasSecret: Boolean(secret), valid, baseUrl, webhookUrl, secret }
 }
 
 export function safeIntegrationError(error: unknown, fallback: string) {
