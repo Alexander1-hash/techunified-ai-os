@@ -36,7 +36,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut() {
-    await createClient().auth.signOut()
+    const { error } = await createClient().auth.signOut()
+    if (error) throw error
     window.location.assign('/login')
   }
 
@@ -82,6 +83,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   )
 }
 
-function WorkspaceFooter({ profile, user, organization, role, onSignOut }: { profile: any; user: any; organization: any; role: any; onSignOut: () => void }) {
-  return <div className="border-t p-4"><div className="mb-3 rounded-lg bg-muted/60 p-3"><div className="text-xs text-muted-foreground">Workspace</div><div className="mt-1 flex items-center justify-between text-sm font-medium">TechUnified <ChevronDown size={14} /></div><div className="mt-2 text-xs text-primary">Scale plan</div></div><div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-full bg-accent font-semibold text-[#182016]">AS</div><div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{String(profile?.full_name ?? user?.user_metadata?.full_name ?? 'Alexander Smith')}</div><div className="truncate text-xs text-muted-foreground">{String(role ?? 'Owner')} · {String(organization?.name ?? 'TechUnified')}</div></div><button type="button" onClick={onSignOut} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Sign out"><LogOut size={16} /></button></div></div>
+function WorkspaceFooter({ profile, user, organization, role, onSignOut }: { profile: any; user: any; organization: any; role: any; onSignOut: () => Promise<void> }) {
+  const [isSigningOut, setIsSigningOut] = useState(false)
+  const [signOutError, setSignOutError] = useState('')
+
+  async function handleSignOut() {
+    setIsSigningOut(true)
+    setSignOutError('')
+    try {
+      await onSignOut()
+    } catch {
+      setIsSigningOut(false)
+      setSignOutError('Unable to sign out. Please try again.')
+    }
+  }
+
+  return <div className="border-t p-4"><div className="mb-3 rounded-lg bg-muted/60 p-3"><div className="text-xs text-muted-foreground">Workspace</div><div className="mt-1 flex items-center justify-between text-sm font-medium">TechUnified <ChevronDown size={14} /></div><div className="mt-2 text-xs text-primary">Scale plan</div></div><div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-full bg-accent font-semibold text-[#182016]">AS</div><div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{String(profile?.full_name ?? user?.user_metadata?.full_name ?? 'Alexander Smith')}</div><div className="truncate text-xs text-muted-foreground">{String(role ?? 'Owner')} · {String(organization?.name ?? 'TechUnified')}</div></div><button type="button" onClick={handleSignOut} disabled={isSigningOut} className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait disabled:opacity-60" aria-label="Log out" title="Log out"><LogOut size={16} /><span className="hidden sm:inline">{isSigningOut ? 'Logging out…' : 'Log out'}</span></button></div>{signOutError && <p className="mt-2 text-xs text-destructive" role="alert">{signOutError}</p>}</div>
 }
