@@ -5,10 +5,11 @@ import useSWR from 'swr'
 import { ArrowRight, Bot, Brain, CheckCircle2, Clock3, Film, GitBranch, Image as ImageIcon, MessageSquare, Plus, Sparkles, Workflow, Zap } from 'lucide-react'
 import { Card, PageHeader, Status } from '@/components/ui'
 import { workspaceFetcher } from '@/lib/repositories/workspace'
+import { CommandCenter } from '@/components/command-center'
 
 const productLinkClass = 'flex min-h-11 items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition hover:border-primary hover:text-primary'
 
-export function AIWorkspacePage() {
+function LegacyAIWorkspacePage() {
   const { data, error, isLoading } = useSWR('workspace', workspaceFetcher)
   const agents = data?.agents ?? []
   const workflows = data?.workflows ?? []
@@ -28,6 +29,8 @@ export function AIWorkspacePage() {
     <Card><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-primary">Recent work</p><h2 className="mt-2 text-lg font-semibold">Your AI work will appear here</h2><p className="mt-1 text-sm text-muted-foreground">{activity.length ? 'Recent organization activity is available in Activity.' : 'No AI work yet. Start your first AI session to begin working with your company intelligence.'}</p></div><Link href="/activity" className={productLinkClass}>View activity <ArrowRight size={15}/></Link></div></Card>
   </div>
 }
+
+export function AIWorkspacePage() { return <CommandCenter /> }
 
 function QuickAction({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) { return <Link href={href} className="flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2.5 text-xs text-muted-foreground transition hover:border-primary hover:text-primary">{icon}{label}</Link> }
 

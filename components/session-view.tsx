@@ -1,0 +1,7 @@
+'use client'
+import useSWR from 'swr'
+import Link from 'next/link'
+import { ArrowLeft, Clock3 } from 'lucide-react'
+import { Card, PageHeader } from '@/components/ui'
+const fetcher = async (url: string) => { const r = await fetch(url); const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Unable to load session.'); return d }
+export function SessionView({ id }: { id: string }) { const { data, error, isLoading } = useSWR(`/api/ai/sessions/${id}`, fetcher); const session = data?.session; return <div className="space-y-6"><PageHeader eyebrow="AI session" title={session?.title || 'AI session'} subtitle="Organization-scoped work saved in your Command Center." action={<Link href="/workspace" className="flex min-h-11 items-center gap-2 rounded-lg border px-4 py-2.5 text-sm"><ArrowLeft size={15}/> Back to workspace</Link>}/>{isLoading ? <Card><p className="py-12 text-center text-sm text-muted-foreground">Loading session…</p></Card> : error ? <Card><p className="py-12 text-center text-sm text-destructive">{error.message}</p></Card> : <Card><div className="flex items-center gap-2 text-xs text-muted-foreground"><Clock3 size={15}/> Created {new Date(session.created_at).toLocaleString()} · {session.status}</div><div className="mt-6 rounded-xl border bg-muted/20 p-4 text-sm leading-6">{session.prompt}</div><p className="mt-5 text-sm text-muted-foreground">This session is pending the configured AI worker. No response is shown until an actual AI request is processed.</p></Card>}</div> }
