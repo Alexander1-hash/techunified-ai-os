@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-
 const EXPECTED_HOSTNAME = 'cqxudowdhlnqnmavmlve.supabase.co'
 
 type KeyType = 'legacy_anon' | 'publishable' | 'unknown'
@@ -19,13 +17,6 @@ function safeErrorMessage(error: unknown) {
 }
 
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
-  }
-
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
