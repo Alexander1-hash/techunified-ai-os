@@ -56,7 +56,10 @@ export async function POST(request: Request) {
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[sheetName], { defval: '' }).slice(0, MAX_ROWS)
   if (!rows.length) return NextResponse.json({ error: 'The file contains no data rows.' }, { status: 422 })
   const quality = inspect(rows)
-  const { data, error } = await supabase.from('business_data_sources').insert({ organization_id: profile.organization_id, name: file.name, provider: extension === 'xlsx' ? 'excel' : 'csv', category: 'file', status: 'connected', configuration_metadata: { file_name: file.name, sheet: sheetName, quality, sample: rows.slice(0, 10), mappings: [], imported_at: new Date().toISOString() }, last_synced_at: new Date().toISOString() }).select('id,name,provider,category,status,configuration_metadata,last_synced_at').single()
-  if (error) return NextResponse.json({ error: 'The file was validated but could not be saved. Confirm the Brain data migration is applied.' }, { status: 500 })
-  return NextResponse.json({ source: data, quality })
+  const { data, error } = await supabase.from('business_data_sources').insert({ organization_id: profile.organization_id, name: file.name, provider: extension === 'xlsx' ? 'excel' : 'csv', category: 'file', status: 'connected', configuration_metadata: { file_name: file.name, sheet: sheetName, quality, columns: quality.columns, sample: rows.slice(0, 10), mappings: [], imported_at: new Date().toISOString() }, last_synced_at: new Date().toISOString() }).select('id,name,provider,category,status,configuration_metadata,last_synced_at').single()
+  if (error || !data) return NextResponse.json({ error: 'The file was validated but could not be saved. Confirm the Brain data migration is applied.' }, { status: 500 })
+  const records = rows.map((row, index) => ({ organization_id: profile.organization_id, source_id: data.id, record_key: `${file.name}:${sheetName}:${index}`, payload: row, recorded_at: typeof row.date === 'string' ? row.date : null }))
+  const { error: recordsError } = await supabase.from('business_source_records').upsert(records, { onConflict: 'source_id,record_key' })
+  if (recordsError) return NextResponse.json({ error: 'The source was saved but normalized records could not be persisted.' }, { status: 500 })
+  return NextResponse.json({ source: data, quality, columns: quality.columns, recordsPersisted: records.length })
 }
