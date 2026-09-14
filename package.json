@@ -29,7 +29,8 @@
     "tailwind-merge": "latest",
     "tailwindcss": "^4.3.3",
     "tailwindcss-animate": "latest",
-    "typescript": "latest"
+    "typescript": "latest",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",

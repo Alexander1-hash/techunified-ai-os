@@ -1,2 +1,2 @@
-import { BusinessAnalystWorkspace } from '@/components/business-analyst-workspace'
-export default function DataSourcesPage() { return <BusinessAnalystWorkspace mode="data" /> }
+import { DataSourcesCenter } from '@/components/data-sources-center'
+export default function DataSourcesPage() { return <DataSourcesCenter /> }
