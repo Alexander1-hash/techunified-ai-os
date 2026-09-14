@@ -33,7 +33,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [notificationsOpen])
 
-  if (path === '/login' || path.startsWith('/auth') || path === '/about' || path.startsWith('/founder')) {
+  if (path === '/login' || path.startsWith('/auth') || path === '/about' || path.startsWith('/founder') || path === '/onboarding') {
     return <>{children}</>
   }
 
