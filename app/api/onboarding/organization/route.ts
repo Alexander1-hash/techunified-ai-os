@@ -26,9 +26,31 @@ export async function POST(request: Request) {
     p_timezone: timezone,
   })
   if (error) {
-    console.error('[onboarding] organization creation failed:', error.message)
-    const message = error.message === 'profile_not_found' ? 'Your profile is not ready yet. Please sign out and sign in again.' : 'We could not complete company setup. Please try again.'
-    return NextResponse.json({ error: message }, { status: 400 })
+    console.error('[onboarding] organization creation failed:', { code: error.code, message: error.message, details: error.details, hint: error.hint })
+    const normalizedError = `${error.code ?? ''} ${error.message ?? ''}`.toLowerCase()
+    let message = 'We could not complete company setup. Please try again.'
+    let status = 400
+    if (normalizedError.includes('profile_not_found')) {
+      message = 'Your profile is not ready yet. Please sign out and sign in again.'
+    } else if (normalizedError.includes('function') && normalizedError.includes('does not exist')) {
+      message = 'Company setup is not enabled for this workspace yet. Please contact your administrator.'
+      status = 503
+    } else if (normalizedError.includes('permission denied') || normalizedError.includes('not authorized')) {
+      message = 'Company setup is not authorized for this account. Please contact your administrator.'
+      status = 403
+    } else if (normalizedError.includes('not_authenticated')) {
+      message = 'Your session has expired. Please sign in again.'
+      status = 401
+    } else if (normalizedError.includes('invalid_company_name')) {
+      message = 'Enter a company name between 1 and 120 characters.'
+    } else if (normalizedError.includes('invalid_industry')) {
+      message = 'Enter an industry between 1 and 120 characters.'
+    } else if (normalizedError.includes('invalid_website')) {
+      message = 'Enter a valid website URL beginning with http:// or https://.'
+    } else if (normalizedError.includes('invalid_timezone')) {
+      message = 'Choose a valid timezone.'
+    }
+    return NextResponse.json({ error: message, code: error.code ?? 'ONBOARDING_FAILED' }, { status })
   }
   return NextResponse.json({ organization: data })
 }
