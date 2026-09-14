@@ -23,6 +23,19 @@ begin
     raise exception 'not_authenticated' using errcode = '42501';
   end if;
 
+  if p_name is null or char_length(btrim(p_name)) = 0 or char_length(btrim(p_name)) > 120 then
+    raise exception 'invalid_company_name' using errcode = '22023';
+  end if;
+  if p_industry is null or char_length(btrim(p_industry)) = 0 or char_length(btrim(p_industry)) > 120 then
+    raise exception 'invalid_industry' using errcode = '22023';
+  end if;
+  if p_website is not null and (char_length(btrim(p_website)) > 300 or btrim(p_website) !~* '^https?://[^[:space:]]+$') then
+    raise exception 'invalid_website' using errcode = '22023';
+  end if;
+  if p_timezone is not null and (char_length(btrim(p_timezone)) = 0 or char_length(btrim(p_timezone)) > 100 or (btrim(p_timezone) <> 'UTC' and btrim(p_timezone) !~ '^[A-Za-z]+/[A-Za-z_]+$')) then
+    raise exception 'invalid_timezone' using errcode = '22023';
+  end if;
+
   select * into v_profile from public.profiles where id = v_user_id for update;
   if not found then
     raise exception 'profile_not_found' using errcode = 'P0002';
