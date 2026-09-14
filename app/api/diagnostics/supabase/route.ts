@@ -20,11 +20,13 @@ export async function GET() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-  const selectedKey = anonKey ?? publishableKey
-  const selectedKeyVariable = anonKey !== undefined
-    ? 'NEXT_PUBLIC_SUPABASE_ANON_KEY'
-    : publishableKey !== undefined
-      ? 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'
+  const supabaseKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const selectedKeyVariable = publishableKey !== undefined
+    ? 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'
+    : anonKey !== undefined
+      ? 'NEXT_PUBLIC_SUPABASE_ANON_KEY'
       : null
 
   const url = supabaseUrl ? (() => {
@@ -42,21 +44,21 @@ export async function GET() {
     anonKeyPresent: Boolean(anonKey),
     publishableKeyPresent: Boolean(publishableKey),
     selectedKeyVariable,
-    selectedKeyType: classifyKey(selectedKey),
+    selectedKeyType: classifyKey(supabaseKey),
     supabaseConnectivity: 'failed' as 'success' | 'failed',
     status: null as number | null,
     errorCode: null as string | null,
     errorMessage: null as string | null,
   }
 
-  if (!url || url.protocol !== 'https:' || url.hostname !== EXPECTED_HOSTNAME || !selectedKey) {
+  if (!url || url.protocol !== 'https:' || url.hostname !== EXPECTED_HOSTNAME || !supabaseKey) {
     diagnostic.errorMessage = 'Supabase URL or selected public key is missing or invalid.'
     return NextResponse.json(diagnostic)
   }
 
   try {
     const response = await fetch(`${url.origin}/auth/v1/health`, {
-      headers: { apikey: selectedKey },
+      headers: { apikey: supabaseKey },
       cache: 'no-store',
     })
     diagnostic.status = response.status
