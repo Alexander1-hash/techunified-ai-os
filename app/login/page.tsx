@@ -17,7 +17,7 @@ function authErrorMessage(message: string) {
 
 function getAuthCallbackUrl() {
   const configuredRedirect = process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL?.trim().replace(/\/$/, '')
-  if (configuredRedirect) return configuredRedirect
+  if (process.env.NODE_ENV !== 'production' && configuredRedirect) return configuredRedirect
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, '')
 
   if (process.env.NODE_ENV === 'production') {
