@@ -21,12 +21,12 @@ export async function getWorkspaceData() {
   const organizationId = await getOrganizationId()
   if (!organizationId) return { organizationId: null, agents: [], departments: [], workflows: [], documents: [], activity: [], metrics: [] as WorkspaceMetric[] }
   const [agentsResult, departmentsResult, workflowsResult, documentsResult, activityResult, metricsResult] = await Promise.all([
-    supabase.from('agents').select('id, organization_id, department_id, name, purpose, status, configuration, created_at, updated_at').order('created_at', { ascending: false }),
-    supabase.from('departments').select('id, organization_id, name, description, created_at, updated_at').order('name'),
-    supabase.from('workflows').select('id, organization_id, name, description, status, configuration, created_at, updated_at').order('created_at', { ascending: false }),
-    supabase.from('knowledge_documents').select('id, organization_id, name, source, status, metadata, created_at, updated_at').order('created_at', { ascending: false }),
-    supabase.from('activity_logs').select('id, organization_id, actor_id, event_type, description, metadata, created_at').order('created_at', { ascending: false }).limit(20),
-    supabase.from('analytics_metrics').select('id, organization_id, metric_name, metric_value, recorded_at').order('recorded_at', { ascending: false }),
+    supabase.from('agents').select('id, organization_id, department_id, name, purpose, status, configuration, created_at, updated_at').eq('organization_id', organizationId).order('created_at', { ascending: false }),
+    supabase.from('departments').select('id, organization_id, name, description, created_at, updated_at').eq('organization_id', organizationId).order('name'),
+    supabase.from('workflows').select('id, organization_id, name, description, status, configuration, created_at, updated_at').eq('organization_id', organizationId).order('created_at', { ascending: false }),
+    supabase.from('knowledge_documents').select('id, organization_id, name, source, status, metadata, created_at, updated_at').eq('organization_id', organizationId).order('created_at', { ascending: false }),
+    supabase.from('activity_logs').select('id, organization_id, actor_id, event_type, description, metadata, created_at').eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(20),
+    supabase.from('analytics_metrics').select('id, organization_id, metric_name, metric_value, recorded_at').eq('organization_id', organizationId).order('recorded_at', { ascending: false }),
   ])
   const failure = [agentsResult, departmentsResult, workflowsResult, documentsResult, activityResult, metricsResult].find(result => result.error)
   if (failure?.error) throw new Error(failure.error.message)
@@ -41,7 +41,7 @@ export async function getAgent(agentId: string) {
   const supabase = createClient()
   const organizationId = await getOrganizationId()
   if (!organizationId) return null
-  const { data, error } = await supabase.from('agents').select('id, organization_id, department_id, name, purpose, status, configuration, created_at, updated_at').eq('id', agentId).maybeSingle()
+  const { data, error } = await supabase.from('agents').select('id, organization_id, department_id, name, purpose, status, configuration, created_at, updated_at').eq('id', agentId).eq('organization_id', organizationId).maybeSingle()
   if (error) throw new Error(error.message)
   if (!data || data.organization_id !== organizationId) return null
   return data
