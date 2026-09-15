@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getSupabasePublicConfig } from '@/lib/supabase/config'
 const EXPECTED_HOSTNAME = 'cqxudowdhlnqnmavmlve.supabase.co'
 
 type KeyType = 'legacy_anon' | 'publishable' | 'unknown'
@@ -20,9 +21,7 @@ export async function GET() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-  const supabaseKey =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const { key: supabaseKey } = getSupabasePublicConfig()
   const selectedKeyVariable = publishableKey !== undefined
     ? 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'
     : anonKey !== undefined
