@@ -2,9 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bell, ChevronDown, LogOut, Menu, Search, Sparkles, X } from 'lucide-react'
+import { Bell, ChevronDown, ChevronsLeft, ChevronsRight, LogOut, Menu, Search, Sparkles, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { nav } from '@/lib/data'
+import { navGroups } from '@/lib/data'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/auth-provider'
 
@@ -12,6 +12,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname()
   const { user, profile, organization, role } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [headerSigningOut, setHeaderSigningOut] = useState(false)
   const [headerSignOutError, setHeaderSignOutError] = useState('')
@@ -54,35 +56,44 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }
 
+  function toggleGroup(label: string) {
+    setOpenGroups((groups) => ({ ...groups, [label]: !(groups[label] ?? true) }))
+  }
+
   const navigation = (
-    <nav aria-label="Primary navigation" className="flex flex-1 flex-col gap-1 p-4">
-      {nav.map(([label, href, icon]) => (
-        <Link
-          key={href}
-          href={href}
-          onClick={() => setMobileOpen(false)}
-          className={`flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${path === href || path.startsWith(`${href}/`) ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
-        >
-          <span className="w-5 text-center text-base" aria-hidden="true">{icon}</span>
-          {label}
-        </Link>
-      ))}
+    <nav aria-label="Primary navigation" className="flex flex-1 flex-col gap-4 overflow-y-auto p-3">
+      {navGroups.map((group) => {
+        const isOpen = openGroups[group.label] ?? true
+        return <section key={group.label} aria-label={group.label}>
+          {!sidebarCollapsed && <button type="button" onClick={() => toggleGroup(group.label)} className="mb-1 flex min-h-8 w-full items-center justify-between px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70 hover:text-foreground" aria-expanded={isOpen}>
+            {group.label}<ChevronDown className={`transition-transform ${isOpen ? '' : '-rotate-90'}`} />
+          </button>}
+          {isOpen && <div className="flex flex-col gap-1">{group.items.map((item) => {
+            const active = path === item.href || path.startsWith(`${item.href}/`)
+            const Icon = item.icon
+            return <Link key={`${group.label}-${item.label}`} href={item.href} onClick={() => setMobileOpen(false)} title={sidebarCollapsed ? item.label : undefined} aria-current={active ? 'page' : undefined} className={`flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'} ${sidebarCollapsed ? 'justify-center' : ''}`}>
+              <Icon aria-hidden="true" />{!sidebarCollapsed && <span>{item.label}</span>}
+            </Link>
+          })}</div>}
+        </section>
+      })}
     </nav>
   )
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-background">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r bg-[#09151e] lg:flex lg:flex-col">
-        <div className="flex h-20 items-center gap-3 border-b px-6">
-          <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><Sparkles size={18} /></div>
-          <div><div className="font-semibold tracking-tight">TECHUNIFIED</div><div className="text-[10px] uppercase tracking-[.24em] text-muted-foreground">AI OS</div></div>
+      <aside className={`fixed inset-y-0 left-0 z-30 hidden border-r bg-[#09151e] transition-[width] lg:flex lg:flex-col ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
+        <div className={`flex h-20 items-center border-b ${sidebarCollapsed ? 'justify-center px-3' : 'gap-3 px-6'}`}>
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground"><Sparkles /></div>
+          {!sidebarCollapsed && <div><div className="font-semibold tracking-tight">TECHUNIFIED</div><div className="text-[10px] uppercase tracking-[.24em] text-muted-foreground">AI OS</div></div>}
         </div>
         {navigation}
+        <div className="border-t p-3"><button type="button" onClick={() => setSidebarCollapsed((collapsed) => !collapsed)} className={`flex min-h-11 w-full items-center rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`} aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>{sidebarCollapsed ? <ChevronsRight /> : <><ChevronsLeft /><span>Collapse sidebar</span></>}</button></div>
         <WorkspaceFooter profile={profile} user={user} organization={organization} role={role} onSignOut={signOut} />
       </aside>
 
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur lg:ml-64 lg:px-8">
-        <button type="button" className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden" aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={mobileOpen} onClick={() => setMobileOpen((open) => !open)}>
+      <header className={`sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur lg:px-8 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
+        <button type="button" className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden" aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={mobileOpen} onClick={() => { setMobileOpen((open) => !open); setSidebarCollapsed(false) }}>
           {mobileOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
         <div className="hidden items-center gap-2 text-sm text-muted-foreground sm:flex"><Search size={16} /><span>Search anything...</span></div>
@@ -91,7 +102,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {mobileOpen && <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Mobile navigation"><button type="button" className="absolute inset-0 bg-black/50" aria-label="Close navigation menu" onClick={() => setMobileOpen(false)} /><aside className="relative flex h-full w-72 max-w-[85vw] flex-col border-r bg-[#09151e] shadow-xl"><div className="flex h-20 items-center justify-between border-b px-6"><div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><Sparkles size={18} /></div><div><div className="font-semibold tracking-tight">TECHUNIFIED</div><div className="text-[10px] uppercase tracking-[.24em] text-muted-foreground">AI OS</div></div></div><button type="button" className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close navigation menu" onClick={() => setMobileOpen(false)}><X size={18} /></button></div>{navigation}<WorkspaceFooter profile={profile} user={user} organization={organization} role={role} onSignOut={signOut} /></aside></div>}
 
-      <main className="min-w-0 lg:ml-64"><div className="mx-auto w-full max-w-[1600px] p-4 sm:p-5 lg:p-8">{children}</div></main>
+      <main className={`min-w-0 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}><div className="mx-auto w-full max-w-[1600px] p-4 sm:p-5 lg:p-8">{children}</div></main>
     </div>
   )
 }
