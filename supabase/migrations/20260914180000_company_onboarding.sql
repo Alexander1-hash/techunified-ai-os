@@ -7,7 +7,7 @@ alter table public.organizations
 create or replace function public.create_organization_for_current_user(
   p_name text,
   p_description text default null,
-  p_industry text,
+  p_industry text default null,
   p_website text default null,
   p_timezone text default 'Africa/Lagos'
 )
