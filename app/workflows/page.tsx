@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, PageHeader, Status } from '@/components/ui'
 
 const workflowSelect =
-  'id, name, description, status, configuration, created_at, updated_at'
+  'id, name, description, status, created_at, updated_at'
 
 export default async function WorkflowsPage() {
   const supabase = await createClient()
@@ -321,4 +321,4 @@ export default async function WorkflowsPage() {
       </div>
     </main>
   )
-                  }
+}
