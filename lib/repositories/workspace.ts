@@ -90,7 +90,7 @@ export async function getWorkspaceData() {
     supabase
       .from('departments')
       .select(
-        'id, organization_id, name, description, created_at, updated_at',
+        'id, organization_id, name, description, created_at',
       )
       .eq('organization_id', organizationId)
       .order('name'),
