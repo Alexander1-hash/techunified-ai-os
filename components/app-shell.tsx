@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Bell,
   ChevronDown,
@@ -11,86 +11,135 @@ import {
   Menu,
   Search,
   X,
-} from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+} from "lucide-react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-import { navGroups } from '@/lib/data'
-import { createClient } from '@/lib/supabase/client'
-import { useAuth } from '@/components/auth-provider'
-import { TechUnifiedBrand } from '@/components/techunified-brand'
+import { navGroups } from "@/lib/data";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/components/auth-provider";
+import { TechUnifiedBrand } from "@/components/techunified-brand";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
-  const path = usePathname()
+export function AppShell({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const path = usePathname();
 
   const {
     user,
     profile,
     organization,
     role,
-  } = useAuth()
+  } = useAuth();
 
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
-  const [notificationsOpen, setNotificationsOpen] = useState(false)
-  const [headerSigningOut, setHeaderSigningOut] = useState(false)
-  const [headerSignOutError, setHeaderSignOutError] = useState('')
+  const [mobileOpen, setMobileOpen] =
+    useState(false);
 
-  const notificationsRef = useRef<HTMLDivElement>(null)
+  const [sidebarCollapsed, setSidebarCollapsed] =
+    useState(false);
+
+  const [openGroups, setOpenGroups] =
+    useState<Record<string, boolean>>({});
+
+  const [notificationsOpen, setNotificationsOpen] =
+    useState(false);
+
+  const [
+    headerSigningOut,
+    setHeaderSigningOut,
+  ] = useState(false);
+
+  const [
+    headerSignOutError,
+    setHeaderSignOutError,
+  ] = useState("");
+
+  const notificationsRef =
+    useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!notificationsOpen) return
+    if (!notificationsOpen) return;
 
-    function handlePointerDown(event: PointerEvent) {
-      if (!notificationsRef.current?.contains(event.target as Node)) {
-        setNotificationsOpen(false)
+    function handlePointerDown(
+      event: PointerEvent,
+    ) {
+      if (
+        !notificationsRef.current?.contains(
+          event.target as Node,
+        )
+      ) {
+        setNotificationsOpen(false);
       }
     }
 
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setNotificationsOpen(false)
+    function handleKeyDown(
+      event: KeyboardEvent,
+    ) {
+      if (event.key === "Escape") {
+        setNotificationsOpen(false);
       }
     }
 
-    document.addEventListener('pointerdown', handlePointerDown)
-    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener(
+      "pointerdown",
+      handlePointerDown,
+    );
+
+    document.addEventListener(
+      "keydown",
+      handleKeyDown,
+    );
 
     return () => {
-      document.removeEventListener('pointerdown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [notificationsOpen])
+      document.removeEventListener(
+        "pointerdown",
+        handlePointerDown,
+      );
+
+      document.removeEventListener(
+        "keydown",
+        handleKeyDown,
+      );
+    };
+  }, [notificationsOpen]);
 
   if (
-    path === '/login' ||
-    path.startsWith('/auth') ||
-    path === '/about' ||
-    path.startsWith('/founder') ||
-    path === '/onboarding'
+    path === "/login" ||
+    path.startsWith("/auth") ||
+    path === "/about" ||
+    path.startsWith("/founder") ||
+    path === "/onboarding"
   ) {
-    return <>{children}</>
+    return <>{children}</>;
   }
 
   async function signOut() {
-    const { error } = await createClient().auth.signOut()
+    const { error } =
+      await createClient().auth.signOut();
 
     if (error) {
-      throw error
+      throw error;
     }
 
-    window.location.assign('/login')
+    window.location.assign("/login");
   }
 
   async function handleHeaderSignOut() {
-    setHeaderSigningOut(true)
-    setHeaderSignOutError('')
+    setHeaderSigningOut(true);
+    setHeaderSignOutError("");
 
     try {
-      await signOut()
+      await signOut();
     } catch {
-      setHeaderSigningOut(false)
-      setHeaderSignOutError('Unable to sign out. Please try again.')
+      setHeaderSigningOut(false);
+      setHeaderSignOutError(
+        "Unable to sign out. Please try again.",
+      );
     }
   }
 
@@ -98,38 +147,43 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setOpenGroups((groups) => ({
       ...groups,
       [label]: !(groups[label] ?? true),
-    }))
+    }));
   }
 
-  const displayName =
-    String(
-      profile?.full_name ??
-        user?.user_metadata?.full_name ??
-        user?.user_metadata?.name ??
-        user?.email?.split('@')[0] ??
-        'User',
-    )
+  const displayName = String(
+    profile?.full_name ??
+      user?.user_metadata?.full_name ??
+      user?.user_metadata?.name ??
+      user?.email?.split("@")[0] ??
+      "User",
+  );
 
-  const organizationName =
-    String(organization?.name ?? 'No organization')
+  const organizationName = String(
+    organization?.name ?? "No organization",
+  );
 
-  const displayRole =
-    String(role ?? profile?.role ?? 'Viewer')
+  const displayRole = String(
+    role ?? profile?.role ?? "Viewer",
+  );
 
-  const plan =
-    String(organization?.plan ?? 'Foundation')
+  const plan = String(
+    organization?.plan ?? "Foundation",
+  );
 
   const avatarUrl =
-    typeof profile?.avatar_url === 'string'
+    typeof profile?.avatar_url === "string"
       ? profile.avatar_url
-      : null
+      : null;
 
-  const initials = displayName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join('') || 'U'
+  const initials =
+    displayName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) =>
+        part.charAt(0).toUpperCase(),
+      )
+      .join("") || "U";
 
   const navigation = (
     <nav
@@ -137,7 +191,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       className="flex flex-1 flex-col gap-4 overflow-y-auto p-3"
     >
       {navGroups.map((group) => {
-        const isOpen = openGroups[group.label] ?? true
+        const isOpen =
+          openGroups[group.label] ?? true;
 
         return (
           <section
@@ -147,14 +202,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {!sidebarCollapsed && (
               <button
                 type="button"
-                onClick={() => toggleGroup(group.label)}
+                onClick={() =>
+                  toggleGroup(group.label)
+                }
                 className="mb-1 flex min-h-8 w-full items-center justify-between px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70 hover:text-foreground"
                 aria-expanded={isOpen}
               >
                 {group.label}
+
                 <ChevronDown
                   className={`transition-transform ${
-                    isOpen ? '' : '-rotate-90'
+                    isOpen
+                      ? ""
+                      : "-rotate-90"
                   }`}
                 />
               </button>
@@ -165,63 +225,76 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {group.items.map((item) => {
                   const active =
                     path === item.href ||
-                    path.startsWith(`${item.href}/`)
+                    path.startsWith(
+                      `${item.href}/`,
+                    );
 
-                  const Icon = item.icon
+                  const Icon = item.icon;
 
                   return (
                     <Link
                       key={`${group.label}-${item.label}`}
                       href={item.href}
-                      onClick={() => setMobileOpen(false)}
+                      onClick={() =>
+                        setMobileOpen(false)
+                      }
                       title={
                         sidebarCollapsed
                           ? item.label
                           : undefined
                       }
                       aria-current={
-                        active ? 'page' : undefined
+                        active
+                          ? "page"
+                          : undefined
                       }
                       className={`flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
                         active
-                          ? 'bg-primary/10 text-primary'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       } ${
                         sidebarCollapsed
-                          ? 'justify-center'
-                          : ''
+                          ? "justify-center"
+                          : ""
                       }`}
                     >
                       <Icon aria-hidden="true" />
+
                       {!sidebarCollapsed && (
-                        <span>{item.label}</span>
+                        <span>
+                          {item.label}
+                        </span>
                       )}
                     </Link>
-                  )
+                  );
                 })}
               </div>
             )}
           </section>
-        )
+        );
       })}
     </nav>
-  )
+  );
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-background">
       <aside
         className={`fixed inset-y-0 left-0 z-30 hidden border-r bg-[#09151e] transition-[width] lg:flex lg:flex-col ${
-          sidebarCollapsed ? 'w-20' : 'w-64'
+          sidebarCollapsed
+            ? "w-20"
+            : "w-64"
         }`}
       >
         <div
           className={`flex h-20 items-center border-b ${
             sidebarCollapsed
-              ? 'justify-center px-3'
-              : 'px-6'
+              ? "justify-center px-3"
+              : "px-6"
           }`}
         >
-          <TechUnifiedBrand compact={sidebarCollapsed} />
+          <TechUnifiedBrand
+            compact={sidebarCollapsed}
+          />
         </div>
 
         {navigation}
@@ -236,18 +309,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             }
             className={`flex min-h-11 w-full items-center rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground ${
               sidebarCollapsed
-                ? 'justify-center'
-                : 'gap-3'
+                ? "justify-center"
+                : "gap-3"
             }`}
             aria-label={
               sidebarCollapsed
-                ? 'Expand sidebar'
-                : 'Collapse sidebar'
+                ? "Expand sidebar"
+                : "Collapse sidebar"
             }
             title={
               sidebarCollapsed
-                ? 'Expand sidebar'
-                : 'Collapse sidebar'
+                ? "Expand sidebar"
+                : "Collapse sidebar"
             }
           >
             {sidebarCollapsed ? (
@@ -255,7 +328,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ) : (
               <>
                 <ChevronsLeft />
-                <span>Collapse sidebar</span>
+                <span>
+                  Collapse sidebar
+                </span>
               </>
             )}
           </button>
@@ -273,8 +348,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header
         className={`sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur lg:px-8 ${
           sidebarCollapsed
-            ? 'lg:ml-20'
-            : 'lg:ml-64'
+            ? "lg:ml-20"
+            : "lg:ml-64"
         }`}
       >
         <button
@@ -282,13 +357,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
           aria-label={
             mobileOpen
-              ? 'Close navigation menu'
-              : 'Open navigation menu'
+              ? "Close navigation menu"
+              : "Open navigation menu"
           }
           aria-expanded={mobileOpen}
           onClick={() => {
-            setMobileOpen((open) => !open)
-            setSidebarCollapsed(false)
+            setMobileOpen(
+              (open) => !open,
+            );
+            setSidebarCollapsed(false);
           }}
         >
           {mobileOpen ? (
@@ -300,7 +377,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="hidden items-center gap-2 text-sm text-muted-foreground sm:flex">
           <Search size={16} />
-          <span>Search anything...</span>
+          <span>
+            Search anything...
+          </span>
         </div>
 
         <div className="ml-auto flex items-center gap-2">
@@ -313,10 +392,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             title="Log out"
           >
             <LogOut size={16} />
+
             <span className="hidden sm:inline">
               {headerSigningOut
-                ? 'Logging out…'
-                : 'Log out'}
+                ? "Logging out…"
+                : "Log out"}
             </span>
           </button>
 
@@ -337,7 +417,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               type="button"
               className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95"
               aria-label="Notifications"
-              aria-expanded={notificationsOpen}
+              aria-expanded={
+                notificationsOpen
+              }
               aria-controls="notifications-popover"
               onClick={() =>
                 setNotificationsOpen(
@@ -373,7 +455,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       href="/settings/notifications"
                       className="mt-3 inline-block text-xs font-medium text-primary hover:underline"
                       onClick={() =>
-                        setNotificationsOpen(false)
+                        setNotificationsOpen(
+                          false,
+                        )
                       }
                     >
                       Notification settings
@@ -450,8 +534,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main
         className={`min-w-0 ${
           sidebarCollapsed
-            ? 'lg:ml-20'
-            : 'lg:ml-64'
+            ? "lg:ml-20"
+            : "lg:ml-64"
         }`}
       >
         <div className="mx-auto w-full max-w-[1600px] p-4 sm:p-5 lg:p-8">
@@ -459,7 +543,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </main>
     </div>
-  )
+  );
 }
 
 function WorkspaceFooter({
@@ -469,64 +553,71 @@ function WorkspaceFooter({
   role,
   onSignOut,
 }: {
-  profile: Record<string, unknown> | null
+  profile: Record<string, unknown> | null;
   user: {
-    email?: string
+    email?: string;
     user_metadata?: {
-      full_name?: string
-      name?: string
-    }
-  } | null
-  organization: Record<string, unknown> | null
-  role: string
-  onSignOut: () => Promise<void>
+      full_name?: string;
+      name?: string;
+    };
+  } | null;
+  organization: Record<string, unknown> | null;
+  role: string;
+  onSignOut: () => Promise<void>;
 }) {
-  const [isSigningOut, setIsSigningOut] = useState(false)
-  const [signOutError, setSignOutError] = useState('')
+  const [isSigningOut, setIsSigningOut] =
+    useState(false);
 
-  const displayName =
-    String(
-      profile?.full_name ??
-        user?.user_metadata?.full_name ??
-        user?.user_metadata?.name ??
-        user?.email?.split('@')[0] ??
-        'User',
-    )
+  const [signOutError, setSignOutError] =
+    useState("");
 
-  const organizationName =
-    String(organization?.name ?? 'No organization')
+  const displayName = String(
+    profile?.full_name ??
+      user?.user_metadata?.full_name ??
+      user?.user_metadata?.name ??
+      user?.email?.split("@")[0] ??
+      "User",
+  );
 
-  const displayRole =
-    String(role ?? profile?.role ?? 'Viewer')
+  const organizationName = String(
+    organization?.name ??
+      "No organization",
+  );
 
-  const plan =
-    String(organization?.plan ?? 'Foundation')
+  const displayRole = String(
+    role ?? profile?.role ?? "Viewer",
+  );
+
+  const plan = String(
+    organization?.plan ?? "Foundation",
+  );
 
   const avatarUrl =
-    typeof profile?.avatar_url === 'string'
+    typeof profile?.avatar_url === "string"
       ? profile.avatar_url
-      : null
+      : null;
 
-  const initials = displayName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) =>
-      part.charAt(0).toUpperCase(),
-    )
-    .join('') || 'U'
+  const initials =
+    displayName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) =>
+        part.charAt(0).toUpperCase(),
+      )
+      .join("") || "U";
 
   async function handleSignOut() {
-    setIsSigningOut(true)
-    setSignOutError('')
+    setIsSigningOut(true);
+    setSignOutError("");
 
     try {
-      await onSignOut()
+      await onSignOut();
     } catch {
-      setIsSigningOut(false)
+      setIsSigningOut(false);
       setSignOutError(
-        'Unable to sign out. Please try again.',
-      )
+        "Unable to sign out. Please try again.",
+      );
     }
   }
 
@@ -580,10 +671,11 @@ function WorkspaceFooter({
           title="Log out"
         >
           <LogOut size={16} />
+
           <span className="hidden sm:inline">
             {isSigningOut
-              ? 'Logging out…'
-              : 'Log out'}
+              ? "Logging out…"
+              : "Log out"}
           </span>
         </button>
       </div>
@@ -597,4 +689,5 @@ function WorkspaceFooter({
         </p>
       )}
     </div>
-  )
+  );
+  }
