@@ -196,7 +196,10 @@ export function OrganizationOnboarding() {
               </option>
 
               {industries.map((industry) => (
-                <option key={industry} value={industry}>
+                <option
+                  key={industry}
+                  value={industry}
+                >
                   {industry}
                 </option>
               ))}
@@ -289,3 +292,4 @@ export function OrganizationOnboarding() {
       </section>
     </main>
   );
+                    }
