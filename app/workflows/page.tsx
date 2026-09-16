@@ -17,17 +17,77 @@ export default async function WorkflowsPage() {
 
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser()
 
-  if (!user) {
-    return null
+  if (authError) {
+    return (
+      <main className="min-h-screen bg-background p-5 lg:p-8">
+        <div className="mx-auto max-w-6xl">
+          <PageHeader
+            eyebrow="AI & Automation"
+            title="Workflows"
+            subtitle="Build and manage automated business processes."
+          />
+          <Card>
+            <p className="text-sm text-destructive">
+              Authentication error: {authError.message}
+            </p>
+          </Card>
+        </div>
+      </main>
+    )
   }
 
-  const { data: profile } = await supabase
+  if (!user) {
+    return (
+      <main className="min-h-screen bg-background p-5 lg:p-8">
+        <div className="mx-auto max-w-6xl">
+          <PageHeader
+            eyebrow="AI & Automation"
+            title="Workflows"
+            subtitle="Build and manage automated business processes."
+          />
+          <Card>
+            <p className="text-sm text-destructive">
+              No authenticated user session was found.
+            </p>
+          </Card>
+        </div>
+      </main>
+    )
+  }
+
+  const {
+    data: profile,
+    error: profileError,
+  } = await supabase
     .from('profiles')
     .select('organization_id')
     .eq('id', user.id)
     .maybeSingle()
+
+  if (profileError) {
+    return (
+      <main className="min-h-screen bg-background p-5 lg:p-8">
+        <div className="mx-auto max-w-6xl">
+          <PageHeader
+            eyebrow="AI & Automation"
+            title="Workflows"
+            subtitle="Build and manage automated business processes."
+          />
+          <Card>
+            <p className="text-sm text-destructive">
+              Profile query error: {profileError.message}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Code: {profileError.code || 'unknown'}
+            </p>
+          </Card>
+        </div>
+      </main>
+    )
+  }
 
   if (!profile?.organization_id) {
     return (
@@ -38,10 +98,9 @@ export default async function WorkflowsPage() {
             title="Workflows"
             subtitle="Build and manage automated business processes."
           />
-
           <Card>
-            <p className="text-sm text-muted-foreground">
-              Your account is not connected to an organization yet.
+            <p className="text-sm text-destructive">
+              Your profile does not have an organization_id.
             </p>
           </Card>
         </div>
@@ -49,13 +108,16 @@ export default async function WorkflowsPage() {
     )
   }
 
-  const { data: workflows, error } = await supabase
+  const {
+    data: workflows,
+    error: workflowError,
+  } = await supabase
     .from('workflows')
     .select(workflowSelect)
     .eq('organization_id', profile.organization_id)
     .order('created_at', { ascending: false })
 
-  if (error) {
+  if (workflowError) {
     return (
       <main className="min-h-screen bg-background p-5 lg:p-8">
         <div className="mx-auto max-w-6xl">
@@ -64,11 +126,28 @@ export default async function WorkflowsPage() {
             title="Workflows"
             subtitle="Build and manage automated business processes."
           />
-
           <Card>
-            <p className="text-sm text-destructive">
-              Unable to load your workflows right now.
+            <p className="text-sm font-medium text-destructive">
+              Workflow database error
             </p>
+
+            <div className="mt-3 space-y-1 rounded-lg border bg-muted/30 p-4 text-xs">
+              <p>
+                <strong>Message:</strong> {workflowError.message}
+              </p>
+              <p>
+                <strong>Code:</strong>{' '}
+                {workflowError.code || 'unknown'}
+              </p>
+              <p>
+                <strong>Details:</strong>{' '}
+                {workflowError.details || 'none'}
+              </p>
+              <p>
+                <strong>Hint:</strong>{' '}
+                {workflowError.hint || 'none'}
+              </p>
+            </div>
           </Card>
         </div>
       </main>
@@ -115,7 +194,6 @@ export default async function WorkflowsPage() {
               <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Workflow size={20} />
               </div>
-
               <div>
                 <p className="text-xs text-muted-foreground">
                   Total workflows
@@ -132,7 +210,6 @@ export default async function WorkflowsPage() {
               <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <GitBranch size={20} />
               </div>
-
               <div>
                 <p className="text-xs text-muted-foreground">
                   Active workflows
@@ -145,19 +222,15 @@ export default async function WorkflowsPage() {
           </Card>
 
           <Card>
-            <div>
-              <p className="text-xs text-muted-foreground">
-                Draft workflows
-              </p>
-
-              <p className="mt-1 text-2xl font-semibold">
-                {draftWorkflows}
-              </p>
-
-              <p className="mt-1 text-xs text-muted-foreground">
-                Ready to be configured and activated.
-              </p>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Draft workflows
+            </p>
+            <p className="mt-1 text-2xl font-semibold">
+              {draftWorkflows}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Ready to be configured and activated.
+            </p>
           </Card>
         </div>
 
@@ -166,7 +239,6 @@ export default async function WorkflowsPage() {
             <h2 className="text-lg font-semibold">
               Your workflows
             </h2>
-
             <p className="mt-1 text-sm text-muted-foreground">
               Manage the automated processes connected to your organization.
             </p>
@@ -184,8 +256,8 @@ export default async function WorkflowsPage() {
                 </h3>
 
                 <p className="mt-2 max-w-md text-sm text-muted-foreground">
-                  Create your first workflow to start automating
-                  business processes.
+                  Create your first workflow to start automating business
+                  processes.
                 </p>
 
                 <Link
@@ -249,4 +321,4 @@ export default async function WorkflowsPage() {
       </div>
     </main>
   )
-}
+                  }
