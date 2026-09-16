@@ -8,10 +8,14 @@ import { navGroups } from '@/lib/data'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/auth-provider'
 import { TechUnifiedBrand } from '@/components/techunified-brand'
+import { resolveAvatarUrl, resolveDisplayName, resolveInitials } from '@/lib/identity'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname()
   const { user, profile, organization, role } = useAuth()
+  const displayName = resolveDisplayName(profile as never, user as never)
+  const avatarUrl = resolveAvatarUrl(profile as never, user as never)
+  const initials = resolveInitials(displayName)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
@@ -97,7 +101,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {mobileOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
         <div className="hidden items-center gap-2 text-sm text-muted-foreground sm:flex"><Search size={16} /><span>Search anything...</span></div>
-        <div className="ml-auto flex items-center gap-2"><button type="button" onClick={handleHeaderSignOut} disabled={headerSigningOut} className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait disabled:opacity-60" aria-label="Log out" title="Log out"><LogOut size={16} /><span className="hidden sm:inline">{headerSigningOut ? 'Logging out…' : 'Log out'}</span></button>{headerSignOutError && <span className="sr-only" role="alert">{headerSignOutError}</span>}<div ref={notificationsRef} className="relative"><button type="button" className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95" aria-label="Notifications" aria-expanded={notificationsOpen} aria-controls="notifications-popover" onClick={() => setNotificationsOpen((open) => !open)}><Bell size={18} /></button>{notificationsOpen && <div id="notifications-popover" role="status" aria-live="polite" className="absolute right-0 top-12 z-50 w-[min(20rem,calc(100vw-2rem))] rounded-xl border bg-card p-4 text-card-foreground shadow-2xl"><div className="flex items-start gap-3"><div className="rounded-lg bg-muted p-2 text-muted-foreground"><Bell size={17} /></div><div><p className="text-sm font-medium">No new notifications</p><p className="mt-1 text-xs leading-5 text-muted-foreground">You&apos;re all caught up. New workspace activity will appear here.</p></div></div></div>}</div><div className="hidden size-8 items-center justify-center rounded-full bg-accent text-sm font-semibold text-[#182016] sm:flex">AS</div></div>
+        <div className="ml-auto flex items-center gap-2"><button type="button" onClick={handleHeaderSignOut} disabled={headerSigningOut} className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait disabled:opacity-60" aria-label="Log out" title="Log out"><LogOut size={16} /><span className="hidden sm:inline">{headerSigningOut ? 'Logging out…' : 'Log out'}</span></button>{headerSignOutError && <span className="sr-only" role="alert">{headerSignOutError}</span>}<div ref={notificationsRef} className="relative"><button type="button" className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95" aria-label="Notifications" aria-expanded={notificationsOpen} aria-controls="notifications-popover" onClick={() => setNotificationsOpen((open) => !open)}><Bell size={18} /></button>{notificationsOpen && <div id="notifications-popover" role="status" aria-live="polite" className="absolute right-0 top-12 z-50 w-[min(20rem,calc(100vw-2rem))] rounded-xl border bg-card p-4 text-card-foreground shadow-2xl"><div className="flex items-start gap-3"><div className="rounded-lg bg-muted p-2 text-muted-foreground"><Bell size={17} /></div><div><p className="text-sm font-medium">No new notifications</p><p className="mt-1 text-xs leading-5 text-muted-foreground">You&apos;re all caught up. New workspace activity will appear here.</p></div></div></div>}</div>{avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={avatarUrl || "/placeholder.svg"} alt="" className="hidden size-8 rounded-full object-cover sm:block" />
+        ) : (
+          <div className="hidden size-8 items-center justify-center rounded-full bg-accent text-sm font-semibold text-[#182016] sm:flex" aria-hidden="true">{initials}</div>
+        )}</div>
       </header>
 
       {mobileOpen && <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Mobile navigation"><button type="button" className="absolute inset-0 bg-black/50" aria-label="Close navigation menu" onClick={() => setMobileOpen(false)} /><aside className="relative flex h-full w-72 max-w-[85vw] flex-col border-r bg-[#09151e] shadow-xl"><div className="flex h-20 items-center justify-between border-b px-6"><TechUnifiedBrand /><button type="button" className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close navigation menu" onClick={() => setMobileOpen(false)}><X size={18} /></button></div>{navigation}<WorkspaceFooter profile={profile} user={user} organization={organization} role={role} onSignOut={signOut} /></aside></div>}
@@ -122,5 +131,17 @@ function WorkspaceFooter({ profile, user, organization, role, onSignOut }: { pro
     }
   }
 
-  return <div className="border-t p-4"><div className="mb-3 rounded-lg bg-muted/60 p-3"><div className="text-xs text-muted-foreground">Workspace</div><div className="mt-1 flex items-center justify-between text-sm font-medium">TechUnified <ChevronDown size={14} /></div><div className="mt-2 text-xs text-primary">Scale plan</div></div><div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-full bg-accent font-semibold text-[#182016]">AS</div><div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{String(profile?.full_name ?? user?.user_metadata?.full_name ?? 'Alexander Smith')}</div><div className="truncate text-xs text-muted-foreground">{String(role ?? 'Owner')} · {String(organization?.name ?? 'TechUnified')}</div></div><button type="button" onClick={handleSignOut} disabled={isSigningOut} className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait disabled:opacity-60" aria-label="Log out" title="Log out"><LogOut size={16} /><span className="hidden sm:inline">{isSigningOut ? 'Logging out…' : 'Log out'}</span></button></div>{signOutError && <p className="mt-2 text-xs text-destructive" role="alert">{signOutError}</p>}</div>
+  const displayName = resolveDisplayName(profile, user)
+  const avatarUrl = resolveAvatarUrl(profile, user)
+  const initials = resolveInitials(displayName)
+  const orgName = typeof organization?.name === 'string' && organization.name.trim() ? organization.name : null
+  const planValue = typeof organization?.plan === 'string' && organization.plan.trim() ? organization.plan : null
+  const roleValue = typeof role === 'string' && role.trim() ? role : null
+
+  return <div className="border-t p-4">{orgName && <div className="mb-3 rounded-lg bg-muted/60 p-3"><div className="text-xs text-muted-foreground">Workspace</div><Link href="/settings/organization" className="mt-1 flex items-center justify-between text-sm font-medium hover:text-primary"><span className="truncate">{orgName}</span> <ChevronDown size={14} /></Link>{planValue && <div className="mt-2 text-xs text-primary">{planValue}</div>}</div>}<div className="flex items-center gap-3"><Link href="/settings/profile" aria-label="Open profile settings">{avatarUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={avatarUrl || "/placeholder.svg"} alt="" className="size-9 rounded-full object-cover" />
+  ) : (
+    <div className="flex size-9 items-center justify-center rounded-full bg-accent font-semibold text-[#182016]" aria-hidden="true">{initials}</div>
+  )}</Link><div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{displayName}</div><div className="truncate text-xs text-muted-foreground">{[roleValue, orgName].filter(Boolean).join(' · ')}</div></div><button type="button" onClick={handleSignOut} disabled={isSigningOut} className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait disabled:opacity-60" aria-label="Log out" title="Log out"><LogOut size={16} /><span className="hidden sm:inline">{isSigningOut ? 'Logging out…' : 'Log out'}</span></button></div>{signOutError && <p className="mt-2 text-xs text-destructive" role="alert">{signOutError}</p>}</div>
 }
