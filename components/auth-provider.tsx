@@ -33,156 +33,6 @@ const AuthContext = createContext<AuthContextValue>({
   signOut: async () => {},
 });
 
-export function AuthProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const pathname = usePathname();
-  const router = useRouter();
-
-  const [session, setSession] =
-    useState<Session | null>(null);
-
-  const [profile, setProfile] =
-    useState<Record<string, unknown> | null>(null);
-
-  const [organization, setOrganization] =
-    useState<Record<string, unknown> | null>(null);
-
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const supabase = createClient();
-
-    let active = true;
-
-    const loadProfile = async (
-      nextSession: Session | null,
-    ) => {
-      if (!nextSession) {
-        setProfile(null);
-        setOrganization(null);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-
-      const result =
-        await getCurrentProfile(supabase);
-
-      if (!active) return;
-
-      const nextProfile =
-        result.profile as
-          | (Record<string, unknown> & {
-              organization_id?: string | null;
-            })
-          | null;
-
-      setProfile(nextProfile);
-
-      if (nextProfile?.organization_id) {
-        const { data } = await supabase
-          .from("organizations")
-          .select(
-            "id, name, description, industry, website, timezone, plan, created_at, updated_at",
-          )
-          .eq(
-            "id",
-            nextProfile.organization_id,
-          )
-          .maybeSingle();
-
-        if (active) {
-          setOrganization(
-            data as Record<string, unknown> | null,
-          );
-        }
-      } else {
-        setOrganization(null);
-      }
-
-      setLoading(false);
-    };
-
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        if (active) {
-          setSession(data.session);
-          void loadProfile(data.session);
-        }
-      });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      (_event, next) => {
-        setSession(next);
-        void loadProfile(next);
-      },
-    );
-
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (
-      !loading &&
-      session &&
-      !profile?.organization_id &&
-      pathname !== "/onboarding" &&
-      !pathname.startsWith("/login") &&
-      !pathname.startsWith("/auth")
-    ) {
-      router.replace("/onboarding");
-    }
-  }, [
-    loading,
-    session,
-    profile,
-    pathname,
-    router,
-"use client";
-
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import { usePathname, useRouter } from "next/navigation";
-import type { Session, User } from "@supabase/supabase-js";
-
-import { createClient } from "@/lib/supabase/client";
-import { getCurrentProfile } from "@/lib/repositories/profile";
-
-type AuthContextValue = {
-  session: Session | null;
-  user: User | null;
-  profile: Record<string, unknown> | null;
-  organization: Record<string, unknown> | null;
-  role: string;
-  loading: boolean;
-  signOut: () => Promise<void>;
-};
-
-const AuthContext = createContext<AuthContextValue>({
-  session: null,
-  user: null,
-  profile: null,
-  organization: null,
-  role: "Viewer",
-  loading: true,
-  signOut: async () => {},
-});
-
 function normalizeRole(role: unknown): string {
   const value = String(role ?? "viewer").toLowerCase();
 
@@ -197,15 +47,11 @@ export function AuthProvider({
   const pathname = usePathname();
   const router = useRouter();
 
-  const [session, setSession] =
-    useState<Session | null>(null);
-
+  const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] =
     useState<Record<string, unknown> | null>(null);
-
   const [organization, setOrganization] =
     useState<Record<string, unknown> | null>(null);
-
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -225,60 +71,65 @@ export function AuthProvider({
 
       setLoading(true);
 
-      const result =
-        await getCurrentProfile(supabase);
+      try {
+        const result = await getCurrentProfile(supabase);
 
-      if (!active) return;
+        if (!active) return;
 
-      const nextProfile =
-        result.profile as
-          | (Record<string, unknown> & {
-              organization_id?: string | null;
-              role?: string | null;
-            })
-          | null;
+        const nextProfile =
+          result.profile as
+            | (Record<string, unknown> & {
+                organization_id?: string | null;
+                role?: string | null;
+              })
+            | null;
 
-      setProfile(nextProfile);
+        setProfile(nextProfile);
 
-      if (nextProfile?.organization_id) {
-        const { data } = await supabase
-          .from("organizations")
-          .select(
-            "id, name, description, industry, website, timezone, plan, created_at, updated_at",
-          )
-          .eq(
-            "id",
-            nextProfile.organization_id,
-          )
-          .maybeSingle();
+        if (nextProfile?.organization_id) {
+          const { data } = await supabase
+            .from("organizations")
+            .select(
+              "id, name, description, industry, website, timezone, plan, created_at, updated_at",
+            )
+            .eq("id", nextProfile.organization_id)
+            .maybeSingle();
 
-        if (active) {
-          setOrganization(
-            data as Record<string, unknown> | null,
-          );
+          if (active) {
+            setOrganization(
+              data as Record<string, unknown> | null,
+            );
+          }
+        } else {
+          setOrganization(null);
         }
-      } else {
-        setOrganization(null);
+      } catch {
+        if (active) {
+          setProfile(null);
+          setOrganization(null);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
-
-      setLoading(false);
     };
 
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        if (active) {
-          setSession(data.session);
-          void loadProfile(data.session);
-        }
-      });
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+
+      setSession(data.session);
+      void loadProfile(data.session);
+    });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
-      (_event, next) => {
-        setSession(next);
-        void loadProfile(next);
+      (_event, nextSession) => {
+        if (!active) return;
+
+        setSession(nextSession);
+        void loadProfile(nextSession);
       },
     );
 
@@ -342,5 +193,4 @@ export function AuthProvider({
   );
 }
 
-export const useAuth = () =>
-  useContext(AuthContext);
+export const useAuth = () => useContext(AuthContext);
