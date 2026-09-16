@@ -28,7 +28,6 @@ export type WorkspaceWorkflow = {
   name: string
   description: string
   status: string
-  configuration: Record<string, unknown>
   created_at: string
   updated_at: string
 }
@@ -41,8 +40,13 @@ const getOrganizationId = async () => {
     error: authError,
   } = await supabase.auth.getUser()
 
-  if (authError) throw new Error(authError.message)
-  if (!user) return null
+  if (authError) {
+    throw new Error(authError.message)
+  }
+
+  if (!user) {
+    return null
+  }
 
   const { data: profile, error } = await supabase
     .from('profiles')
@@ -50,7 +54,9 @@ const getOrganizationId = async () => {
     .eq('id', user.id)
     .maybeSingle()
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throw new Error(error.message)
+  }
 
   return profile?.organization_id ?? null
 }
@@ -98,7 +104,7 @@ export async function getWorkspaceData() {
     supabase
       .from('workflows')
       .select(
-        'id, organization_id, name, description, status, configuration, created_at, updated_at',
+        'id, organization_id, name, description, status, created_at, updated_at',
       )
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: false }),
@@ -203,7 +209,9 @@ export async function getAgent(agentId: string) {
   const supabase = createClient()
   const organizationId = await getOrganizationId()
 
-  if (!organizationId) return null
+  if (!organizationId) {
+    return null
+  }
 
   const { data, error } = await supabase
     .from('agents')
@@ -214,7 +222,9 @@ export async function getAgent(agentId: string) {
     .eq('organization_id', organizationId)
     .maybeSingle()
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throw new Error(error.message)
+  }
 
   if (!data || data.organization_id !== organizationId) {
     return null
