@@ -1,2 +1,5 @@
-import { BusinessAnalystWorkspace } from '@/components/business-analyst-workspace'
-export default function BrainPage() { return <BusinessAnalystWorkspace mode="brain" /> }
+import { BrainWorkspace } from '@/components/brain-workspace'
+
+export default function BrainPage() {
+  return <BrainWorkspace />
+}
