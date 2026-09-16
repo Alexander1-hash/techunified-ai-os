@@ -148,6 +148,163 @@ export function AuthProvider({
     profile,
     pathname,
     router,
+"use client";
+
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { usePathname, useRouter } from "next/navigation";
+import type { Session, User } from "@supabase/supabase-js";
+
+import { createClient } from "@/lib/supabase/client";
+import { getCurrentProfile } from "@/lib/repositories/profile";
+
+type AuthContextValue = {
+  session: Session | null;
+  user: User | null;
+  profile: Record<string, unknown> | null;
+  organization: Record<string, unknown> | null;
+  role: string;
+  loading: boolean;
+  signOut: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthContextValue>({
+  session: null,
+  user: null,
+  profile: null,
+  organization: null,
+  role: "Viewer",
+  loading: true,
+  signOut: async () => {},
+});
+
+function normalizeRole(role: unknown): string {
+  const value = String(role ?? "viewer").toLowerCase();
+
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+export function AuthProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const [session, setSession] =
+    useState<Session | null>(null);
+
+  const [profile, setProfile] =
+    useState<Record<string, unknown> | null>(null);
+
+  const [organization, setOrganization] =
+    useState<Record<string, unknown> | null>(null);
+
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    let active = true;
+
+    const loadProfile = async (
+      nextSession: Session | null,
+    ) => {
+      if (!nextSession) {
+        setProfile(null);
+        setOrganization(null);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+
+      const result =
+        await getCurrentProfile(supabase);
+
+      if (!active) return;
+
+      const nextProfile =
+        result.profile as
+          | (Record<string, unknown> & {
+              organization_id?: string | null;
+              role?: string | null;
+            })
+          | null;
+
+      setProfile(nextProfile);
+
+      if (nextProfile?.organization_id) {
+        const { data } = await supabase
+          .from("organizations")
+          .select(
+            "id, name, description, industry, website, timezone, plan, created_at, updated_at",
+          )
+          .eq(
+            "id",
+            nextProfile.organization_id,
+          )
+          .maybeSingle();
+
+        if (active) {
+          setOrganization(
+            data as Record<string, unknown> | null,
+          );
+        }
+      } else {
+        setOrganization(null);
+      }
+
+      setLoading(false);
+    };
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (active) {
+          setSession(data.session);
+          void loadProfile(data.session);
+        }
+      });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      (_event, next) => {
+        setSession(next);
+        void loadProfile(next);
+      },
+    );
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      !loading &&
+      session &&
+      !profile?.organization_id &&
+      pathname !== "/onboarding" &&
+      !pathname.startsWith("/login") &&
+      !pathname.startsWith("/auth")
+    ) {
+      router.replace("/onboarding");
+    }
+  }, [
+    loading,
+    session,
+    profile,
+    pathname,
+    router,
   ]);
 
   const signOut = async () => {
@@ -166,9 +323,7 @@ export function AuthProvider({
       user: session?.user ?? null,
       profile,
       organization,
-      role: String(
-        profile?.role ?? "Viewer",
-      ),
+      role: normalizeRole(profile?.role),
       loading,
       signOut,
     }),
