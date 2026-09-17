@@ -16,7 +16,15 @@ type WorkflowConfiguration = {
   steps?: AutomationStep[];
 };
 
-type ExecutionResult = {
+type WorkflowRecord = {
+  id: string;
+  organization_id: string;
+  name: string;
+  status: string;
+  configuration: WorkflowConfiguration | null;
+};
+
+export type ExecutionResult = {
   success: boolean;
   executionId?: string;
   output?: Record<string, unknown>;
@@ -58,6 +66,8 @@ export async function executeAutomation(
     };
   }
 
+  const typedWorkflow = workflow as WorkflowRecord;
+
   const { data: execution, error: executionError } = await supabase
     .from("automation_executions")
     .insert({
@@ -79,8 +89,7 @@ export async function executeAutomation(
     };
   }
 
-  const configuration =
-    (workflow.configuration as WorkflowConfiguration | null) ?? {};
+  const configuration = typedWorkflow.configuration ?? {};
 
   const steps = Array.isArray(configuration.steps)
     ? configuration.steps
@@ -148,7 +157,9 @@ export async function executeAutomation(
           })
           .eq("id", executionStep.id);
 
-        throw new Error(message);
+        throw new Error(
+          `Step ${step.type} failed: ${message}`
+        );
       }
     }
 
@@ -189,7 +200,7 @@ export async function executeAutomation(
   }
 }
 
-async function runAutomationStep(
+export async function runAutomationStep(
   step: AutomationStep,
   input: Record<string, unknown>,
   workflowId: string,
@@ -202,23 +213,21 @@ async function runAutomationStep(
     case "pass_through":
       return {
         ...input,
+        action: "pass_through",
       };
 
     case "create_record": {
       const table = String(config.table ?? "").trim();
-
-      const record =
-        config.record &&
-        typeof config.record === "object" &&
-        !Array.isArray(config.record)
-          ? (config.record as Record<string, unknown>)
-          : {};
 
       if (!table) {
         throw new Error(
           "create_record requires a table name"
         );
       }
+
+      const record = isRecord(config.record)
+        ? config.record
+        : input;
 
       const { data, error } = await supabase
         .from(table)
@@ -234,22 +243,15 @@ async function runAutomationStep(
 
       return {
         ...input,
-        record: data,
         action: "create_record",
         table,
+        record: data,
       };
     }
 
     case "update_record": {
       const table = String(config.table ?? "").trim();
-      const id = config.id;
-
-      const record =
-        config.record &&
-        typeof config.record === "object" &&
-        !Array.isArray(config.record)
-          ? (config.record as Record<string, unknown>)
-          : {};
+      const id = String(config.id ?? "").trim();
 
       if (!table) {
         throw new Error(
@@ -262,6 +264,10 @@ async function runAutomationStep(
           "update_record requires a record id"
         );
       }
+
+      const record = isRecord(config.record)
+        ? config.record
+        : input;
 
       const { data, error } = await supabase
         .from(table)
@@ -278,17 +284,14 @@ async function runAutomationStep(
 
       return {
         ...input,
-        record: data,
         action: "update_record",
         table,
+        record: data,
       };
     }
 
     case "call_webhook": {
       const url = String(config.url ?? "").trim();
-      const method = String(
-        config.method ?? "POST"
-      ).toUpperCase();
 
       if (!url) {
         throw new Error(
@@ -296,11 +299,18 @@ async function runAutomationStep(
         );
       }
 
-      if (
-        !["GET", "POST", "PUT", "PATCH"].includes(
-          method
-        )
-      ) {
+      const method = String(
+        config.method ?? "POST"
+      ).toUpperCase();
+
+      const allowedMethods = [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+      ];
+
+      if (!allowedMethods.includes(method)) {
         throw new Error(
           `Unsupported webhook method: ${method}`
         );
@@ -310,17 +320,11 @@ async function runAutomationStep(
         "Content-Type": "application/json",
       };
 
-      if (
-        config.headers &&
-        typeof config.headers === "object" &&
-        !Array.isArray(config.headers)
-      ) {
+      if (isRecord(config.headers)) {
         for (const [key, value] of Object.entries(
-          config.headers as Record<string, unknown>
+          config.headers
         )) {
-          if (typeof value === "string") {
-            headers[key] = value;
-          }
+          headers[key] = String(value);
         }
       }
 
@@ -369,8 +373,10 @@ async function runAutomationStep(
 
     case "update_workflow_status": {
       const status = String(
-        config.status ?? "active"
-      ).toLowerCase();
+        config.status ?? ""
+      )
+        .toLowerCase()
+        .trim();
 
       const allowedStatuses = [
         "draft",
@@ -389,7 +395,6 @@ async function runAutomationStep(
         .from("workflows")
         .update({
           status,
-          updated_at: new Date().toISOString(),
         })
         .eq("id", workflowId)
         .eq("organization_id", organizationId);
@@ -426,11 +431,13 @@ async function runAutomationStep(
       const result = await runTextAI({
         model,
         system:
-          "You are the analysis engine inside TechUnified AI OS. Analyze the supplied workflow data accurately and return useful, concise business analysis. Do not invent facts that are not present in the input.",
-        prompt: `${prompt}
-
-Workflow input:
-${JSON.stringify(input, null, 2)}`,
+          "You are the AI analysis engine inside TechUnified AI OS. Analyze the supplied workflow data accurately and return useful, concise business analysis. Do not invent facts that are not present in the input.",
+        prompt: [
+          prompt,
+          "",
+          "Workflow input:",
+          JSON.stringify(input, null, 2),
+        ].join("\n"),
       });
 
       return {
@@ -464,13 +471,15 @@ ${JSON.stringify(input, null, 2)}`,
       const result = await runTextAI({
         model,
         system:
-          "You are the content generation engine inside TechUnified AI OS. Generate polished content from the supplied instructions and workflow data. Follow the requested output format exactly and do not invent unsupported business facts.",
-        prompt: `${prompt}
-
-Requested output format: ${outputFormat}
-
-Workflow input:
-${JSON.stringify(input, null, 2)}`,
+          "You are the AI content generation engine inside TechUnified AI OS. Generate polished content from the supplied instructions and workflow data. Follow the requested output format and do not invent unsupported business facts.",
+        prompt: [
+          prompt,
+          "",
+          `Requested output format: ${outputFormat}`,
+          "",
+          "Workflow input:",
+          JSON.stringify(input, null, 2),
+        ].join("\n"),
       });
 
       return {
@@ -497,4 +506,14 @@ ${JSON.stringify(input, null, 2)}`,
         `Unsupported automation step type: ${step.type}`
       );
   }
-              }
+}
+
+function isRecord(
+  value: unknown
+): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+          }
