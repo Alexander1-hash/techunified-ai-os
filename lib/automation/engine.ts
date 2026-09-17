@@ -50,7 +50,7 @@ export async function executeAutomation(
     };
   }
 
-  if (workflow.status?.toLowerCase() !== "active") {
+  if (String(workflow.status).toLowerCase() !== "active") {
     return {
       success: false,
       error: "Workflow is not active",
@@ -72,7 +72,9 @@ export async function executeAutomation(
   if (executionError || !execution) {
     return {
       success: false,
-      error: executionError?.message ?? "Failed to create automation execution",
+      error:
+        executionError?.message ??
+        "Failed to create automation execution",
     };
   }
 
@@ -89,29 +91,34 @@ export async function executeAutomation(
 
   try {
     for (const step of steps) {
-      const stepStartedAt = new Date().toISOString();
-
-      const { data: executionStep, error: stepInsertError } = await supabase
-        .from("automation_execution_steps")
-        .insert({
-          execution_id: execution.id,
-          step_id: step.id,
-          step_type: step.type,
-          status: "running",
-          input: currentInput,
-          started_at: stepStartedAt,
-        })
-        .select("id")
-        .single();
+      const { data: executionStep, error: stepInsertError } =
+        await supabase
+          .from("automation_execution_steps")
+          .insert({
+            execution_id: execution.id,
+            step_id: step.id,
+            step_type: step.type,
+            status: "running",
+            input: currentInput,
+            started_at: new Date().toISOString(),
+          })
+          .select("id")
+          .single();
 
       if (stepInsertError || !executionStep) {
         throw new Error(
-          stepInsertError?.message ?? "Failed to create execution step"
+          stepInsertError?.message ??
+            "Failed to create execution step"
         );
       }
 
       try {
-        const result = await runAutomationStep(step, currentInput);
+        const result = await runAutomationStep(
+          step,
+          currentInput,
+          workflowId,
+          organizationId
+        );
 
         currentInput = result;
 
@@ -158,7 +165,9 @@ export async function executeAutomation(
     };
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Automation execution failed";
+      error instanceof Error
+        ? error.message
+        : "Automation execution failed";
 
     await supabase
       .from("automation_executions")
@@ -179,8 +188,11 @@ export async function executeAutomation(
 
 async function runAutomationStep(
   step: AutomationStep,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  workflowId: string,
+  organizationId: string
 ): Promise<Record<string, unknown>> {
+  const supabase = createAdminClient();
   const config = step.config ?? {};
 
   switch (step.type) {
@@ -189,72 +201,226 @@ async function runAutomationStep(
         ...input,
       };
 
-    case "create_record":
+    case "create_record": {
+      const table = String(config.table ?? "").trim();
+      const record =
+        config.record &&
+        typeof config.record === "object" &&
+        !Array.isArray(config.record)
+          ? (config.record as Record<string, unknown>)
+          : {};
+
+      if (!table) {
+        throw new Error(
+          "create_record requires a table name"
+        );
+      }
+
+      const { data, error } = await supabase
+        .from(table)
+        .insert(record)
+        .select("*")
+        .single();
+
+      if (error) {
+        throw new Error(
+          `Failed to create record: ${error.message}`
+        );
+      }
+
       return {
         ...input,
+        record: data,
         action: "create_record",
-        record: config.record ?? {},
+        table,
       };
+    }
 
-    case "update_record":
+    case "update_record": {
+      const table = String(config.table ?? "").trim();
+      const id = config.id;
+
+      const record =
+        config.record &&
+        typeof config.record === "object" &&
+        !Array.isArray(config.record)
+          ? (config.record as Record<string, unknown>)
+          : {};
+
+      if (!table) {
+        throw new Error(
+          "update_record requires a table name"
+        );
+      }
+
+      if (!id) {
+        throw new Error(
+          "update_record requires a record id"
+        );
+      }
+
+      const { data, error } = await supabase
+        .from(table)
+        .update(record)
+        .eq("id", id)
+        .select("*")
+        .single();
+
+      if (error) {
+        throw new Error(
+          `Failed to update record: ${error.message}`
+        );
+      }
+
       return {
         ...input,
+        record: data,
         action: "update_record",
-        record: config.record ?? {},
+        table,
+      };
+    }
+
+    case "call_webhook": {
+      const url = String(config.url ?? "").trim();
+      const method = String(config.method ?? "POST").toUpperCase();
+
+      if (!url) {
+        throw new Error(
+          "call_webhook requires a webhook URL"
+        );
+      }
+
+      if (!["GET", "POST", "PUT", "PATCH"].includes(method)) {
+        throw new Error(
+          `Unsupported webhook method: ${method}`
+        );
+      }
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
       };
 
-    case "create_task":
-      return {
-        ...input,
-        action: "create_task",
-        task: config.task ?? {},
-      };
+      if (
+        config.headers &&
+        typeof config.headers === "object" &&
+        !Array.isArray(config.headers)
+      ) {
+        for (const [key, value] of Object.entries(
+          config.headers as Record<string, unknown>
+        )) {
+          if (typeof value === "string") {
+            headers[key] = value;
+          }
+        }
+      }
 
-    case "send_notification":
-      return {
-        ...input,
-        action: "send_notification",
-        notification: config.notification ?? {},
-      };
+      const response = await fetch(url, {
+        method,
+        headers,
+        ...(method === "GET"
+          ? {}
+          : {
+              body: JSON.stringify(input),
+            }),
+      });
 
-    case "run_ai_analysis":
-      return {
-        ...input,
-        action: "run_ai_analysis",
-        analysis: {
-          requested: true,
-          prompt: config.prompt ?? "",
-        },
-      };
+      const responseText = await response.text();
 
-    case "generate_ai_content":
-      return {
-        ...input,
-        action: "generate_ai_content",
-        content: {
-          requested: true,
-          prompt: config.prompt ?? "",
-        },
-      };
+      if (!response.ok) {
+        throw new Error(
+          `Webhook returned ${response.status}: ${responseText.slice(
+            0,
+            500
+          )}`
+        );
+      }
 
-    case "call_webhook":
+      let responseData: unknown = responseText;
+
+      try {
+        responseData = responseText
+          ? JSON.parse(responseText)
+          : null;
+      } catch {
+        // Keep plain-text response.
+      }
+
       return {
         ...input,
         action: "call_webhook",
         webhook: {
-          url: config.url ?? "",
-          method: config.method ?? "POST",
+          url,
+          method,
+          status: response.status,
+          response: responseData,
         },
       };
+    }
 
-    case "update_workflow_status":
+    case "update_workflow_status": {
+      const status = String(
+        config.status ?? "active"
+      ).toLowerCase();
+
+      const allowedStatuses = [
+        "draft",
+        "active",
+        "paused",
+        "archived",
+      ];
+
+      if (!allowedStatuses.includes(status)) {
+        throw new Error(
+          `Invalid workflow status: ${status}`
+        );
+      }
+
+      const { error } = await supabase
+        .from("workflows")
+        .update({
+          status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", workflowId)
+        .eq("organization_id", organizationId);
+
+      if (error) {
+        throw new Error(
+          `Failed to update workflow status: ${error.message}`
+        );
+      }
+
       return {
         ...input,
         action: "update_workflow_status",
-        status: config.status ?? "active",
+        workflowId,
+        status,
       };
+    }
+
+    case "create_task":
+      throw new Error(
+        "create_task is not connected to a task table yet"
+      );
+
+    case "send_notification":
+      throw new Error(
+        "send_notification is not connected to a notification provider yet"
+      );
+
+    case "run_ai_analysis":
+      throw new Error(
+        "run_ai_analysis will be connected to the existing TechUnified AI service"
+      );
+
+    case "generate_ai_content":
+      throw new Error(
+        "generate_ai_content will be connected to the existing TechUnified AI service"
+      );
 
     default:
-      throw new Error(`Unsupported automation step type: ${step.type}`);
+      throw new Error(
+        `Unsupported automation step type: ${step.type}`
+      );
   }
       }
