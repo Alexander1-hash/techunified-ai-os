@@ -75,6 +75,62 @@ const STEP_TYPES = [
   },
 ]
 
+function getConfigValue(
+  config: Record<string, unknown>,
+  key: string
+): string {
+  const value = config[key]
+
+  if (typeof value === "string") {
+    return value
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value)
+  }
+
+  return ""
+}
+
+function parseJsonObject(value: string): Record<string, unknown> {
+  if (!value.trim()) {
+    return {}
+  }
+
+  try {
+    const parsed = JSON.parse(value)
+
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      !Array.isArray(parsed)
+    ) {
+      return parsed
+    }
+
+    return {}
+  } catch {
+    return {}
+  }
+}
+
+function configToJson(
+  config: Record<string, unknown>,
+  key: string
+): string {
+  const value = config[key]
+
+  if (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  ) {
+    return JSON.stringify(value, null, 2)
+  }
+
+  return ""
+}
+
 export default function WorkflowEditorPage() {
   const params = useParams()
   const router = useRouter()
@@ -84,6 +140,9 @@ export default function WorkflowEditorPage() {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [triggerType, setTriggerType] = useState("manual")
+  const [triggerConfig, setTriggerConfig] = useState<
+    Record<string, unknown>
+  >({})
   const [steps, setSteps] = useState<Step[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -120,6 +179,9 @@ export default function WorkflowEditorPage() {
     setTriggerType(
       loaded.configuration?.trigger?.type || "manual"
     )
+    setTriggerConfig(
+      loaded.configuration?.trigger?.config || {}
+    )
     setSteps(loaded.configuration?.steps || [])
     setLoading(false)
   }
@@ -141,6 +203,27 @@ export default function WorkflowEditorPage() {
           ? {
               ...step,
               type,
+              config: {},
+            }
+          : step
+      )
+    )
+  }
+
+  function updateStepConfig(
+    id: string,
+    key: string,
+    value: unknown
+  ) {
+    setSteps((current) =>
+      current.map((step) =>
+        step.id === id
+          ? {
+              ...step,
+              config: {
+                ...step.config,
+                [key]: value,
+              },
             }
           : step
       )
@@ -160,7 +243,7 @@ export default function WorkflowEditorPage() {
     const configuration = {
       trigger: {
         type: triggerType,
-        config: {},
+        config: triggerConfig,
       },
       conditions: [],
       steps,
@@ -238,21 +321,26 @@ export default function WorkflowEditorPage() {
     setMessage("")
 
     try {
-      const response = await fetch("/api/automations/execute", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          workflowId,
-          input: {},
-        }),
-      })
+      const response = await fetch(
+        "/api/automations/execute",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            workflowId,
+            input: {},
+          }),
+        }
+      )
 
       const result = await response.json()
 
       if (!response.ok) {
-        setMessage(result.error || "Workflow execution failed.")
+        setMessage(
+          result.error || "Workflow execution failed."
+        )
         setRunning(false)
         return
       }
@@ -271,315 +359,410 @@ export default function WorkflowEditorPage() {
     setRunning(false)
   }
 
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-white p-6">
-        <div className="mx-auto max-w-5xl">
-          <p className="text-sm text-slate-500">
-            Loading workflow...
-          </p>
-        </div>
-      </main>
-    )
-  }
+  function renderStepConfig(step: Step) {
+    switch (step.type) {
+      case "create_record":
+        return (
+          <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4">
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-600">
+                Supabase Table
+              </label>
 
-  if (!workflow) {
-    return (
-      <main className="min-h-screen bg-white p-6">
-        <div className="mx-auto max-w-5xl">
-          <Link
-            href="/workflows"
-            className="inline-flex items-center gap-2 text-sm text-slate-600"
-          >
-            <ArrowLeft size={16} />
-            Back to Workflows
-          </Link>
-
-          <div className="mt-8 rounded-xl border border-slate-200 p-6">
-            <p className="text-sm text-red-600">
-              {message || "Workflow not found."}
-            </p>
-          </div>
-        </div>
-      </main>
-    )
-  }
-
-  return (
-    <main className="min-h-screen bg-white">
-      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <Link
-              href="/workflows"
-              className="mb-3 inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900"
-            >
-              <ArrowLeft size={16} />
-              Workflows
-            </Link>
-
-            <h1 className="text-2xl font-semibold text-slate-950">
-              {name || "Workflow"}
-            </h1>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Build and manage an automated business process.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={saveWorkflow}
-              disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            >
-              <Save size={16} />
-              {saving ? "Saving..." : "Save"}
-            </button>
-
-            <button
-              onClick={runWorkflow}
-              disabled={running}
-              className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-            >
-              <Play size={16} />
-              {running ? "Running..." : "Test Run"}
-            </button>
-          </div>
-        </div>
-
-        {message && (
-          <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-            {message}
-          </div>
-        )}
-
-        <div className="mt-6 grid gap-6">
-          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-5 flex items-center gap-3">
-              <div className="rounded-lg bg-slate-100 p-2">
-                <Zap size={18} className="text-slate-700" />
-              </div>
-
-              <div>
-                <h2 className="font-semibold text-slate-950">
-                  Workflow Details
-                </h2>
-
-                <p className="text-sm text-slate-500">
-                  Configure the basic workflow information.
-                </p>
-              </div>
+              <input
+                value={getConfigValue(
+                  step.config,
+                  "table"
+                )}
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "table",
+                    event.target.value
+                  )
+                }
+                placeholder="e.g. customers"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+              />
             </div>
 
-            <div className="grid gap-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Name
-                </label>
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-600">
+                Record JSON
+              </label>
 
-                <input
-                  value={name}
-                  onChange={(event) =>
-                    setName(event.target.value)
-                  }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
-                  placeholder="Workflow name"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Description
-                </label>
-
-                <textarea
-                  value={description}
-                  onChange={(event) =>
-                    setDescription(event.target.value)
-                  }
-                  rows={3}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
-                  placeholder="What should this workflow do?"
-                />
-              </div>
+              <textarea
+                rows={7}
+                value={configToJson(
+                  step.config,
+                  "record"
+                )}
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "record",
+                    parseJsonObject(event.target.value)
+                  )
+                }
+                placeholder={`{
+  "name": "Example",
+  "status": "new"
+}`}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 font-mono text-xs outline-none focus:border-slate-500"
+              />
             </div>
-          </section>
+          </div>
+        )
 
-          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-5">
-              <h2 className="font-semibold text-slate-950">
-                Trigger
-              </h2>
+      case "update_record":
+        return (
+          <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4">
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-600">
+                Supabase Table
+              </label>
 
-              <p className="text-sm text-slate-500">
-                Choose how this workflow starts.
-              </p>
+              <input
+                value={getConfigValue(
+                  step.config,
+                  "table"
+                )}
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "table",
+                    event.target.value
+                  )
+                }
+                placeholder="e.g. customers"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+              />
             </div>
 
-            <select
-              value={triggerType}
-              onChange={(event) =>
-                setTriggerType(event.target.value)
-              }
-              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
-            >
-              <option value="manual">Manual</option>
-              <option value="webhook">Webhook</option>
-              <option value="schedule">Schedule</option>
-              <option value="event">Event</option>
-            </select>
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-600">
+                Record ID
+              </label>
 
-            <p className="mt-3 text-xs text-slate-500">
-              The selected trigger is stored in the workflow
-              configuration and can be connected to the native
-              TechUnified Automation Engine.
-            </p>
-          </section>
+              <input
+                value={getConfigValue(
+                  step.config,
+                  "id"
+                )}
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "id",
+                    event.target.value
+                  )
+                }
+                placeholder="UUID of the record"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+              />
+            </div>
 
-          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="font-semibold text-slate-950">
-                  Actions
-                </h2>
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-600">
+                Updated Record JSON
+              </label>
 
-                <p className="text-sm text-slate-500">
-                  Define the actions executed by this workflow.
-                </p>
-              </div>
+              <textarea
+                rows={7}
+                value={configToJson(
+                  step.config,
+                  "record"
+                )}
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "record",
+                    parseJsonObject(event.target.value)
+                  )
+                }
+                placeholder={`{
+  "status": "completed"
+}`}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 font-mono text-xs outline-none focus:border-slate-500"
+              />
+            </div>
+          </div>
+        )
 
-              <button
-                onClick={addStep}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+      case "create_task":
+        return (
+          <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4">
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-600">
+                Task Title
+              </label>
+
+              <input
+                value={getConfigValue(
+                  step.config,
+                  "title"
+                )}
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "title",
+                    event.target.value
+                  )
+                }
+                placeholder="Follow up with customer"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-600">
+                Description
+              </label>
+
+              <textarea
+                rows={4}
+                value={getConfigValue(
+                  step.config,
+                  "description"
+                )}
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "description",
+                    event.target.value
+                  )
+                }
+                placeholder="Describe what needs to be done."
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-600">
+                Priority
+              </label>
+
+              <select
+                value={
+                  getConfigValue(
+                    step.config,
+                    "priority"
+                  ) || "medium"
+                }
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "priority",
+                    event.target.value
+                  )
+                }
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
               >
-                <Plus size={16} />
-                Add Action
-              </button>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+          </div>
+        )
+
+      case "send_notification":
+        return (
+          <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4">
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-600">
+                Recipient
+              </label>
+
+              <input
+                value={getConfigValue(
+                  step.config,
+                  "recipient"
+                )}
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "recipient",
+                    event.target.value
+                  )
+                }
+                placeholder="Email, user ID, or notification target"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+              />
             </div>
 
-            {steps.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-300 px-5 py-10 text-center">
-                <p className="text-sm font-medium text-slate-700">
-                  No actions added yet.
-                </p>
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-600">
+                Title
+              </label>
 
-                <p className="mt-1 text-xs text-slate-500">
-                  Add an action to define what the workflow should
-                  do.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {steps.map((step, index) => (
-                  <div
-                    key={step.id}
-                    className="rounded-lg border border-slate-200 p-4"
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700">
-                        {index + 1}
-                      </div>
-
-                      <select
-                        value={step.type}
-                        onChange={(event) =>
-                          updateStepType(
-                            step.id,
-                            event.target.value
-                          )
-                        }
-                        className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
-                      >
-                        {STEP_TYPES.map((type) => (
-                          <option
-                            key={type.value}
-                            value={type.value}
-                          >
-                            {type.label}
-                          </option>
-                        ))}
-                      </select>
-
-                      <button
-                        onClick={() =>
-                          removeStep(step.id)
-                        }
-                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 size={16} />
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="font-semibold text-slate-950">
-                  Workflow Status
-                </h2>
-
-                <p className="text-sm text-slate-500">
-                  Control whether this workflow can run.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => updateStatus("active")}
-                  disabled={saving || workflow.status === "active"}
-                  className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-                >
-                  <Check size={16} />
-                  Activate
-                </button>
-
-                <button
-                  onClick={() => updateStatus("draft")}
-                  disabled={saving || workflow.status === "draft"}
-                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-40"
-                >
-                  Set Draft
-                </button>
-              </div>
+              <input
+                value={getConfigValue(
+                  step.config,
+                  "title"
+                )}
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "title",
+                    event.target.value
+                  )
+                }
+                placeholder="Automation notification"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+              />
             </div>
 
-            <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
-              Current status:{" "}
-              <span className="font-medium text-slate-950">
-                {workflow.status}
-              </span>
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-600">
+                Message
+              </label>
+
+              <textarea
+                rows={4}
+                value={getConfigValue(
+                  step.config,
+                  "message"
+                )}
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "message",
+                    event.target.value
+                  )
+                }
+                placeholder="Your workflow has completed."
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+              />
             </div>
-          </section>
+          </div>
+        )
 
-          <section className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="font-semibold text-slate-950">
-                  TechUnified Automation Engine
-                </h2>
+      case "run_ai_analysis":
+        return (
+          <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4">
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-600">
+                Analysis Prompt
+              </label>
 
-                <p className="mt-1 text-sm text-slate-500">
-                  This workflow runs through the native TechUnified
-                  automation engine.
-                </p>
-              </div>
+              <textarea
+                rows={6}
+                value={getConfigValue(
+                  step.config,
+                  "prompt"
+                )}
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "prompt",
+                    event.target.value
+                  )
+                }
+                placeholder="Analyze the incoming business data and identify important issues."
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+              />
+            </div>
 
-              <Link
-                href="/automations"
-                className="shrink-0 text-sm font-medium text-slate-700 hover:text-slate-950"
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-600">
+                Model
+              </label>
+
+              <input
+                value={
+                  getConfigValue(
+                    step.config,
+                    "model"
+                  ) || "gpt-5.6-luna"
+                }
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "model",
+                    event.target.value
+                  )
+                }
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+              />
+            </div>
+          </div>
+        )
+
+      case "generate_ai_content":
+        return (
+          <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4">
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-600">
+                Content Prompt
+              </label>
+
+              <textarea
+                rows={6}
+                value={getConfigValue(
+                  step.config,
+                  "prompt"
+                )}
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "prompt",
+                    event.target.value
+                  )
+                }
+                placeholder="Create a professional customer follow-up message."
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-600">
+                Output Format
+              </label>
+
+              <select
+                value={
+                  getConfigValue(
+                    step.config,
+                    "outputFormat"
+                  ) || "text"
+                }
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "outputFormat",
+                    event.target.value
+                  )
+                }
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
               >
-                Automations
-              </Link>
+                <option value="text">Text</option>
+                <option value="json">JSON</option>
+                <option value="email">Email</option>
+                <option value="social">Social Post</option>
+              </select>
             </div>
-          </section>
-        </div>
-      </div>
-    </main>
-  )
-      }
+          </div>
+        )
+
+      case "call_webhook":
+        return (
+          <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4">
+            <div>
+              <label className="mb-2 block text-xs font-medium text-slate-600">
+                Webhook URL
+              </label>
+
+              <input
+                value={getConfigValue(
+                  step.config,
+                  "url"
+                )}
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "url",
+                    event.target.value
+                  )
+                }
+                placeholder="https://example.com/web
