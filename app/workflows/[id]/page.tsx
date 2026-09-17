@@ -765,4 +765,4 @@ export default function WorkflowEditorPage() {
                     event.target.value
                   )
                 }
-                placeholder="https://example.com/web
+                placeholder="https://example.com/webhook"
