@@ -765,4 +765,26 @@ export default function WorkflowEditorPage() {
                     event.target.value
                   )
                 }
-                placeholder="https://example.com/webhook"
+                                placeholder="https://example.com/webhook"
+              />
+
+              <select
+                value={getConfigValue(
+                  step.config,
+                  "method",
+                  "POST"
+                )}
+                onChange={(event) =>
+                  updateStepConfig(
+                    step.id,
+                    "method",
+                    event.target.value
+                  )
+                }
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+              >
+                <option value="POST">POST</option>
+                <option value="GET">GET</option>
+                <option value="PUT">PUT</option>
+                <option value="PATCH">PATCH</option>
+              </select>
