@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { runTextAI } from "@/lib/ai/text";
 
 export type AutomationTrigger = {
   type: string;
@@ -91,19 +92,21 @@ export async function executeAutomation(
 
   try {
     for (const step of steps) {
-      const { data: executionStep, error: stepInsertError } =
-        await supabase
-          .from("automation_execution_steps")
-          .insert({
-            execution_id: execution.id,
-            step_id: step.id,
-            step_type: step.type,
-            status: "running",
-            input: currentInput,
-            started_at: new Date().toISOString(),
-          })
-          .select("id")
-          .single();
+      const {
+        data: executionStep,
+        error: stepInsertError,
+      } = await supabase
+        .from("automation_execution_steps")
+        .insert({
+          execution_id: execution.id,
+          step_id: step.id,
+          step_type: step.type,
+          status: "running",
+          input: currentInput,
+          started_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
 
       if (stepInsertError || !executionStep) {
         throw new Error(
@@ -203,6 +206,7 @@ async function runAutomationStep(
 
     case "create_record": {
       const table = String(config.table ?? "").trim();
+
       const record =
         config.record &&
         typeof config.record === "object" &&
@@ -282,7 +286,9 @@ async function runAutomationStep(
 
     case "call_webhook": {
       const url = String(config.url ?? "").trim();
-      const method = String(config.method ?? "POST").toUpperCase();
+      const method = String(
+        config.method ?? "POST"
+      ).toUpperCase();
 
       if (!url) {
         throw new Error(
@@ -290,7 +296,11 @@ async function runAutomationStep(
         );
       }
 
-      if (!["GET", "POST", "PUT", "PATCH"].includes(method)) {
+      if (
+        !["GET", "POST", "PUT", "PATCH"].includes(
+          method
+        )
+      ) {
         throw new Error(
           `Unsupported webhook method: ${method}`
         );
@@ -398,6 +408,80 @@ async function runAutomationStep(
       };
     }
 
+    case "run_ai_analysis": {
+      const prompt = String(
+        config.prompt ?? ""
+      ).trim();
+
+      const model =
+        String(config.model ?? "").trim() ||
+        undefined;
+
+      if (!prompt) {
+        throw new Error(
+          "run_ai_analysis requires a prompt"
+        );
+      }
+
+      const result = await runTextAI({
+        model,
+        system:
+          "You are the analysis engine inside TechUnified AI OS. Analyze the supplied workflow data accurately and return useful, concise business analysis. Do not invent facts that are not present in the input.",
+        prompt: `${prompt}
+
+Workflow input:
+${JSON.stringify(input, null, 2)}`,
+      });
+
+      return {
+        ...input,
+        action: "run_ai_analysis",
+        analysis: result.text,
+        model: result.model,
+      };
+    }
+
+    case "generate_ai_content": {
+      const prompt = String(
+        config.prompt ?? ""
+      ).trim();
+
+      const model =
+        String(config.model ?? "").trim() ||
+        undefined;
+
+      const outputFormat =
+        String(
+          config.outputFormat ?? "text"
+        ).trim() || "text";
+
+      if (!prompt) {
+        throw new Error(
+          "generate_ai_content requires a prompt"
+        );
+      }
+
+      const result = await runTextAI({
+        model,
+        system:
+          "You are the content generation engine inside TechUnified AI OS. Generate polished content from the supplied instructions and workflow data. Follow the requested output format exactly and do not invent unsupported business facts.",
+        prompt: `${prompt}
+
+Requested output format: ${outputFormat}
+
+Workflow input:
+${JSON.stringify(input, null, 2)}`,
+      });
+
+      return {
+        ...input,
+        action: "generate_ai_content",
+        content: result.text,
+        model: result.model,
+        outputFormat,
+      };
+    }
+
     case "create_task":
       throw new Error(
         "create_task is not connected to a task table yet"
@@ -408,19 +492,9 @@ async function runAutomationStep(
         "send_notification is not connected to a notification provider yet"
       );
 
-    case "run_ai_analysis":
-      throw new Error(
-        "run_ai_analysis will be connected to the existing TechUnified AI service"
-      );
-
-    case "generate_ai_content":
-      throw new Error(
-        "generate_ai_content will be connected to the existing TechUnified AI service"
-      );
-
     default:
       throw new Error(
         `Unsupported automation step type: ${step.type}`
       );
   }
-      }
+              }
