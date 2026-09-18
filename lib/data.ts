@@ -19,7 +19,7 @@ export const navGroups: NavigationGroup[] = [
     { label: 'AI Agents', href: '/agents', icon: Bot },
     { label: 'AI Studio', href: '/studio', icon: Sparkles },
     { label: 'Workflows', href: '/workflows', icon: Workflow },
-    { label: 'Automations', href: '/workflows', icon: GitBranch },
+    { label: 'Automations', href: '/automations', icon: GitBranch },
   ] },
   { label: 'Intelligence', items: [
     { label: 'Analytics', href: '/analytics', icon: BarChart3 },
