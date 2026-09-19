@@ -104,4 +104,4 @@ export async function GET() {
         ? 'Forecasts are based on verified organization KPI records.'
         : 'More verified historical KPI data is required before TechUnified can produce a forecast.',
   })
-      }
+}
