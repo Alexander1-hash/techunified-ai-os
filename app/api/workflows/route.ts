@@ -88,7 +88,7 @@ export async function GET() {
       success: true,
       workflows: workflows ?? [],
     });
-  } catch (error) {
+    } catch (error) {
     return NextResponse.json(
       {
         success: false,
@@ -100,4 +100,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-  }
+}
