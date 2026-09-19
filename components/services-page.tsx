@@ -624,11 +624,8 @@ export function ServicesPage() {
                   <div className="shrink-0 lg:text-right">
                     <p className="text-lg font-semibold text-slate-950">
                       {formatPrice(service)}
-                    </p>
-
-                                        <p className="text-lg font-semibold text-slate-950">
-                      {formatPrice(service)}
-                    </p>
+                    </p> 
+                    
                     <p className="mt-1 text-xs text-slate-500">
                       {billingLabel(service.billing_type)}
                     </p>
