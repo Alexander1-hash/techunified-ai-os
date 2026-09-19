@@ -630,13 +630,112 @@ export function DataSourcesCenter() {
                           {column.missing}
                         </p>
                       </div>
+                  </div>
 
-                      <select
-                        value={mapping[column.name] ?? ''}
-                        onChange={(event) =>
-                          setMapping((current) => ({
-                            ...current,
-                            [column.name]: event.target.value,
-                          }))
-                        }
-                        className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-9
+                  <div className="space-y-3">
+
+                    {columns.map((column) => (
+                      <div
+                        key={column.name}
+                        className="grid gap-3 rounded-xl border border-slate-200 p-3 sm:grid-cols-[1fr_220px]"
+                      >
+
+                        <div className="min-w-0">
+
+                          <p className="truncate text-sm font-medium text-slate-900">
+                            {column.name}
+                          </p>
+
+                          <p className="mt-1 text-xs text-slate-500">
+                            Detected type:{' '}
+                            {column.type} · Missing:{' '}
+                            {column.missing}
+                          </p>
+
+                        </div>
+
+                        <select
+                          value={
+                            mapping[column.name] ?? ''
+                          }
+                          onChange={(event) =>
+                            setMapping(
+                              (current) => ({
+                                ...current,
+                                [column.name]:
+                                  event.target.value,
+                              }),
+                            )
+                          }
+                          className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-slate-400"
+                        >
+
+                          <option value="">
+                            No KPI mapping
+                          </option>
+
+                          {supportedMetrics.map(
+                            (metric) => (
+                              <option
+                                key={metric}
+                                value={metric}
+                              >
+                                {metric}
+                              </option>
+                            ),
+                          )}
+
+                        </select>
+
+                      </div>
+                    ))}
+
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void saveMappings()
+                    }
+                    disabled={busy}
+                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  >
+
+                    {busy && (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    )}
+
+                    Save KPI mappings
+
+                  </button>
+
+                </div>
+              )}
+
+          </Card>
+
+        </section>
+      )}
+
+      <div className="flex flex-wrap gap-3 border-t border-slate-200 pt-5">
+
+        <Link
+          href="/brain"
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Company Brain
+        </Link>
+
+        <Link
+          href="/business-analyst"
+          className="inline-flex min-h-11 items-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+        >
+          Open Business Analyst
+        </Link>
+
+      </div>
+
+    </main>
+  )
+          }
