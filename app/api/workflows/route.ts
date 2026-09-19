@@ -62,10 +62,7 @@ export async function GET() {
       );
     }
 
-    const {
-      data: workflows,
-      error: workflowError,
-    } = await supabase
+    const { data: workflows, error: workflowError } = await supabase
       .from("workflows")
       .select(workflowSelect)
       .eq("organization_id", profile.organization_id)
@@ -88,7 +85,7 @@ export async function GET() {
       success: true,
       workflows: workflows ?? [],
     });
-    } catch (error) {
+  } catch (error) {
     return NextResponse.json(
       {
         success: false,
