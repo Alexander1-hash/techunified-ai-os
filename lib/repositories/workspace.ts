@@ -7,7 +7,7 @@ export type WorkspaceDocument = {
   id: string
   organization_id: string
   name: string
-  source: string | null
+  file_type: string | null
   status: string
   metadata: Record<string, unknown>
   created_at: string
@@ -112,7 +112,7 @@ export async function getWorkspaceData() {
     supabase
       .from('knowledge_documents')
       .select(
-        'id, organization_id, name, source, status, metadata, created_at, updated_at',
+        'id, organization_id, name, file_type, status, metadata, created_at, updated_at',
       )
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: false }),
