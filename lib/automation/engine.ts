@@ -516,4 +516,4 @@ function isRecord(
     value !== null &&
     !Array.isArray(value)
   );
-          }
+}
