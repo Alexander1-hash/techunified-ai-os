@@ -114,4 +114,4 @@ export async function GET() {
       ? 'Inspection is based on verified organization-scoped KPI records.'
       : 'No verified KPI records are available for inspection yet.',
   })
-    }
+}
