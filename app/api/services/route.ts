@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getCurrentProfile } from '@/lib/auth'
+import { getCurrentProfile } from '@/lib/repositories/profile'
 
 function slugify(value: string) {
   return value
@@ -10,10 +10,24 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, '')
 }
 
+function parsePrice(value: unknown) {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+
+  const price = Number(value)
+
+  if (!Number.isFinite(price) || price < 0) {
+    throw new Error('Price must be a valid positive number')
+  }
+
+  return price
+}
+
 export async function GET() {
   try {
     const supabase = await createClient()
-    const profile = await getCurrentProfile()
+    const { profile } = await getCurrentProfile(supabase)
 
     if (!profile?.organization_id) {
       return NextResponse.json(
@@ -56,7 +70,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    const profile = await getCurrentProfile()
+    const { profile } = await getCurrentProfile(supabase)
 
     if (!profile?.organization_id) {
       return NextResponse.json(
@@ -86,12 +100,16 @@ export async function POST(request: Request) {
       )
     }
 
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from('services')
       .select('id')
       .eq('organization_id', profile.organization_id)
       .eq('slug', slug)
       .maybeSingle()
+
+    if (existingError) {
+      throw new Error(existingError.message)
+    }
 
     if (existing) {
       return NextResponse.json(
@@ -105,7 +123,7 @@ export async function POST(request: Request) {
 
     let sortOrder = 0
 
-    const { data: lastService } = await supabase
+    const { data: lastService, error: lastServiceError } = await supabase
       .from('services')
       .select('sort_order')
       .eq('organization_id', profile.organization_id)
@@ -113,20 +131,27 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle()
 
+    if (lastServiceError) {
+      throw new Error(lastServiceError.message)
+    }
+
     if (lastService?.sort_order !== undefined) {
       sortOrder = Number(lastService.sort_order) + 1
     }
 
-    const price =
-      body.price === null ||
-      body.price === undefined ||
-      body.price === ''
-        ? null
-        : Number(body.price)
+    let price: number | null
 
-    if (price !== null && (!Number.isFinite(price) || price < 0)) {
+    try {
+      price = parsePrice(body.price)
+    } catch (error) {
       return NextResponse.json(
-        { success: false, error: 'Price must be a valid positive number' },
+        {
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Invalid price',
+        },
         { status: 400 },
       )
     }
