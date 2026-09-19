@@ -1261,4 +1261,4 @@ export default function WorkflowEditorPage() {
       </div>
     </main>
   )
-                  }
+}
