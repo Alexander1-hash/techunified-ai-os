@@ -120,7 +120,7 @@ export async function getWorkspaceData() {
     supabase
       .from('activity_logs')
       .select(
-        'id, organization_id, actor_id, event_type, description, metadata, created_at',
+        'id, organization_id, actor_id, action, status, metadata, created_at',
       )
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: false })
@@ -188,9 +188,9 @@ export async function getWorkspaceData() {
 
   const activity = (activityResult.data ?? []).map((item) => ({
     actor: item.actor_id ? 'Team member' : 'System',
-    action: item.description,
-    department: item.event_type,
-    status: 'Success',
+    action: item.action,
+    department: item.status || 'General',
+    status: item.status || 'Success',
     time: new Date(item.created_at).toLocaleString(),
   })) as Activity[]
 
