@@ -528,7 +528,7 @@ export function DataSourcesCenter() {
                   <button
                     type="button"
                     onClick={() =>
-                      openSetup(source.id)
+                      openSetup(source.id as Provider)
                     }
                     className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-[0.99]"
                   >
