@@ -53,11 +53,14 @@ export function ServicesPage() {
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [search, setSearch] = useState('')
   const [form, setForm] = useState<ServiceForm>(emptyForm)
+  const [editingService, setEditingService] =
+    useState<Service | null>(null)
 
   async function loadData() {
     setLoading(true)
@@ -85,7 +88,10 @@ export function ServicesPage() {
         )
       }
 
-      if (!departmentsResponse.ok || !departmentsResult.success) {
+      if (
+        !departmentsResponse.ok ||
+        !departmentsResult.success
+      ) {
         throw new Error(
           departmentsResult.error ||
             'Unable to load departments',
@@ -119,7 +125,15 @@ export function ServicesPage() {
     }))
   }
 
-  async function createService(event: React.FormEvent<HTMLFormElement>) {
+  function resetForm() {
+    setForm(emptyForm)
+    setEditingService(null)
+    setShowForm(false)
+  }
+
+  async function createService(
+    event: React.FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault()
 
     setSaving(true)
@@ -176,6 +190,149 @@ export function ServicesPage() {
     }
   }
 
+  async function updateService(
+    event: React.FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault()
+
+    if (!editingService) {
+      return
+    }
+
+    setSaving(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const response = await fetch(
+        `/api/services/${editingService.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: form.name,
+            description: form.description,
+            category: form.category,
+            price: form.price,
+            currency: form.currency,
+            billing_type: form.billing_type,
+            status: form.status,
+            department_id: form.department_id || null,
+            is_active: form.status === 'active',
+          }),
+        },
+      )
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || 'Unable to update service',
+        )
+      }
+
+      setServices((current) =>
+        current.map((service) =>
+          service.id === editingService.id
+            ? (result.service as Service)
+            : service,
+        ),
+      )
+
+      resetForm()
+      setSuccess('Service updated successfully.')
+
+      window.setTimeout(() => {
+        setSuccess('')
+      }, 3000)
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to update service',
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function deleteService(service: Service) {
+    const confirmed = window.confirm(
+      `Delete "${service.name}"? This cannot be undone.`,
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    setDeletingId(service.id)
+    setError('')
+    setSuccess('')
+
+    try {
+      const response = await fetch(
+        `/api/services/${service.id}`,
+        {
+          method: 'DELETE',
+        },
+      )
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || 'Unable to delete service',
+        )
+      }
+
+      setServices((current) =>
+        current.filter((item) => item.id !== service.id),
+      )
+
+      if (editingService?.id === service.id) {
+        resetForm()
+      }
+
+      setSuccess('Service deleted successfully.')
+
+      window.setTimeout(() => {
+        setSuccess('')
+      }, 3000)
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to delete service',
+      )
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  function startEditing(service: Service) {
+    setEditingService(service)
+
+    setForm({
+      name: service.name,
+      description: service.description ?? '',
+      category: service.category ?? '',
+      price:
+        service.price === null
+          ? ''
+          : String(service.price),
+      currency: service.currency || 'NGN',
+      billing_type: service.billing_type,
+      status: service.status,
+      department_id: service.department_id ?? '',
+    })
+
+    setShowForm(true)
+    setError('')
+    setSuccess('')
+  }
+
   const filteredServices = useMemo(() => {
     const term = search.trim().toLowerCase()
 
@@ -202,8 +359,9 @@ export function ServicesPage() {
     }
 
     return (
-      departments.find((department) => department.id === id)
-        ?.name ?? 'Unassigned'
+      departments.find(
+        (department) => department.id === id,
+      )?.name ?? 'Unassigned'
     )
   }
 
@@ -249,18 +407,22 @@ export function ServicesPage() {
           </h1>
 
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            Define the products and services TechUnified offers,
-            including pricing, billing, status, and department
-            ownership.
+            Define the products and services TechUnified
+            offers, including pricing, billing, status, and
+            department ownership.
           </p>
         </div>
 
         <button
           type="button"
           onClick={() => {
-            setShowForm((current) => !current)
-            setError('')
-            setSuccess('')
+            if (showForm) {
+              resetForm()
+            } else {
+              setShowForm(true)
+              setError('')
+              setSuccess('')
+            }
           }}
           className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
         >
@@ -290,16 +452,24 @@ export function ServicesPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-slate-950">
-              Create service
+              {editingService
+                ? 'Edit service'
+                : 'Create service'}
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Add a real service to your organization.
+              {editingService
+                ? 'Update this service in your organization.'
+                : 'Add a real service to your organization.'}
             </p>
           </div>
 
           <form
-            onSubmit={createService}
+            onSubmit={
+              editingService
+                ? updateService
+                : createService
+            }
             className="grid gap-5 md:grid-cols-2"
           >
             <div className="md:col-span-2">
@@ -434,10 +604,18 @@ export function ServicesPage() {
                 }
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               >
-                <option value="NGN">NGN — Nigerian Naira</option>
-                <option value="USD">USD — US Dollar</option>
-                <option value="GBP">GBP — British Pound</option>
-                <option value="EUR">EUR — Euro</option>
+                <option value="NGN">
+                  NGN — Nigerian Naira
+                </option>
+                <option value="USD">
+                  USD — US Dollar
+                </option>
+                <option value="GBP">
+                  GBP — British Pound
+                </option>
+                <option value="EUR">
+                  EUR — Euro
+                </option>
               </select>
             </div>
 
@@ -496,10 +674,7 @@ export function ServicesPage() {
             <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end md:col-span-2">
               <button
                 type="button"
-                onClick={() => {
-                  setForm(emptyForm)
-                  setShowForm(false)
-                }}
+                onClick={resetForm}
                 className="min-h-11 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
                 Cancel
@@ -510,14 +685,19 @@ export function ServicesPage() {
                 disabled={saving}
                 className="min-h-11 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {saving ? 'Creating…' : 'Create service'}
+                {saving
+                  ? editingService
+                    ? 'Saving…'
+                    : 'Creating…'
+                  : editingService
+                    ? 'Save changes'
+                    : 'Create service'}
               </button>
             </div>
           </form>
         </section>
       ) : null}
-
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-950">
@@ -564,7 +744,11 @@ export function ServicesPage() {
             {!search ? (
               <button
                 type="button"
-                onClick={() => setShowForm(true)}
+                onClick={() => {
+                  setEditingService(null)
+                  setForm(emptyForm)
+                  setShowForm(true)
+                }}
                 className="mt-5 min-h-11 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
               >
                 Add first service
@@ -624,8 +808,8 @@ export function ServicesPage() {
                   <div className="shrink-0 lg:text-right">
                     <p className="text-lg font-semibold text-slate-950">
                       {formatPrice(service)}
-                    </p> 
-                    
+                    </p>
+
                     <p className="mt-1 text-xs text-slate-500">
                       {billingLabel(service.billing_type)}
                     </p>
@@ -645,29 +829,86 @@ export function ServicesPage() {
                     {service.status}
                   </span>
 
-                  {service.category && (
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-                      {service.category}
+                  {service                    .status === 'active' ? (
+                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
+                      Active
                     </span>
-                  )}
-
-                  {service.department_id && (
-                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
-                      {departmentName(service.department_id)}
+                  ) : service.status === 'draft' ? (
+                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
+                      Draft
+                    </span>
+                  ) : (
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-600">
+                      Inactive
                     </span>
                   )}
                 </div>
 
-                {service.description && (
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                  <span>{formatPrice(service)}</span>
+                  <span>•</span>
+                  <span>{formatBillingType(service.billing_type)}</span>
+
+                  {service.category ? (
+                    <>
+                      <span>•</span>
+                      <span>{service.category}</span>
+                    </>
+                  )}
+                </div>
+
+                {service.description ? (
+                  <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
                     {service.description}
                   </p>
+                ) : (
+                  <p className="mt-3 text-sm text-slate-400">
+                    No description added.
+                  </p>
                 )}
+
+                <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+                  <div className="text-xs text-slate-400">
+                    {service.department_id
+                      ? 'Department assigned'
+                      : 'No department assigned'}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => startEditing(service)}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => deleteService(service.id)}
+                      disabled={deletingId === service.id}
+                      className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {deletingId === service.id ? 'Deleting…' : 'Delete'}
+                    </button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
         )}
-      </section>
-    </div>
+
+        {!loading && filteredServices.length === 0 && services.length > 0 && (
+          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center">
+            <p className="text-sm font-medium text-slate-900">
+              No services match your search.
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              Try a different service name or category.
+            </p>
+          </div>
+        )}
+      </div>
+    </main>
   )
 }
