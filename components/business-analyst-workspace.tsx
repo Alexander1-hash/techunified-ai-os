@@ -58,13 +58,17 @@ export function BusinessAnalystWorkspace({
         const json = await response.json()
 
         if (!response.ok) {
-          throw new Error(json.error || 'Unable to load business data.')
+          throw new Error(
+            json.error || 'Unable to load business data.',
+          )
         }
 
         setData(json)
       })
       .catch((err) => {
-        setError(err.message || 'Unable to load business data.')
+        setError(
+          err.message || 'Unable to load business data.',
+        )
       })
   }, [mode])
 
@@ -73,7 +77,9 @@ export function BusinessAnalystWorkspace({
       return (
         <main className="min-h-screen bg-background px-5 py-8">
           <div className="mx-auto max-w-7xl">
-            <Panel title="Unable to load forecast">{error}</Panel>
+            <Panel title="Unable to load forecast">
+              {error}
+            </Panel>
           </div>
         </main>
       )
@@ -107,8 +113,8 @@ export function BusinessAnalystWorkspace({
             </h1>
 
             <p className="mt-4 max-w-2xl leading-7 text-muted-foreground">
-              Forecasts are calculated from verified organization KPI records.
-              TechUnified does not invent missing business data.
+              Forecasts are calculated from verified organization KPI
+              records. TechUnified does not invent missing business data.
             </p>
           </header>
 
@@ -143,7 +149,8 @@ export function BusinessAnalystWorkspace({
                   <strong className="text-3xl text-foreground">
                     {
                       forecasts.filter(
-                        (item: any) => item.direction === 'up'
+                        (item: any) =>
+                          item.direction === 'up',
                       ).length
                     }
                   </strong>
@@ -154,7 +161,8 @@ export function BusinessAnalystWorkspace({
                   <strong className="text-3xl text-foreground">
                     {
                       forecasts.filter(
-                        (item: any) => item.direction === 'down'
+                        (item: any) =>
+                          item.direction === 'down',
                       ).length
                     }
                   </strong>
@@ -323,7 +331,9 @@ export function BusinessAnalystWorkspace({
   if (error) {
     return (
       <main className="p-6">
-        <Panel title="Unable to load analysis">{error}</Panel>
+        <Panel title="Unable to load analysis">
+          {error}
+        </Panel>
       </main>
     )
   }
@@ -339,6 +349,10 @@ export function BusinessAnalystWorkspace({
   }
 
   const hasData = data.kpis.length > 0
+
+  const coveredAreas = Array.isArray(data.areas)
+    ? data.areas
+    : []
 
   return (
     <main className="min-h-screen bg-background px-5 py-8">
@@ -382,6 +396,7 @@ export function BusinessAnalystWorkspace({
                 <strong className="text-3xl text-foreground">
                   {data.health ?? '—'}
                 </strong>
+
                 <p>
                   Based on {data.kpis.length} verified KPI
                   {data.kpis.length === 1 ? '' : 's'}.
@@ -392,17 +407,26 @@ export function BusinessAnalystWorkspace({
                 <strong className="text-3xl text-foreground">
                   {data.quality}%
                 </strong>
-                <p>{data.areas.length} KPI areas covered.</p>
+
+                <p>
+                  {coveredAreas.length} KPI{' '}
+                  {coveredAreas.length === 1
+                    ? 'area'
+                    : 'areas'} covered.
+                </p>
               </Panel>
 
               <Panel title="KPI overview">
                 <strong className="text-3xl text-foreground">
                   {data.kpis.length}
                 </strong>
+
                 <p>Confirmed values available.</p>
               </Panel>
 
-              <Panel title="Next best action">{data.nextAction}</Panel>
+              <Panel title="Next best action">
+                {data.nextAction}
+              </Panel>
             </div>
 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -463,20 +487,20 @@ export function BusinessAnalystWorkspace({
               </Panel>
 
               <Panel title="Business areas covered">
-                <div className="flex flex-wrap gap-2">
-                  {areas.map((area) => (
-                    <span
-                      key={area}
-                      className={`rounded-full border px-3 py-1.5 text-xs ${
-                        data.areas.includes(area)
-                          ? 'border-primary text-primary'
-                          : 'border-border/70'
-                      }`}
-                    >
-                      {area}
-                    </span>
-                  ))}
-                </div>
+                {coveredAreas.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {coveredAreas.map((area: string) => (
+                      <span
+                        key={area}
+                        className="rounded-full border border-primary px-3 py-1.5 text-xs text-primary"
+                      >
+                        {area}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p>No business areas have been confirmed yet.</p>
+                )}
               </Panel>
             </div>
           </>
@@ -499,4 +523,4 @@ export function BusinessAnalystNav() {
       <Link href="/reports">Reports</Link>
     </nav>
   )
-                                        }
+}
