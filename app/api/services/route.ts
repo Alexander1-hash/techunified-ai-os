@@ -27,11 +27,25 @@ function parsePrice(value: unknown) {
 export async function GET() {
   try {
     const supabase = await createClient()
-    const { profile } = await getCurrentProfile(supabase)
+    const { profile, error: profileError } =
+      await getCurrentProfile(supabase)
+
+    if (profileError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: profileError.message,
+        },
+        { status: 401 },
+      )
+    }
 
     if (!profile?.organization_id) {
       return NextResponse.json(
-        { success: false, error: 'Organization not found' },
+        {
+          success: false,
+          error: 'Organization not found',
+        },
         { status: 400 },
       )
     }
@@ -70,11 +84,25 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    const { profile } = await getCurrentProfile(supabase)
+    const { profile, error: profileError } =
+      await getCurrentProfile(supabase)
+
+    if (profileError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: profileError.message,
+        },
+        { status: 401 },
+      )
+    }
 
     if (!profile?.organization_id) {
       return NextResponse.json(
-        { success: false, error: 'Organization not found' },
+        {
+          success: false,
+          error: 'Organization not found',
+        },
         { status: 400 },
       )
     }
@@ -82,11 +110,16 @@ export async function POST(request: Request) {
     const body = await request.json()
 
     const name =
-      typeof body.name === 'string' ? body.name.trim() : ''
+      typeof body.name === 'string'
+        ? body.name.trim()
+        : ''
 
     if (!name) {
       return NextResponse.json(
-        { success: false, error: 'Service name is required' },
+        {
+          success: false,
+          error: 'Service name is required',
+        },
         { status: 400 },
       )
     }
@@ -95,17 +128,24 @@ export async function POST(request: Request) {
 
     if (!slug) {
       return NextResponse.json(
-        { success: false, error: 'A valid service name is required' },
+        {
+          success: false,
+          error: 'A valid service name is required',
+        },
         { status: 400 },
       )
     }
 
-    const { data: existing, error: existingError } = await supabase
-      .from('services')
-      .select('id')
-      .eq('organization_id', profile.organization_id)
-      .eq('slug', slug)
-      .maybeSingle()
+    const { data: existing, error: existingError } =
+      await supabase
+        .from('services')
+        .select('id')
+        .eq(
+          'organization_id',
+          profile.organization_id,
+        )
+        .eq('slug', slug)
+        .maybeSingle()
 
     if (existingError) {
       throw new Error(existingError.message)
@@ -115,7 +155,8 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: 'A service with this name already exists',
+          error:
+            'A service with this name already exists',
         },
         { status: 409 },
       )
@@ -123,11 +164,19 @@ export async function POST(request: Request) {
 
     let sortOrder = 0
 
-    const { data: lastService, error: lastServiceError } = await supabase
+    const {
+      data: lastService,
+      error: lastServiceError,
+    } = await supabase
       .from('services')
       .select('sort_order')
-      .eq('organization_id', profile.organization_id)
-      .order('sort_order', { ascending: false })
+      .eq(
+        'organization_id',
+        profile.organization_id,
+      )
+      .order('sort_order', {
+        ascending: false,
+      })
       .limit(1)
       .maybeSingle()
 
@@ -135,8 +184,12 @@ export async function POST(request: Request) {
       throw new Error(lastServiceError.message)
     }
 
-    if (lastService?.sort_order !== undefined) {
-      sortOrder = Number(lastService.sort_order) + 1
+    if (
+      lastService?.sort_order !== undefined &&
+      lastService?.sort_order !== null
+    ) {
+      sortOrder =
+        Number(lastService.sort_order) + 1
     }
 
     let price: number | null
@@ -156,45 +209,70 @@ export async function POST(request: Request) {
       )
     }
 
+    const billingType =
+      typeof body.billing_type === 'string' &&
+      [
+        'one_time',
+        'monthly',
+        'yearly',
+        'custom',
+      ].includes(body.billing_type)
+        ? body.billing_type
+        : 'one_time'
+
+    const status =
+      typeof body.status === 'string' &&
+      ['active', 'inactive', 'draft'].includes(
+        body.status,
+      )
+        ? body.status
+        : 'active'
+
+    const currency =
+      typeof body.currency === 'string' &&
+      body.currency.trim()
+        ? body.currency.trim().toUpperCase()
+        : 'NGN'
+
     const { data, error } = await supabase
       .from('services')
       .insert({
-        organization_id: profile.organization_id,
+        organization_id:
+          profile.organization_id,
+
         department_id:
           typeof body.department_id === 'string' &&
-          body.department_id
-            ? body.department_id
+          body.department_id.trim()
+            ? body.department_id.trim()
             : null,
+
         name,
+
         slug,
+
         description:
           typeof body.description === 'string'
             ? body.description.trim() || null
             : null,
+
         category:
           typeof body.category === 'string'
             ? body.category.trim() || null
             : null,
+
         price,
-        currency:
-          typeof body.currency === 'string' &&
-          body.currency.trim()
-            ? body.currency.trim().toUpperCase()
-            : 'NGN',
-        billing_type:
-          typeof body.billing_type === 'string' &&
-          ['one_time', 'monthly', 'yearly', 'custom'].includes(
-            body.billing_type,
-          )
-            ? body.billing_type
-            : 'one_time',
-        status:
-          typeof body.status === 'string' &&
-          ['active', 'inactive', 'draft'].includes(body.status)
-            ? body.status
-            : 'active',
-        is_active: body.is_active !== false,
+
+        currency,
+
+        billing_type: billingType,
+
+        status,
+
+        is_active:
+          body.is_active !== false,
+
         sort_order: sortOrder,
+
         metadata:
           body.metadata &&
           typeof body.metadata === 'object' &&
