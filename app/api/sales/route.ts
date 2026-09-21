@@ -268,19 +268,18 @@ export async function POST(request: Request) {
       )
     }
 
-    const { data: customer, error: customerError } =
-      await supabase
-        .from('customers')
-        .select('id')
-        .eq(
-          'id',
-          customerId,
-        )
-        .eq(
-          'organization_id',
-          profile.organization_id,
-        )
-        .maybeSingle()
+    const {
+      data: customer,
+      error: customerError,
+    } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('id', customerId)
+      .eq(
+        'organization_id',
+        profile.organization_id,
+      )
+      .maybeSingle()
 
     if (customerError) {
       throw new Error(
@@ -299,19 +298,18 @@ export async function POST(request: Request) {
       )
     }
 
-    const { data: service, error: serviceError } =
-      await supabase
-        .from('services')
-        .select('id')
-        .eq(
-          'id',
-          serviceId,
-        )
-        .eq(
-          'organization_id',
-          profile.organization_id,
-        )
-        .maybeSingle()
+    const {
+      data: service,
+      error: serviceError,
+    } = await supabase
+      .from('services')
+      .select('id')
+      .eq('id', serviceId)
+      .eq(
+        'organization_id',
+        profile.organization_id,
+      )
+      .maybeSingle()
 
     if (serviceError) {
       throw new Error(
@@ -366,25 +364,31 @@ export async function POST(request: Request) {
       )
     }
 
-    const status =
-      typeof body.status === 'string' &&
-      isSaleStatus(
-        body.status.trim().toLowerCase(),
-      )
-        ? body.status.trim().toLowerCase()
-        : 'pending'
+    const normalizedStatus =
+      typeof body.status === 'string'
+        ? body.status
+            .trim()
+            .toLowerCase()
+        : ''
 
-    const paymentStatus =
-      typeof body.payment_status ===
-        'string' &&
-      isPaymentStatus(
-        body.payment_status
-          .trim()
-          .toLowerCase(),
-      )
+    const status = isSaleStatus(
+      normalizedStatus,
+    )
+      ? normalizedStatus
+      : 'pending'
+
+    const normalizedPaymentStatus =
+      typeof body.payment_status === 'string'
         ? body.payment_status
             .trim()
             .toLowerCase()
+        : ''
+
+    const paymentStatus =
+      isPaymentStatus(
+        normalizedPaymentStatus,
+      )
+        ? normalizedPaymentStatus
         : 'unpaid'
 
     const currency =
