@@ -1,7 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { Loader2, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react'
+import {
+  Loader2,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react'
 import { BusinessAnalystWorkspace } from '@/components/business-analyst-workspace'
 
 export default function AnalystPage() {
@@ -26,7 +31,8 @@ export default function AnalystPage() {
 
       if (!response.ok) {
         throw new Error(
-          json.error ||
+          json.detail ||
+            json.error ||
             'Unable to synchronize sales intelligence.',
         )
       }
@@ -70,7 +76,10 @@ export default function AnalystPage() {
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {syncing ? (
-              <Loader2 size={16} className="animate-spin" />
+              <Loader2
+                size={16}
+                className="animate-spin"
+              />
             ) : (
               <RefreshCw size={16} />
             )}
@@ -89,6 +98,7 @@ export default function AnalystPage() {
                   size={16}
                   className="mt-0.5 shrink-0"
                 />
+
                 <span>{message}</span>
               </div>
             ) : null}
@@ -99,6 +109,7 @@ export default function AnalystPage() {
                   size={16}
                   className="mt-0.5 shrink-0"
                 />
+
                 <span>{error}</span>
               </div>
             ) : null}
