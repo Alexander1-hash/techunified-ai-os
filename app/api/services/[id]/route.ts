@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getCurrentProfile } from '@/lib/auth'
+import { getCurrentProfile } from '@/lib/repositories/profile'
 
 function slugify(value: string) {
   return value
@@ -30,12 +30,27 @@ export async function PATCH(
 ) {
   try {
     const supabase = await createClient()
-    const profile = await getCurrentProfile()
+    const { profile, error: profileError } =
+      await getCurrentProfile(supabase)
+
     const { id } = await context.params
+
+    if (profileError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: profileError.message,
+        },
+        { status: 401 },
+      )
+    }
 
     if (!profile?.organization_id) {
       return NextResponse.json(
-        { success: false, error: 'Organization not found' },
+        {
+          success: false,
+          error: 'Organization not found',
+        },
         { status: 400 },
       )
     }
@@ -43,11 +58,16 @@ export async function PATCH(
     const body = await request.json()
 
     const name =
-      typeof body.name === 'string' ? body.name.trim() : ''
+      typeof body.name === 'string'
+        ? body.name.trim()
+        : ''
 
     if (!name) {
       return NextResponse.json(
-        { success: false, error: 'Service name is required' },
+        {
+          success: false,
+          error: 'Service name is required',
+        },
         { status: 400 },
       )
     }
@@ -56,24 +76,38 @@ export async function PATCH(
 
     if (!slug) {
       return NextResponse.json(
-        { success: false, error: 'A valid service name is required' },
+        {
+          success: false,
+          error: 'A valid service name is required',
+        },
         { status: 400 },
       )
     }
 
-    const { data: existing } = await supabase
+    const {
+      data: existing,
+      error: existingError,
+    } = await supabase
       .from('services')
       .select('id')
-      .eq('organization_id', profile.organization_id)
+      .eq(
+        'organization_id',
+        profile.organization_id,
+      )
       .eq('slug', slug)
       .neq('id', id)
       .maybeSingle()
+
+    if (existingError) {
+      throw new Error(existingError.message)
+    }
 
     if (existing) {
       return NextResponse.json(
         {
           success: false,
-          error: 'A service with this name already exists',
+          error:
+            'A service with this name already exists',
         },
         { status: 409 },
       )
@@ -96,43 +130,65 @@ export async function PATCH(
       )
     }
 
+    const billingType =
+      typeof body.billing_type === 'string' &&
+      [
+        'one_time',
+        'monthly',
+        'yearly',
+        'custom',
+      ].includes(body.billing_type)
+        ? body.billing_type
+        : 'one_time'
+
+    const status =
+      typeof body.status === 'string' &&
+      ['active', 'inactive', 'draft'].includes(
+        body.status,
+      )
+        ? body.status
+        : 'active'
+
+    const currency =
+      typeof body.currency === 'string' &&
+      body.currency.trim()
+        ? body.currency.trim().toUpperCase()
+        : 'NGN'
+
     const { data, error } = await supabase
       .from('services')
       .update({
         department_id:
           typeof body.department_id === 'string' &&
-          body.department_id
-            ? body.department_id
+          body.department_id.trim()
+            ? body.department_id.trim()
             : null,
+
         name,
+
         slug,
+
         description:
           typeof body.description === 'string'
             ? body.description.trim() || null
             : null,
+
         category:
           typeof body.category === 'string'
             ? body.category.trim() || null
             : null,
+
         price,
-        currency:
-          typeof body.currency === 'string' &&
-          body.currency.trim()
-            ? body.currency.trim().toUpperCase()
-            : 'NGN',
-        billing_type:
-          typeof body.billing_type === 'string' &&
-          ['one_time', 'monthly', 'yearly', 'custom'].includes(
-            body.billing_type,
-          )
-            ? body.billing_type
-            : 'one_time',
-        status:
-          typeof body.status === 'string' &&
-          ['active', 'inactive', 'draft'].includes(body.status)
-            ? body.status
-            : 'active',
-        is_active: body.is_active !== false,
+
+        currency,
+
+        billing_type: billingType,
+
+        status,
+
+        is_active:
+          body.is_active !== false,
+
         metadata:
           body.metadata &&
           typeof body.metadata === 'object' &&
@@ -141,7 +197,10 @@ export async function PATCH(
             : {},
       })
       .eq('id', id)
-      .eq('organization_id', profile.organization_id)
+      .eq(
+        'organization_id',
+        profile.organization_id,
+      )
       .select(
         'id, organization_id, department_id, name, slug, description, category, price, currency, billing_type, status, is_active, sort_order, metadata, created_at, updated_at',
       )
@@ -153,7 +212,10 @@ export async function PATCH(
 
     if (!data) {
       return NextResponse.json(
-        { success: false, error: 'Service not found' },
+        {
+          success: false,
+          error: 'Service not found',
+        },
         { status: 404 },
       )
     }
@@ -182,12 +244,27 @@ export async function DELETE(
 ) {
   try {
     const supabase = await createClient()
-    const profile = await getCurrentProfile()
+    const { profile, error: profileError } =
+      await getCurrentProfile(supabase)
+
     const { id } = await context.params
+
+    if (profileError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: profileError.message,
+        },
+        { status: 401 },
+      )
+    }
 
     if (!profile?.organization_id) {
       return NextResponse.json(
-        { success: false, error: 'Organization not found' },
+        {
+          success: false,
+          error: 'Organization not found',
+        },
         { status: 400 },
       )
     }
@@ -196,7 +273,10 @@ export async function DELETE(
       .from('services')
       .delete()
       .eq('id', id)
-      .eq('organization_id', profile.organization_id)
+      .eq(
+        'organization_id',
+        profile.organization_id,
+      )
       .select('id')
       .maybeSingle()
 
@@ -206,7 +286,10 @@ export async function DELETE(
 
     if (!data) {
       return NextResponse.json(
-        { success: false, error: 'Service not found' },
+        {
+          success: false,
+          error: 'Service not found',
+        },
         { status: 404 },
       )
     }
