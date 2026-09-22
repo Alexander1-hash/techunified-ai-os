@@ -7,6 +7,7 @@ import {
   ArrowRight,
   Lightbulb,
 } from 'lucide-react'
+import { DecisionAction } from '@/components/decision-action'
 
 type Decision = {
   id: string
@@ -129,6 +130,12 @@ function DecisionCard({
               )}
             </div>
           ) : null}
+
+          <DecisionAction
+            decisionId={decision.id}
+            decisionTitle={decision.title}
+            decisionAction={decision.action}
+          />
         </div>
       </div>
     </div>
@@ -245,6 +252,7 @@ export default function DecisionsPage() {
   }
 
   const summary = data?.summary ?? {}
+
   const relationships =
     data?.relationships ?? {}
 
