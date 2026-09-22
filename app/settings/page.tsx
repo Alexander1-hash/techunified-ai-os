@@ -35,8 +35,11 @@ export default function SettingsPage() {
   const [displayFullName, setDisplayFullName] = useState("");
   const [displayAvatarUrl, setDisplayAvatarUrl] = useState("");
 
-  const [avatarPreviewError, setAvatarPreviewError] = useState(false);
-  const [displayAvatarError, setDisplayAvatarError] = useState(false);
+  const [avatarPreviewError, setAvatarPreviewError] =
+    useState(false);
+
+  const [displayAvatarError, setDisplayAvatarError] =
+    useState(false);
 
   const [savingProfile, setSavingProfile] = useState(false);
 
@@ -45,8 +48,15 @@ export default function SettingsPage() {
     useState<MessageType>(null);
 
   useEffect(() => {
-    const nextFullName = profile?.full_name ?? "";
-    const nextAvatarUrl = profile?.avatar_url ?? "";
+    const nextFullName =
+      typeof profile?.full_name === "string"
+        ? profile.full_name
+        : "";
+
+    const nextAvatarUrl =
+      typeof profile?.avatar_url === "string"
+        ? profile.avatar_url
+        : "";
 
     setFullName(nextFullName);
     setAvatarUrl(nextAvatarUrl);
@@ -124,20 +134,51 @@ export default function SettingsPage() {
         }),
       });
 
-      const data = await response.json().catch(() => null);
+      const data: unknown = await response
+        .json()
+        .catch(() => null);
 
       if (!response.ok) {
-        throw new Error(
-          data?.error || "Failed to update profile.",
-        );
+        const errorMessage =
+          typeof data === "object" &&
+          data !== null &&
+          "error" in data &&
+          typeof data.error === "string"
+            ? data.error
+            : "Failed to update profile.";
+
+        throw new Error(errorMessage);
       }
 
-      const savedName =
-        data?.profile?.full_name ?? cleanedName;
+      let savedName = cleanedName;
+      let savedAvatar = cleanedAvatarUrl;
 
-      const savedAvatar =
-        data?.profile?.avatar_url ??
-        (cleanedAvatarUrl || "");
+      if (
+        typeof data === "object" &&
+        data !== null &&
+        "profile" in data &&
+        typeof data.profile === "object" &&
+        data.profile !== null
+      ) {
+        const savedProfile = data.profile as Record<
+          string,
+          unknown
+        >;
+
+        if (typeof savedProfile.full_name === "string") {
+          savedName = savedProfile.full_name;
+        }
+
+        if (
+          typeof savedProfile.avatar_url === "string"
+        ) {
+          savedAvatar = savedProfile.avatar_url;
+        }
+
+        if (savedProfile.avatar_url === null) {
+          savedAvatar = "";
+        }
+      }
 
       setDisplayFullName(savedName);
       setDisplayAvatarUrl(savedAvatar);
@@ -185,10 +226,45 @@ export default function SettingsPage() {
 
   const profileName =
     displayFullName ||
-    user?.email?.split("@")[0] ||
+    (typeof user?.email === "string"
+      ? user.email.split("@")[0]
+      : "") ||
     "Alexander Trimnell";
 
-  const profileEmail = user?.email ?? "No email available";
+  const profileEmail =
+    typeof user?.email === "string"
+      ? user.email
+      : "No email available";
+
+  const organizationName =
+    typeof organization?.name === "string"
+      ? organization.name
+      : "No organization";
+
+  const organizationPlan =
+    typeof organization?.plan === "string"
+      ? organization.plan
+      : "Foundation";
+
+  const organizationIndustry =
+    typeof organization?.industry === "string"
+      ? organization.industry
+      : "Technology";
+
+  const organizationWebsite =
+    typeof organization?.website === "string"
+      ? organization.website
+      : "Not configured";
+
+  const organizationTimezone =
+    typeof organization?.timezone === "string"
+      ? organization.timezone
+      : "Africa/Lagos";
+
+  const profileRole =
+    typeof profile?.role === "string"
+      ? profile.role
+      : "Owner";
 
   const initials = getInitials(profileName);
 
@@ -319,12 +395,11 @@ export default function SettingsPage() {
 
                     <div className="mt-3 flex flex-wrap gap-2">
                       <span className="rounded-full border bg-muted px-3 py-1 text-xs font-medium">
-                        {profile?.role || "Owner"}
+                        {profileRole}
                       </span>
 
                       <span className="rounded-full border bg-muted px-3 py-1 text-xs font-medium">
-                        {organization?.name ||
-                          "No organization"}
+                        {organizationName}
                       </span>
                     </div>
                   </div>
@@ -458,8 +533,7 @@ export default function SettingsPage() {
                 </p>
 
                 <p className="mt-2 font-medium">
-                  {organization?.name ||
-                    "No organization"}
+                  {organizationName}
                 </p>
               </div>
 
@@ -469,8 +543,7 @@ export default function SettingsPage() {
                 </p>
 
                 <p className="mt-2 font-medium capitalize">
-                  {organization?.plan ||
-                    "Foundation"}
+                  {organizationPlan}
                 </p>
               </div>
 
@@ -480,8 +553,7 @@ export default function SettingsPage() {
                 </p>
 
                 <p className="mt-2 font-medium">
-                  {organization?.industry ||
-                    "Technology"}
+                  {organizationIndustry}
                 </p>
               </div>
 
@@ -491,8 +563,7 @@ export default function SettingsPage() {
                 </p>
 
                 <p className="mt-2 truncate font-medium">
-                  {organization?.website ||
-                    "Not configured"}
+                  {organizationWebsite}
                 </p>
               </div>
             </div>
@@ -521,8 +592,7 @@ export default function SettingsPage() {
                 </p>
 
                 <p className="mt-2 font-medium">
-                  {organization?.timezone ||
-                    "Africa/Lagos"}
+                  {organizationTimezone}
                 </p>
               </div>
 
