@@ -10,7 +10,6 @@ import {
   ChevronsRight,
   LogOut,
   Menu,
-  Search,
   X,
 } from "lucide-react";
 import {
@@ -19,6 +18,7 @@ import {
   useState,
 } from "react";
 
+import { GlobalSearch } from "@/components/global-search";
 import { navGroups } from "@/lib/data";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/components/auth-provider";
@@ -341,12 +341,7 @@ export function AppShell({
           )}
         </button>
 
-        <div className="hidden items-center gap-2 text-sm text-muted-foreground sm:flex">
-          <Search size={16} />
-          <span>
-            Search anything...
-          </span>
-        </div>
+        <GlobalSearch />
 
         <div className="ml-auto flex items-center gap-2">
           <button
@@ -436,15 +431,13 @@ export function AppShell({
 
           <div
             className="hidden size-8 items-center justify-center overflow-hidden rounded-full bg-accent text-sm font-semibold text-[#182016] sm:flex"
-            title={
-              String(
-                profile?.full_name ??
-                  user?.user_metadata?.full_name ??
-                  user?.user_metadata?.name ??
-                  user?.email?.split("@")[0] ??
-                  "User",
-              )
-            }
+            title={String(
+              profile?.full_name ??
+                user?.user_metadata?.full_name ??
+                user?.user_metadata?.name ??
+                user?.email?.split("@")[0] ??
+                "User",
+            )}
           >
             {typeof profile?.avatar_url ===
             "string" ? (
