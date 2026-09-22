@@ -5,10 +5,14 @@ import {
   Building2,
   CheckCircle2,
   Clock3,
+  Edit3,
   LogOut,
+  Save,
   Shield,
   User,
+  X,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
 
@@ -21,6 +25,32 @@ export default function SettingsPage() {
     loading,
     signOut,
   } = useAuth();
+
+  const [isEditingProfile, setIsEditingProfile] =
+    useState(false);
+  const [fullNameInput, setFullNameInput] = useState("");
+  const [avatarUrlInput, setAvatarUrlInput] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  useEffect(() => {
+    setFullNameInput(profile?.full_name ?? "");
+    setAvatarUrlInput(profile?.avatar_url ?? "");
+  }, [profile]);
+
+  useEffect(() => {
+    if (!message) return;
+
+    const timeout = window.setTimeout(() => {
+      setMessage(null);
+    }, 4000);
+
+    return () => window.clearTimeout(timeout);
+  }, [message]);
 
   if (loading) {
     return (
@@ -82,8 +112,14 @@ export default function SettingsPage() {
       ? profile.avatar_url
       : null;
 
+  const previewName =
+    fullNameInput.trim() || fullName;
+
+  const previewAvatarUrl =
+    avatarUrlInput.trim() || null;
+
   const initials =
-    fullName
+    previewName
       .split(/\s+/)
       .filter(Boolean)
       .slice(0, 2)
@@ -91,6 +127,93 @@ export default function SettingsPage() {
         part.charAt(0).toUpperCase(),
       )
       .join("") || "U";
+
+  function startEditingProfile() {
+    setFullNameInput(profile?.full_name ?? "");
+    setAvatarUrlInput(profile?.avatar_url ?? "");
+    setMessage(null);
+    setIsEditingProfile(true);
+  }
+
+  function cancelEditingProfile() {
+    setFullNameInput(profile?.full_name ?? "");
+    setAvatarUrlInput(profile?.avatar_url ?? "");
+    setMessage(null);
+    setIsEditingProfile(false);
+  }
+
+  async function handleSaveProfile() {
+    const trimmedName = fullNameInput.trim();
+    const trimmedAvatarUrl = avatarUrlInput.trim();
+
+    if (!trimmedName) {
+      setMessage({
+        type: "error",
+        text: "Please enter your full name.",
+      });
+      return;
+    }
+
+    if (trimmedName.length > 120) {
+      setMessage({
+        type: "error",
+        text: "Full name must be 120 characters or fewer.",
+      });
+      return;
+    }
+
+    if (trimmedAvatarUrl.length > 1000) {
+      setMessage({
+        type: "error",
+        text: "Avatar URL must be 1000 characters or fewer.",
+      });
+      return;
+    }
+
+    setSavingProfile(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          full_name: trimmedName,
+          avatar_url: trimmedAvatarUrl || null,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Unable to update your profile.",
+        );
+      }
+
+      setIsEditingProfile(false);
+
+      setMessage({
+        type: "success",
+        text: "Profile updated successfully.",
+      });
+
+      window.location.reload();
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Unable to update your profile.",
+      });
+    } finally {
+      setSavingProfile(false);
+    }
+  }
 
   async function handleSignOut() {
     await signOut();
@@ -114,53 +237,195 @@ export default function SettingsPage() {
           </p>
         </div>
 
+        {message && (
+          <div
+            className={`mb-6 flex items-center justify-between gap-4 rounded-xl border px-4 py-3 text-sm ${
+              message.type === "success"
+                ? "border-primary/20 bg-primary/5 text-foreground"
+                : "border-destructive/30 bg-destructive/5 text-destructive"
+            }`}
+            role="status"
+          >
+            <div className="flex items-center gap-2">
+              {message.type === "success" ? (
+                <CheckCircle2 size={17} />
+              ) : (
+                <X size={17} />
+              )}
+
+              <span>{message.text}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setMessage(null)}
+              className="rounded-lg p-1 transition hover:bg-black/5"
+              aria-label="Dismiss message"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        )}
+
         <div className="grid gap-5 lg:grid-cols-2">
           {/* Profile */}
           <section className="rounded-2xl border bg-card p-5 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
-                <User size={19} />
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
+                  <User size={19} />
+                </div>
+
+                <div>
+                  <h2 className="font-semibold">
+                    Profile
+                  </h2>
+
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Your account identity inside TechUnified.
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <h2 className="font-semibold">
-                  Profile
-                </h2>
-
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Your account identity inside TechUnified.
-                </p>
-              </div>
+              {!isEditingProfile && (
+                <button
+                  type="button"
+                  onClick={startEditingProfile}
+                  className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <Edit3 size={15} />
+                  Edit
+                </button>
+              )}
             </div>
 
-            <div className="mt-6 flex items-center gap-4">
-              <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent text-lg font-semibold text-[#182016]">
-                {avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={avatarUrl}
-                    alt=""
-                    className="size-full object-cover"
+            {!isEditingProfile ? (
+              <div className="mt-6 flex items-center gap-4">
+                <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent text-lg font-semibold text-[#182016]">
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={avatarUrl}
+                      alt=""
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    initials
+                  )}
+                </div>
+
+                <div className="min-w-0">
+                  <p className="truncate font-medium">
+                    {fullName}
+                  </p>
+
+                  <p className="mt-1 truncate text-sm text-muted-foreground">
+                    {email}
+                  </p>
+
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {role}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 space-y-5">
+                <div className="flex items-center gap-4">
+                  <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent text-lg font-semibold text-[#182016]">
+                    {previewAvatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={previewAvatarUrl}
+                        alt=""
+                        className="size-full object-cover"
+                      />
+                    ) : (
+                      initials
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="font-medium">
+                      {previewName}
+                    </p>
+
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {email}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="full-name"
+                    className="text-sm font-medium"
+                  >
+                    Full name
+                  </label>
+
+                  <input
+                    id="full-name"
+                    type="text"
+                    value={fullNameInput}
+                    onChange={(event) =>
+                      setFullNameInput(event.target.value)
+                    }
+                    placeholder="Your full name"
+                    maxLength={120}
+                    className="mt-2 flex h-11 w-full rounded-xl border bg-background px-3.5 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
-                ) : (
-                  initials
-                )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="avatar-url"
+                    className="text-sm font-medium"
+                  >
+                    Avatar URL
+                  </label>
+
+                  <input
+                    id="avatar-url"
+                    type="url"
+                    value={avatarUrlInput}
+                    onChange={(event) =>
+                      setAvatarUrlInput(event.target.value)
+                    }
+                    placeholder="https://example.com/avatar.jpg"
+                    maxLength={1000}
+                    className="mt-2 flex h-11 w-full rounded-xl border bg-background px-3.5 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Optional. Use a publicly accessible image URL.
+                  </p>
+                </div>
+
+                <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={cancelEditingProfile}
+                    disabled={savingProfile}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <X size={16} />
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveProfile}
+                    disabled={savingProfile}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Save size={16} />
+                    {savingProfile
+                      ? "Saving..."
+                      : "Save changes"}
+                  </button>
+                </div>
               </div>
-
-              <div className="min-w-0">
-                <p className="truncate font-medium">
-                  {fullName}
-                </p>
-
-                <p className="mt-1 truncate text-sm text-muted-foreground">
-                  {email}
-                </p>
-
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {role}
-                </p>
-              </div>
-            </div>
+            )}
           </section>
 
           {/* Workspace */}
