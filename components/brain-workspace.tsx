@@ -97,7 +97,7 @@ function formatFileSize(value: unknown) {
 function CitationCard({
   citation,
 }: {
-  citation: NonNullable<BrainAnswer["citations"]>[number];
+  citation: BrainAnswer["citations"][number];
 }) {
   return (
     <div className="rounded-xl border border-border/70 bg-background p-4">
@@ -231,10 +231,7 @@ export function BrainWorkspace() {
       content: trimmedQuestion,
     };
 
-    setMessages((current) => [
-      ...current,
-      userMessage,
-    ]);
+    setMessages((current) => [...current, userMessage]);
 
     try {
       const response = await fetch("/api/brain/query", {
@@ -333,8 +330,8 @@ export function BrainWorkspace() {
     (document) => document.status === "Processing",
   ).length;
 
-  const citations =
-    answer && answer.citations ? answer.citations : [];
+  const currentCitations = answer?.citations ?? [];
+  const hasCitations = currentCitations.length > 0;
 
   return (
     <div className="min-h-[calc(100vh-2rem)] bg-background">
@@ -363,9 +360,9 @@ export function BrainWorkspace() {
               </h1>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Ask questions about your company and get
-                answers grounded in the organization&apos;s
-                indexed knowledge.
+                Ask questions about your company and get answers
+                grounded in the organization&apos;s indexed
+                knowledge.
               </p>
             </div>
 
@@ -521,43 +518,41 @@ export function BrainWorkspace() {
               )}
             </div>
 
-            {answer &&
-              answer.citations &&
-              answer.citations.length > 0 && (
-                <div className="border-t border-border/70">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowSources((current) => !current)
-                    }
-                    className="flex w-full items-center justify-between px-5 py-3 text-left transition hover:bg-muted/40"
-                  >
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                      Sources · {citations.length}
-                    </span>
+            {hasCitations && (
+              <div className="border-t border-border/70">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowSources((current) => !current)
+                  }
+                  className="flex w-full items-center justify-between px-5 py-3 text-left transition hover:bg-muted/40"
+                >
+                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Sources · {currentCitations.length}
+                  </span>
 
-                    <ChevronDown
-                      size={16}
-                      className={`text-muted-foreground transition-transform ${
-                        showSources ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
+                  <ChevronDown
+                    size={16}
+                    className={`text-muted-foreground transition-transform ${
+                      showSources ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
 
-                  {showSources && (
-                    <div className="grid gap-3 px-5 pb-5 md:grid-cols-2">
-                      {citations.map((citation, index) => (
-                        <CitationCard
-                          key={`${citation.documentId}-${index}`}
-                          citation={citation}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                {showSources && (
+                  <div className="grid gap-3 px-5 pb-5 md:grid-cols-2">
+                    {currentCitations.map((citation, index) => (
+                      <CitationCard
+                        key={`${citation.documentId}-${index}`}
+                        citation={citation}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-            {answer && answer.demo && (
+            {answer?.demo && (
               <div className="border-t border-border/70 px-5 py-3">
                 <p className="text-xs text-muted-foreground">
                   No indexed source was available for this
@@ -642,127 +637,117 @@ export function BrainWorkspace() {
               </button>
             </div>
 
-            <div className="p-5">
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-4 text-sm font-medium text-foreground transition hover:border-primary/50 hover:bg-primary/5">
-                <input
-                  ref={fileInputRef}
-                  className="sr-only"
-                  type="file"
-                  accept=".pdf,.docx,.txt,.csv,.xlsx"
-                  disabled={uploading}
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
+            <div className="p-4">
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
 
-                    if (file) {
-                      void upload(file);
-                    }
-                  }}
-                />
+                  if (file) {
+                    void upload(file);
+                  }
+                }}
+              />
 
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-sm font-medium text-primary transition hover:bg-primary/10 disabled:cursor-wait disabled:opacity-60"
+              >
                 {uploading ? (
-                  <>
-                    <Loader2
-                      size={16}
-                      className="animate-spin"
-                    />
-                    Preparing document…
-                  </>
+                  <Loader2
+                    size={16}
+                    className="animate-spin"
+                  />
                 ) : (
-                  <>
-                    <Upload size={16} />
-                    Upload knowledge
-                  </>
+                  <Upload size={16} />
                 )}
-              </label>
 
-              <p className="mt-2 text-center text-[11px] text-muted-foreground">
-                PDF · DOCX · TXT · CSV · XLSX
-              </p>
+                {uploading
+                  ? "Uploading…"
+                  : "Upload knowledge document"}
+              </button>
 
-              <div className="mt-6">
+              <div className="mt-4 space-y-2">
                 {loadingDocuments ? (
-                  <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-                    <Loader2
-                      size={16}
-                      className="mr-2 animate-spin"
-                    />
-                    Loading sources…
+                  <div className="rounded-xl border border-border/60 p-4">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2
+                        size={14}
+                        className="animate-spin"
+                      />
+                      Loading knowledge sources…
+                    </div>
                   </div>
-                ) : documents.length ? (
-                  <div className="space-y-2">
-                    {documents.map((document) => {
-                      const metadata = document.metadata ?? {};
-
-                      return (
-                        <div
-                          key={document.id}
-                          className="rounded-xl border border-border/60 p-3.5 transition hover:bg-muted/30"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                              <FileText size={16} />
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                              <p
-                                className="truncate text-sm font-medium text-foreground"
-                                title={document.name}
-                              >
-                                {document.name}
-                              </p>
-
-                              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-                                <span>
-                                  {formatFileType(
-                                    document.file_type,
-                                  )}
-                                </span>
-
-                                {formatFileSize(
-                                  metadata.size,
-                                ) && (
-                                  <>
-                                    <span>·</span>
-                                    <span>
-                                      {formatFileSize(
-                                        metadata.size,
-                                      )}
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-
-                              <div className="mt-2 flex items-center gap-1.5 text-[11px]">
-                                {statusIcon(document.status)}
-
-                                <span>
-                                  {statusLabel(
-                                    document.status,
-                                  )}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-dashed border-border p-5 text-center">
+                ) : documents.length === 0 ? (
+                  <div className="rounded-xl border border-border/60 p-4 text-center">
                     <FileText
                       size={22}
                       className="mx-auto text-muted-foreground"
                     />
 
-                    <p className="mt-3 text-sm font-medium text-foreground">
-                      No knowledge documents
+                    <p className="mt-2 text-sm font-medium text-foreground">
+                      No knowledge documents yet
                     </p>
 
                     <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                      Upload company documents to start
-                      building organizational context.
+                      Upload company material to give Company
+                      Brain grounded organizational context.
                     </p>
                   </div>
+                ) : (
+                  documents.map((document) => (
+                    <div
+                      key={document.id}
+                      className="rounded-xl border border-border/60 p-3"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                          <FileText size={15} />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-foreground">
+                            {document.name}
+                          </p>
+
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                            <span>
+                              {formatFileType(
+                                document.file_type,
+                              )}
+                            </span>
+
+                            {formatFileSize(
+                              document.metadata?.size,
+                            ) && (
+                              <>
+                                <span>·</span>
+
+                                <span>
+                                  {formatFileSize(
+                                    document.metadata?.size,
+                                  )}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        {statusIcon(document.status)}
+
+                        <span>
+                          {statusLabel(document.status)}
+                        </span>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
             </div>
