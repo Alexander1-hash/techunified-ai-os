@@ -48,6 +48,21 @@ const STEP_TYPES = [
   { value: "update_workflow_status", label: "Update Workflow Status" },
 ]
 
+const inputClass =
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-950 placeholder:text-slate-400 shadow-sm outline-none focus:border-slate-600 focus:ring-2 focus:ring-slate-200"
+
+const largeInputClass =
+  "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-950 placeholder:text-slate-400 shadow-sm outline-none focus:border-slate-600 focus:ring-2 focus:ring-slate-200"
+
+const codeInputClass =
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 font-mono text-xs text-slate-950 placeholder:text-slate-400 shadow-sm outline-none focus:border-slate-600 focus:ring-2 focus:ring-slate-200"
+
+const labelClass =
+  "mb-2 block text-sm font-semibold text-slate-800"
+
+const smallLabelClass =
+  "mb-2 block text-xs font-semibold text-slate-800"
+
 function getConfigValue(
   config: Record<string, unknown>,
   key: string
@@ -345,7 +360,7 @@ export default function WorkflowEditorPage() {
         return (
           <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4">
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 Supabase Table
               </label>
 
@@ -359,12 +374,12 @@ export default function WorkflowEditorPage() {
                   )
                 }
                 placeholder="e.g. customers"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 Record JSON
               </label>
 
@@ -382,7 +397,7 @@ export default function WorkflowEditorPage() {
   "name": "Example",
   "status": "new"
 }`}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 font-mono text-xs outline-none focus:border-slate-500"
+                className={codeInputClass}
               />
             </div>
           </div>
@@ -392,7 +407,7 @@ export default function WorkflowEditorPage() {
         return (
           <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4">
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 Supabase Table
               </label>
 
@@ -406,12 +421,12 @@ export default function WorkflowEditorPage() {
                   )
                 }
                 placeholder="e.g. customers"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 Record ID
               </label>
 
@@ -425,12 +440,12 @@ export default function WorkflowEditorPage() {
                   )
                 }
                 placeholder="UUID of the record"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 Updated Record JSON
               </label>
 
@@ -447,7 +462,7 @@ export default function WorkflowEditorPage() {
                 placeholder={`{
   "status": "completed"
 }`}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 font-mono text-xs outline-none focus:border-slate-500"
+                className={codeInputClass}
               />
             </div>
           </div>
@@ -457,7 +472,7 @@ export default function WorkflowEditorPage() {
         return (
           <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4">
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 Task Title
               </label>
 
@@ -471,12 +486,12 @@ export default function WorkflowEditorPage() {
                   )
                 }
                 placeholder="Follow up with customer"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 Description
               </label>
 
@@ -494,12 +509,12 @@ export default function WorkflowEditorPage() {
                   )
                 }
                 placeholder="Describe what needs to be done."
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 Priority
               </label>
 
@@ -517,7 +532,7 @@ export default function WorkflowEditorPage() {
                     event.target.value
                   )
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                className={inputClass}
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -526,7 +541,7 @@ export default function WorkflowEditorPage() {
               </select>
             </div>
 
-            <p className="text-xs text-amber-700">
+            <p className="text-xs font-medium text-amber-700">
               Task creation will be connected to the native
               TechUnified task system.
             </p>
@@ -537,7 +552,7 @@ export default function WorkflowEditorPage() {
         return (
           <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4">
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 Recipient
               </label>
 
@@ -554,12 +569,12 @@ export default function WorkflowEditorPage() {
                   )
                 }
                 placeholder="Email, user ID, or notification target"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 Title
               </label>
 
@@ -573,18 +588,21 @@ export default function WorkflowEditorPage() {
                   )
                 }
                 placeholder="Automation notification"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 Message
               </label>
 
               <textarea
                 rows={4}
-                value={getConfigValue(step.config, "message")}
+                value={getConfigValue(
+                  step.config,
+                  "message"
+                )}
                 onChange={(event) =>
                   updateStepConfig(
                     step.id,
@@ -593,11 +611,11 @@ export default function WorkflowEditorPage() {
                   )
                 }
                 placeholder="Your workflow has completed."
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                className={inputClass}
               />
             </div>
 
-            <p className="text-xs text-amber-700">
+            <p className="text-xs font-medium text-amber-700">
               Notification delivery will use the connected
               TechUnified notification providers.
             </p>
@@ -608,7 +626,7 @@ export default function WorkflowEditorPage() {
         return (
           <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4">
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 Analysis Prompt
               </label>
 
@@ -623,12 +641,12 @@ export default function WorkflowEditorPage() {
                   )
                 }
                 placeholder="Analyze the workflow input and identify important insights, risks, and recommended actions."
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 Model
               </label>
 
@@ -642,11 +660,11 @@ export default function WorkflowEditorPage() {
                   )
                 }
                 placeholder="gpt-5.6-luna"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                className={inputClass}
               />
             </div>
 
-            <p className="text-xs text-slate-500">
+            <p className="text-xs font-medium text-slate-600">
               The native TechUnified AI service will receive
               the workflow input together with this prompt.
             </p>
@@ -657,7 +675,7 @@ export default function WorkflowEditorPage() {
         return (
           <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4">
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 Content Prompt
               </label>
 
@@ -672,13 +690,13 @@ export default function WorkflowEditorPage() {
                   )
                 }
                 placeholder="Create a professional customer follow-up message using the workflow input."
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                className={inputClass}
               />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-2 block text-xs font-medium text-slate-600">
+                <label className={smallLabelClass}>
                   Model
                 </label>
 
@@ -695,12 +713,12 @@ export default function WorkflowEditorPage() {
                     )
                   }
                   placeholder="gpt-5.6-luna"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                  className={inputClass}
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-xs font-medium text-slate-600">
+                <label className={smallLabelClass}>
                   Output Format
                 </label>
 
@@ -718,7 +736,7 @@ export default function WorkflowEditorPage() {
                       event.target.value
                     )
                   }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                  className={inputClass}
                 >
                   <option value="text">Text</option>
                   <option value="email">Email</option>
@@ -737,7 +755,7 @@ export default function WorkflowEditorPage() {
         return (
           <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4">
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 Webhook URL
               </label>
 
@@ -751,18 +769,19 @@ export default function WorkflowEditorPage() {
                   )
                 }
                 placeholder="https://example.com/webhook"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 HTTP Method
               </label>
 
               <select
                 value={
-                  getConfigValue(step.config, "method") || "POST"
+                  getConfigValue(step.config, "method") ||
+                  "POST"
                 }
                 onChange={(event) =>
                   updateStepConfig(
@@ -771,7 +790,7 @@ export default function WorkflowEditorPage() {
                     event.target.value
                   )
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+                className={inputClass}
               >
                 <option value="POST">POST</option>
                 <option value="GET">GET</option>
@@ -782,7 +801,7 @@ export default function WorkflowEditorPage() {
             </div>
 
             <div>
-              <label className="mb-2 block text-xs font-medium text-slate-600">
+              <label className={smallLabelClass}>
                 Headers JSON
               </label>
 
@@ -799,7 +818,7 @@ export default function WorkflowEditorPage() {
                 placeholder={`{
   "Authorization": "Bearer YOUR_TOKEN"
 }`}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 font-mono text-xs outline-none focus:border-slate-500"
+                className={codeInputClass}
               />
             </div>
           </div>
@@ -808,13 +827,16 @@ export default function WorkflowEditorPage() {
       case "update_workflow_status":
         return (
           <div className="mt-4 border-t border-slate-200 pt-4">
-            <label className="mb-2 block text-xs font-medium text-slate-600">
+            <label className={smallLabelClass}>
               New Workflow Status
             </label>
 
             <select
               value={
-                getConfigValue(step.config, "status") || "active"
+                getConfigValue(
+                  step.config,
+                  "status"
+                ) || "active"
               }
               onChange={(event) =>
                 updateStepConfig(
@@ -823,7 +845,7 @@ export default function WorkflowEditorPage() {
                   event.target.value
                 )
               }
-              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500"
+              className={inputClass}
             >
               <option value="draft">Draft</option>
               <option value="active">Active</option>
@@ -836,10 +858,16 @@ export default function WorkflowEditorPage() {
       default:
         return (
           <div className="mt-4 border-t border-slate-200 pt-4">
-            <p className="text-xs text-slate-500">
-              This step passes the current workflow data through
-              without changing it.
-            </p>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-sm font-medium text-slate-700">
+                Pass Through
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-slate-600">
+                This step passes the current workflow data
+                through without changing it.
+              </p>
+            </div>
           </div>
         )
     }
@@ -849,8 +877,8 @@ export default function WorkflowEditorPage() {
     return (
       <main className="min-h-screen bg-slate-50 p-6">
         <div className="mx-auto max-w-5xl">
-          <div className="rounded-2xl border border-slate-200 bg-white p-8">
-            <p className="text-sm text-slate-500">
+          <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+            <p className="text-sm font-medium text-slate-700">
               Loading workflow...
             </p>
           </div>
@@ -865,19 +893,20 @@ export default function WorkflowEditorPage() {
         <div className="mx-auto max-w-5xl">
           <Link
             href="/workflows"
-            className="mb-6 inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-950"
+            className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-slate-950"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Workflows
           </Link>
 
-          <div className="rounded-2xl border border-red-200 bg-white p-8">
+          <div className="rounded-2xl border border-red-200 bg-white p-8 shadow-sm">
             <h1 className="text-lg font-semibold text-slate-950">
               Workflow unavailable
             </h1>
 
-            <p className="mt-2 text-sm text-red-600">
-              {message || "This workflow could not be loaded."}
+            <p className="mt-2 text-sm font-medium text-red-600">
+              {message ||
+                "This workflow could not be loaded."}
             </p>
           </div>
         </div>
@@ -894,14 +923,14 @@ export default function WorkflowEditorPage() {
           <div>
             <Link
               href="/workflows"
-              className="mb-3 inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-950"
+              className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-slate-950"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to Workflows
             </Link>
 
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm">
                 <Zap className="h-5 w-5" />
               </div>
 
@@ -910,7 +939,7 @@ export default function WorkflowEditorPage() {
                   Workflow Editor
                 </h1>
 
-                <p className="text-sm text-slate-500">
+                <p className="text-sm font-medium text-slate-600">
                   TechUnified Automation Engine
                 </p>
               </div>
@@ -922,7 +951,7 @@ export default function WorkflowEditorPage() {
               type="button"
               onClick={runWorkflow}
               disabled={running || saving}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Play className="h-4 w-4" />
               {running ? "Running..." : "Test Run"}
@@ -932,7 +961,7 @@ export default function WorkflowEditorPage() {
               type="button"
               onClick={saveWorkflow}
               disabled={saving}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Save className="h-4 w-4" />
               {saving ? "Saving..." : "Save"}
@@ -941,10 +970,12 @@ export default function WorkflowEditorPage() {
             <button
               type="button"
               onClick={() =>
-                void updateStatus(isActive ? "draft" : "active")
+                void updateStatus(
+                  isActive ? "draft" : "active"
+                )
               }
               disabled={saving}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Check className="h-4 w-4" />
               {isActive ? "Deactivate" : "Activate"}
@@ -953,29 +984,29 @@ export default function WorkflowEditorPage() {
         </div>
 
         {message && (
-          <div className="mb-6 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+          <div className="mb-6 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-800 shadow-sm">
             {message}
           </div>
         )}
 
         <div className="grid gap-6">
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-5 flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-slate-950">
                   Workflow Details
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm font-medium text-slate-600">
                   Define what this automation does.
                 </p>
               </div>
 
               <span
-                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
                   isActive
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-slate-100 text-slate-600"
+                    ? "bg-emerald-50 text-emerald-800"
+                    : "bg-slate-100 text-slate-700"
                 }`}
               >
                 {workflow.status}
@@ -984,7 +1015,7 @@ export default function WorkflowEditorPage() {
 
             <div className="grid gap-5">
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className={labelClass}>
                   Name
                 </label>
 
@@ -994,12 +1025,12 @@ export default function WorkflowEditorPage() {
                     setName(event.target.value)
                   }
                   placeholder="Customer follow-up automation"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-500"
+                  className={largeInputClass}
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className={labelClass}>
                   Description
                 </label>
 
@@ -1010,26 +1041,26 @@ export default function WorkflowEditorPage() {
                     setDescription(event.target.value)
                   }
                   placeholder="Describe what this workflow should accomplish."
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-500"
+                  className={largeInputClass}
                 />
               </div>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-5">
               <h2 className="font-semibold text-slate-950">
                 Trigger
               </h2>
 
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm font-medium text-slate-600">
                 Choose how this workflow starts.
               </p>
             </div>
 
             <div className="grid gap-5">
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label className={labelClass}>
                   Trigger Type
                 </label>
 
@@ -1039,20 +1070,24 @@ export default function WorkflowEditorPage() {
                     setTriggerType(event.target.value)
                     setTriggerConfig({})
                   }}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-500"
+                  className={largeInputClass}
                 >
                   <option value="manual">Manual</option>
                   <option value="webhook_received">
                     Webhook
                   </option>
-                  <option value="schedule">Schedule</option>
-                  <option value="event">Event</option>
+                  <option value="schedule">
+                    Schedule
+                  </option>
+                  <option value="event">
+                    Event
+                  </option>
                 </select>
               </div>
 
               {triggerType === "webhook_received" && (
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                  <label className={labelClass}>
                     Webhook Secret
                   </label>
 
@@ -1069,10 +1104,10 @@ export default function WorkflowEditorPage() {
                       )
                     }
                     placeholder="Create a secret for this webhook"
-                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-500"
+                    className={largeInputClass}
                   />
 
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className="mt-2 text-xs font-medium text-slate-600">
                     This secret will be used to secure the native
                     TechUnified webhook endpoint.
                   </p>
@@ -1081,7 +1116,7 @@ export default function WorkflowEditorPage() {
 
               {triggerType === "schedule" && (
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                  <label className={labelClass}>
                     Cron Schedule
                   </label>
 
@@ -1097,10 +1132,10 @@ export default function WorkflowEditorPage() {
                       )
                     }
                     placeholder="0 9 * * *"
-                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-500"
+                    className={largeInputClass}
                   />
 
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className="mt-2 text-xs font-medium text-slate-600">
                     Example: 0 9 * * * runs daily at 9:00.
                   </p>
                 </div>
@@ -1108,7 +1143,7 @@ export default function WorkflowEditorPage() {
 
               {triggerType === "event" && (
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                  <label className={labelClass}>
                     Event Name
                   </label>
 
@@ -1124,28 +1159,30 @@ export default function WorkflowEditorPage() {
                       )
                     }
                     placeholder="customer.created"
-                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-500"
+                    className={largeInputClass}
                   />
                 </div>
               )}
 
               {triggerType === "manual" && (
-                <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
-                  This workflow can be started manually from
-                  the Automations page or with Test Run.
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm font-medium leading-6 text-slate-700">
+                    This workflow can be started manually from
+                    the Automations page or with Test Run.
+                  </p>
                 </div>
               )}
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="font-semibold text-slate-950">
                   Actions
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm font-medium text-slate-600">
                   Add the operations the automation should perform.
                 </p>
               </div>
@@ -1153,7 +1190,7 @@ export default function WorkflowEditorPage() {
               <button
                 type="button"
                 onClick={addStep}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
               >
                 <Plus className="h-4 w-4" />
                 Add Action
@@ -1161,21 +1198,22 @@ export default function WorkflowEditorPage() {
             </div>
 
             {steps.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center">
-                <Zap className="mx-auto h-7 w-7 text-slate-400" />
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                <Zap className="mx-auto h-7 w-7 text-slate-500" />
 
-                <p className="mt-3 text-sm font-medium text-slate-700">
+                <p className="mt-3 text-sm font-semibold text-slate-800">
                   No actions yet
                 </p>
 
-                <p className="mt-1 text-sm text-slate-500">
-                  Add an action to define what this workflow should do.
+                <p className="mt-1 text-sm font-medium text-slate-600">
+                  Add an action to define what this workflow
+                  should do.
                 </p>
 
                 <button
                   type="button"
                   onClick={addStep}
-                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
                 >
                   <Plus className="h-4 w-4" />
                   Add First Action
@@ -1186,10 +1224,10 @@ export default function WorkflowEditorPage() {
                 {steps.map((step, index) => (
                   <div
                     key={step.id}
-                    className="rounded-xl border border-slate-200 p-4 sm:p-5"
+                    className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
                   >
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-semibold text-slate-700">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-800">
                         {index + 1}
                       </div>
 
@@ -1203,7 +1241,7 @@ export default function WorkflowEditorPage() {
                                 event.target.value
                               )
                             }
-                            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-500 sm:max-w-md"
+                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-950 shadow-sm outline-none focus:border-slate-600 focus:ring-2 focus:ring-slate-200 sm:max-w-md"
                           >
                             {STEP_TYPES.map((type) => (
                               <option
@@ -1220,7 +1258,7 @@ export default function WorkflowEditorPage() {
                             onClick={() =>
                               removeStep(step.id)
                             }
-                            className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 sm:ml-auto"
+                            className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50 sm:ml-auto"
                           >
                             <Trash2 className="h-4 w-4" />
                             Remove
@@ -1236,14 +1274,14 @@ export default function WorkflowEditorPage() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="font-semibold text-slate-950">
                   Automation Engine
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm font-medium text-slate-600">
                   This workflow runs through the native TechUnified
                   Automation Engine.
                 </p>
@@ -1251,7 +1289,7 @@ export default function WorkflowEditorPage() {
 
               <Link
                 href="/automations"
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
               >
                 View Automations
               </Link>
