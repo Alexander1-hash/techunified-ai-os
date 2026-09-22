@@ -245,14 +245,14 @@ export function AppShell({
   return (
     <div className="min-h-screen overflow-x-hidden bg-background">
       <aside
-        className={`fixed inset-y-0 left-0 z-30 hidden border-r bg-[#09151e] transition-[width] lg:flex lg:flex-col ${
+        className={`fixed inset-y-0 left-0 z-30 hidden border-r border-white/10 bg-[#09151e] transition-[width] lg:flex lg:flex-col ${
           sidebarCollapsed
             ? "w-20"
             : "w-64"
         }`}
       >
         <div
-          className={`flex h-20 items-center border-b ${
+          className={`flex h-20 items-center border-b border-white/10 ${
             sidebarCollapsed
               ? "justify-center px-3"
               : "px-6"
@@ -265,7 +265,7 @@ export function AppShell({
 
         {navigation}
 
-        <div className="border-t p-3">
+        <div className="border-t border-white/10 p-3">
           <button
             type="button"
             onClick={() =>
@@ -273,7 +273,7 @@ export function AppShell({
                 (collapsed) => !collapsed,
               )
             }
-            className={`flex min-h-11 w-full items-center rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground ${
+            className={`flex min-h-11 w-full items-center rounded-lg px-3 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white ${
               sidebarCollapsed
                 ? "justify-center"
                 : "gap-3"
@@ -290,10 +290,10 @@ export function AppShell({
             }
           >
             {sidebarCollapsed ? (
-              <ChevronsRight />
+              <ChevronsRight size={18} />
             ) : (
               <>
-                <ChevronsLeft />
+                <ChevronsLeft size={18} />
                 <span>
                   Collapse sidebar
                 </span>
@@ -308,6 +308,7 @@ export function AppShell({
           organization={organization}
           role={role}
           onSignOut={signOut}
+          collapsed={sidebarCollapsed}
         />
       </aside>
 
@@ -483,13 +484,13 @@ export function AppShell({
             }
           />
 
-          <aside className="relative flex h-full w-72 max-w-[85vw] flex-col border-r bg-[#09151e] shadow-xl">
-            <div className="flex h-20 items-center justify-between border-b px-6">
+          <aside className="relative flex h-full w-72 max-w-[85vw] flex-col border-r border-white/10 bg-[#09151e] shadow-xl">
+            <div className="flex h-20 items-center justify-between border-b border-white/10 px-6">
               <TechUnifiedBrand />
 
               <button
                 type="button"
-                className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white"
                 aria-label="Close navigation menu"
                 onClick={() =>
                   setMobileOpen(false)
@@ -507,6 +508,7 @@ export function AppShell({
               organization={organization}
               role={role}
               onSignOut={signOut}
+              collapsed={false}
             />
           </aside>
         </div>
@@ -533,6 +535,7 @@ function WorkspaceFooter({
   organization,
   role,
   onSignOut,
+  collapsed,
 }: {
   profile: Record<string, unknown> | null;
   user: {
@@ -545,6 +548,7 @@ function WorkspaceFooter({
   organization: Record<string, unknown> | null;
   role: string;
   onSignOut: () => Promise<void>;
+  collapsed: boolean;
 }) {
   const [workspaceOpen, setWorkspaceOpen] =
     useState(false);
@@ -654,11 +658,66 @@ function WorkspaceFooter({
     }
   }
 
+  if (collapsed) {
+    return (
+      <div className="border-t border-white/10 p-3">
+        <div
+          ref={workspaceRef}
+          className="relative flex justify-center"
+        >
+          <button
+            type="button"
+            onClick={() =>
+              setWorkspaceOpen(
+                (open) => !open,
+              )
+            }
+            className="flex size-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label="Open workspace and account menu"
+            aria-expanded={workspaceOpen}
+            aria-controls="workspace-popover"
+            title={`${displayName} · ${organizationName}`}
+          >
+            <div className="flex size-8 items-center justify-center overflow-hidden rounded-full bg-accent text-xs font-bold text-[#182016]">
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  className="size-full object-cover"
+                />
+              ) : (
+                initials
+              )}
+            </div>
+          </button>
+
+          {workspaceOpen && (
+            <WorkspacePopover
+              id="workspace-popover"
+              displayName={displayName}
+              organizationName={organizationName}
+              displayRole={displayRole}
+              plan={plan}
+              isSigningOut={isSigningOut}
+              signOutError={signOutError}
+              onSignOut={handleSignOut}
+              onClose={() =>
+                setWorkspaceOpen(false)
+              }
+              collapsed
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="border-t p-4">
+    <div className="border-t border-white/10 p-3">
       <div
         ref={workspaceRef}
-        className="relative mb-3"
+        className="relative"
       >
         <button
           type="button"
@@ -667,149 +726,184 @@ function WorkspaceFooter({
               (open) => !open,
             )
           }
-          className="w-full rounded-lg bg-muted/60 p-3 text-left transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className={`flex min-h-14 w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            workspaceOpen
+              ? "border-white/20 bg-white/10"
+              : "border-white/10 bg-white/5 hover:bg-white/10"
+          }`}
           aria-expanded={workspaceOpen}
           aria-controls="workspace-popover"
         >
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-xs text-muted-foreground">
-                Workspace
-              </div>
+          <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent text-xs font-bold text-[#182016]">
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatarUrl}
+                alt=""
+                className="size-full object-cover"
+              />
+            ) : (
+              initials
+            )}
+          </div>
 
-              <div className="mt-1 truncate text-sm font-medium">
-                {organizationName}
-              </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+              Workspace
             </div>
 
-            <ChevronDown
-              size={15}
-              className={`shrink-0 transition-transform duration-200 ${
-                workspaceOpen
-                  ? "rotate-180"
-                  : ""
-              }`}
-              aria-hidden="true"
-            />
+            <div className="mt-0.5 truncate text-sm font-semibold text-white">
+              {organizationName}
+            </div>
+
+            <div className="mt-0.5 truncate text-xs text-slate-400">
+              {displayName} · {displayRole}
+            </div>
           </div>
 
-          <div className="mt-2 text-xs text-primary">
-            {plan}
-          </div>
+          <ChevronDown
+            size={17}
+            className={`shrink-0 text-slate-300 transition-transform duration-200 ${
+              workspaceOpen
+                ? "rotate-180"
+                : ""
+            }`}
+            aria-hidden="true"
+          />
         </button>
 
         {workspaceOpen && (
-          <div
+          <WorkspacePopover
             id="workspace-popover"
-            className="absolute bottom-full left-0 right-0 z-50 mb-2 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-2xl"
-          >
-            <div className="border-b px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                Current workspace
-              </p>
-
-              <p className="mt-1 truncate text-sm font-semibold">
-                {organizationName}
-              </p>
-
-              <p className="mt-1 text-xs text-muted-foreground">
-                {plan} plan
-              </p>
-            </div>
-
-            <div className="space-y-1 p-2">
-              <div className="rounded-lg px-3 py-2.5">
-                <p className="text-xs text-muted-foreground">
-                  Account
-                </p>
-
-                <p className="mt-1 truncate text-sm font-medium">
-                  {displayName}
-                </p>
-
-                <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                  {displayRole} · {organizationName}
-                </p>
-              </div>
-
-              <Link
-                href="/settings"
-                onClick={() =>
-                  setWorkspaceOpen(false)
-                }
-                className="flex min-h-10 items-center justify-between rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              >
-                <span>
-                  Workspace settings
-                </span>
-
-                <ArrowRight size={15} />
-              </Link>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setWorkspaceOpen(false)
-                }
-                className="flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              >
-                Close
-              </button>
-            </div>
-          </div>
+            displayName={displayName}
+            organizationName={organizationName}
+            displayRole={displayRole}
+            plan={plan}
+            isSigningOut={isSigningOut}
+            signOutError={signOutError}
+            onSignOut={handleSignOut}
+            onClose={() =>
+              setWorkspaceOpen(false)
+            }
+            collapsed={false}
+          />
         )}
       </div>
+    </div>
+  );
+}
 
-      <div className="flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center overflow-hidden rounded-full bg-accent font-semibold text-[#182016]">
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={avatarUrl}
-              alt=""
-              className="size-full object-cover"
-            />
-          ) : (
-            initials
-          )}
+function WorkspacePopover({
+  id,
+  displayName,
+  organizationName,
+  displayRole,
+  plan,
+  isSigningOut,
+  signOutError,
+  onSignOut,
+  onClose,
+  collapsed,
+}: {
+  id: string;
+  displayName: string;
+  organizationName: string;
+  displayRole: string;
+  plan: string;
+  isSigningOut: boolean;
+  signOutError: string;
+  onSignOut: () => Promise<void>;
+  onClose: () => void;
+  collapsed: boolean;
+}) {
+  return (
+    <div
+      id={id}
+      className={`absolute z-[60] overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-2xl ${
+        collapsed
+          ? "bottom-0 left-full ml-3 w-72"
+          : "bottom-full left-0 right-0 mb-2"
+      }`}
+    >
+      <div className="border-b px-4 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Workspace
+            </p>
+
+            <p className="mt-1 truncate text-sm font-semibold">
+              {organizationName}
+            </p>
+
+            <p className="mt-1 text-xs text-muted-foreground">
+              {plan} plan
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Close workspace menu"
+            title="Close"
+          >
+            <X size={15} />
+          </button>
         </div>
+      </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">
+      <div className="space-y-1 p-2">
+        <div className="rounded-lg bg-muted/50 px-3 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Account
+          </p>
+
+          <p className="mt-1 truncate text-sm font-semibold">
             {displayName}
-          </div>
+          </p>
 
-          <div className="truncate text-xs text-muted-foreground">
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
             {displayRole} · {organizationName}
-          </div>
+          </p>
         </div>
+
+        <Link
+          href="/settings"
+          onClick={onClose}
+          className="flex min-h-11 items-center justify-between rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        >
+          <span>
+            Workspace settings
+          </span>
+
+          <ArrowRight size={15} />
+        </Link>
 
         <button
           type="button"
-          onClick={handleSignOut}
+          onClick={onSignOut}
           disabled={isSigningOut}
-          className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait disabled:opacity-60"
-          aria-label="Log out"
-          title="Log out"
+          className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait disabled:opacity-60"
         >
           <LogOut size={16} />
 
-          <span className="hidden sm:inline">
+          <span>
             {isSigningOut
               ? "Logging out…"
               : "Log out"}
           </span>
         </button>
-      </div>
 
-      {signOutError && (
-        <p
-          className="mt-2 text-xs text-destructive"
-          role="alert"
-        >
-          {signOutError}
-        </p>
-      )}
+        {signOutError && (
+          <p
+            className="px-3 py-1 text-xs text-destructive"
+            role="alert"
+          >
+            {signOutError}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
