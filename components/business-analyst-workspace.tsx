@@ -725,7 +725,7 @@ export function BusinessAnalystWorkspace({
                     {data.recommendations.map(
                       (recommendation) => (
                         <div
-                          key={`${recommendation.title}-${recommendation.category}`}
+                          key={`${recommendation.title}-${recommendation.problem}`}
                           className="rounded-xl border border-border/60 p-4"
                         >
                           <p className="font-medium text-foreground">
