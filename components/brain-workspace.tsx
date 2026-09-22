@@ -58,10 +58,13 @@ function formatFileType(fileType: string) {
   }
 
   if (fileType.includes("pdf")) return "PDF";
+
   if (fileType.includes("word") || fileType.includes("docx")) {
     return "DOCX";
   }
+
   if (fileType.includes("csv")) return "CSV";
+
   if (
     fileType.includes("sheet") ||
     fileType.includes("excel") ||
@@ -69,6 +72,7 @@ function formatFileType(fileType: string) {
   ) {
     return "XLSX";
   }
+
   if (fileType.includes("text")) return "TXT";
 
   return fileType.split("/").pop()?.toUpperCase() || "FILE";
@@ -329,6 +333,9 @@ export function BrainWorkspace() {
     (document) => document.status === "Processing",
   ).length;
 
+  const citations =
+    answer && answer.citations ? answer.citations : [];
+
   return (
     <div className="min-h-[calc(100vh-2rem)] bg-background">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -467,8 +474,9 @@ export function BrainWorkspace() {
                     </p>
 
                     <div className="mt-7 flex flex-wrap justify-center gap-2">
-                      {suggestedQuestions.slice(0, 4).map(
-                        (question) => (
+                      {suggestedQuestions
+                        .slice(0, 4)
+                        .map((question) => (
                           <button
                             key={question}
                             type="button"
@@ -477,8 +485,7 @@ export function BrainWorkspace() {
                           >
                             {question}
                           </button>
-                        ),
-                      )}
+                        ))}
                     </div>
                   </div>
                 </div>
@@ -514,43 +521,43 @@ export function BrainWorkspace() {
               )}
             </div>
 
-            {answer?.citations?.length > 0 && (
-              <div className="border-t border-border/70">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShowSources((current) => !current)
-                  }
-                  className="flex w-full items-center justify-between px-5 py-3 text-left transition hover:bg-muted/40"
-                >
-                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                    Sources · {answer.citations.length}
-                  </span>
+            {answer &&
+              answer.citations &&
+              answer.citations.length > 0 && (
+                <div className="border-t border-border/70">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowSources((current) => !current)
+                    }
+                    className="flex w-full items-center justify-between px-5 py-3 text-left transition hover:bg-muted/40"
+                  >
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                      Sources · {citations.length}
+                    </span>
 
-                  <ChevronDown
-                    size={16}
-                    className={`text-muted-foreground transition-transform ${
-                      showSources ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
+                    <ChevronDown
+                      size={16}
+                      className={`text-muted-foreground transition-transform ${
+                        showSources ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
 
-                {showSources && (
-                  <div className="grid gap-3 px-5 pb-5 md:grid-cols-2">
-                    {answer.citations.map(
-                      (citation, index) => (
+                  {showSources && (
+                    <div className="grid gap-3 px-5 pb-5 md:grid-cols-2">
+                      {citations.map((citation, index) => (
                         <CitationCard
                           key={`${citation.documentId}-${index}`}
                           citation={citation}
                         />
-                      ),
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
-            {answer?.demo && (
+            {answer && answer.demo && (
               <div className="border-t border-border/70 px-5 py-3">
                 <p className="text-xs text-muted-foreground">
                   No indexed source was available for this
@@ -629,9 +636,7 @@ export function BrainWorkspace() {
                 <RefreshCw
                   size={15}
                   className={
-                    loadingDocuments
-                      ? "animate-spin"
-                      : ""
+                    loadingDocuments ? "animate-spin" : ""
                   }
                 />
               </button>
@@ -686,8 +691,7 @@ export function BrainWorkspace() {
                 ) : documents.length ? (
                   <div className="space-y-2">
                     {documents.map((document) => {
-                      const metadata =
-                        document.metadata ?? {};
+                      const metadata = document.metadata ?? {};
 
                       return (
                         <div
@@ -729,9 +733,7 @@ export function BrainWorkspace() {
                               </div>
 
                               <div className="mt-2 flex items-center gap-1.5 text-[11px]">
-                                {statusIcon(
-                                  document.status,
-                                )}
+                                {statusIcon(document.status)}
 
                                 <span>
                                   {statusLabel(
