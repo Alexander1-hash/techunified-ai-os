@@ -7,7 +7,12 @@ export type Status =
   | 'Processing'
   | 'Failed'
 
-export type Role = 'Owner' | 'Admin' | 'Manager' | 'Member' | 'Viewer'
+export type Role =
+  | 'Owner'
+  | 'Admin'
+  | 'Manager'
+  | 'Member'
+  | 'Viewer'
 
 export interface Department {
   id: string
@@ -39,6 +44,7 @@ export interface Activity {
 }
 
 import type { LucideIcon } from 'lucide-react'
+
 import {
   Activity,
   BarChart3,
@@ -127,6 +133,11 @@ export const navGroups: NavigationGroup[] = [
         icon: BarChart3,
       },
       {
+        label: 'Decision Engine',
+        href: '/business-analyst/decisions',
+        icon: Lightbulb,
+      },
+      {
         label: 'Forecast',
         href: '/business-analyst/forecast',
         icon: Gauge,
@@ -193,7 +204,9 @@ export const navGroups: NavigationGroup[] = [
   },
 ]
 
-export const nav = navGroups.flatMap((group) => group.items)
+export const nav = navGroups.flatMap(
+  (group) => group.items,
+)
 
 export const modelTypes = [
   'GPT-4o',
