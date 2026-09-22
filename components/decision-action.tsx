@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ArrowRight,
   CheckCircle2,
   Play,
+  RefreshCw,
   Workflow,
   X,
 } from 'lucide-react'
@@ -15,12 +16,22 @@ type DecisionActionProps = {
   decisionAction: string
 }
 
+type WorkflowRecord = {
+  id: string
+  name: string
+  description: string | null
+  status: string
+  created_at: string
+  updated_at: string
+}
+
 type ActionState =
   | 'idle'
   | 'selecting'
   | 'ready'
   | 'executing'
   | 'success'
+  | 'error'
 
 export function DecisionAction({
   decisionId,
@@ -30,12 +41,75 @@ export function DecisionAction({
   const [state, setState] =
     useState<ActionState>('idle')
 
+  const [workflows, setWorkflows] =
+    useState<WorkflowRecord[]>([])
+
+  const [selectedWorkflowId, setSelectedWorkflowId] =
+    useState('')
+
+  const [loadingWorkflows, setLoadingWorkflows] =
+    useState(false)
+
   const [message, setMessage] =
     useState('')
 
+  const [executionId, setExecutionId] =
+    useState('')
+
+  async function loadActiveWorkflows() {
+    try {
+      setLoadingWorkflows(true)
+      setMessage('')
+
+      const response = await fetch('/api/workflows', {
+        method: 'GET',
+        cache: 'no-store',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.error ?? 'Unable to load workflows.',
+        )
+      }
+
+      const activeWorkflows = (
+        data.workflows ?? []
+      ).filter(
+        (workflow: WorkflowRecord) =>
+          workflow.status.toLowerCase() === 'active',
+      )
+
+      setWorkflows(activeWorkflows)
+
+      if (
+        activeWorkflows.length > 0 &&
+        !selectedWorkflowId
+      ) {
+        setSelectedWorkflowId(
+          activeWorkflows[0].id,
+        )
+      }
+    } catch (error) {
+      setWorkflows([])
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Unable to load active workflows.',
+      )
+    } finally {
+      setLoadingWorkflows(false)
+    }
+  }
+
   function openActionPanel() {
     setMessage('')
+    setExecutionId('')
+    setSelectedWorkflowId('')
     setState('selecting')
+
+    void loadActiveWorkflows()
   }
 
   function closeActionPanel() {
@@ -45,47 +119,106 @@ export function DecisionAction({
 
     setState('idle')
     setMessage('')
+    setExecutionId('')
+    setSelectedWorkflowId('')
   }
 
-  function selectWorkflow() {
-    setMessage(
-      'Workflow selection is ready. Connect this decision to an active workflow to execute it.',
-    )
+  function prepareWorkflow() {
+    if (!selectedWorkflowId) {
+      setMessage(
+        'Select an active workflow before continuing.',
+      )
+      return
+    }
 
+    setMessage('')
     setState('ready')
   }
 
   async function executeAction() {
+    if (!selectedWorkflowId) {
+      setMessage(
+        'Select an active workflow before executing this action.',
+      )
+      setState('selecting')
+      return
+    }
+
     setState('executing')
-    setMessage('Preparing action execution…')
+    setMessage('Executing workflow…')
+    setExecutionId('')
 
     try {
-      /*
-       * The Automation Engine execution endpoint
-       * will be connected after the existing workflow
-       * contract is verified.
-       *
-       * We intentionally do not invent an API request
-       * or pretend that a workflow has executed.
-       */
+      const response = await fetch(
+        '/api/automations/execute',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            workflowId: selectedWorkflowId,
+            input: {
+              source: 'decision_engine',
+              decision: {
+                id: decisionId,
+                title: decisionTitle,
+                action: decisionAction,
+              },
+            },
+          }),
+        },
+      )
 
-      await new Promise((resolve) =>
-        setTimeout(resolve, 700),
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.error ?? 'Automation execution failed.',
+        )
+      }
+
+      setExecutionId(
+        data.executionId ?? '',
+      )
+
+      setMessage(
+        'The workflow executed successfully.',
       )
 
       setState('success')
-
+    } catch (error) {
       setMessage(
-        'Action prepared successfully. The next step is connecting the selected workflow to the Automation Engine.',
+        error instanceof Error
+          ? error.message
+          : 'Unable to execute the workflow.',
       )
-    } catch {
-      setState('ready')
 
-      setMessage(
-        'Unable to prepare this action.',
-      )
+      setState('error')
     }
   }
+
+  useEffect(() => {
+    if (state !== 'selecting') {
+      return
+    }
+
+    if (
+      workflows.length > 0 &&
+      selectedWorkflowId
+    ) {
+      return
+    }
+
+    void loadActiveWorkflows()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state])
+
+  const selectedWorkflow =
+    workflows.find(
+      (workflow) =>
+        workflow.id === selectedWorkflowId,
+    ) ?? null
 
   if (state === 'idle') {
     return (
@@ -149,44 +282,141 @@ export function DecisionAction({
       </div>
 
       <div className="mt-3 rounded-lg border border-border/60 p-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-primary">
-          Workflow
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-primary">
+              Workflow
+            </p>
+
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Only active workflows can execute a
+              Decision Engine action.
+            </p>
+          </div>
+
+          {state === 'selecting' ? (
+            <button
+              type="button"
+              onClick={() => {
+                void loadActiveWorkflows()
+              }}
+              disabled={loadingWorkflows}
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Refresh workflows"
+            >
+              <RefreshCw
+                size={15}
+                className={
+                  loadingWorkflows
+                    ? 'animate-spin'
+                    : ''
+                }
+              />
+            </button>
+          ) : null}
+        </div>
 
         {state === 'selecting' ? (
           <>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Select an active workflow to perform
-              this action.
-            </p>
+            {loadingWorkflows ? (
+              <div className="mt-3 rounded-lg bg-muted/40 p-3">
+                <p className="text-xs text-muted-foreground">
+                  Loading active workflows…
+                </p>
+              </div>
+            ) : workflows.length === 0 ? (
+              <div className="mt-3 rounded-lg border border-dashed border-border/70 p-4">
+                <p className="text-xs font-medium text-foreground">
+                  No active workflows available
+                </p>
 
-            <button
-              type="button"
-              onClick={selectWorkflow}
-              className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border/70 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted"
-            >
-              <Workflow size={14} />
-              Select Active Workflow
-              <ArrowRight size={14} />
-            </button>
+                <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                  Create and activate a workflow in
+                  the Automation Engine before using
+                  Take Action.
+                </p>
+              </div>
+            ) : (
+              <>
+                <label className="mt-3 block text-[11px] font-medium text-muted-foreground">
+                  Select active workflow
+                </label>
+
+                <select
+                  value={selectedWorkflowId}
+                  onChange={(event) =>
+                    setSelectedWorkflowId(
+                      event.target.value,
+                    )
+                  }
+                  className="mt-1.5 w-full rounded-lg border border-border/70 bg-background px-3 py-2.5 text-xs text-foreground outline-none transition-colors focus:border-primary"
+                >
+                  <option value="">
+                    Select a workflow
+                  </option>
+
+                  {workflows.map((workflow) => (
+                    <option
+                      key={workflow.id}
+                      value={workflow.id}
+                    >
+                      {workflow.name}
+                    </option>
+                  ))}
+                </select>
+
+                {selectedWorkflow ? (
+                  <div className="mt-3 rounded-lg bg-muted/40 p-3">
+                    <p className="text-xs font-medium text-foreground">
+                      {selectedWorkflow.name}
+                    </p>
+
+                    {selectedWorkflow.description ? (
+                      <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                        {selectedWorkflow.description}
+                      </p>
+                    ) : null}
+
+                    <span className="mt-2 inline-flex rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-medium text-emerald-700">
+                      {selectedWorkflow.status}
+                    </span>
+                  </div>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={prepareWorkflow}
+                  disabled={!selectedWorkflowId}
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Workflow size={14} />
+                  Use This Workflow
+                  <ArrowRight size={14} />
+                </button>
+              </>
+            )}
           </>
         ) : null}
 
         {state === 'ready' ? (
           <>
-            <div className="mt-2 flex items-center gap-2 rounded-lg bg-muted/40 p-3">
+            <div className="mt-3 flex items-start gap-2 rounded-lg bg-muted/40 p-3">
               <CheckCircle2
                 size={16}
-                className="text-primary"
+                className="mt-0.5 shrink-0 text-primary"
               />
 
               <div>
                 <p className="text-xs font-medium text-foreground">
-                  Workflow selected
+                  Workflow ready
                 </p>
 
-                <p className="text-[11px] text-muted-foreground">
-                  Ready for Automation Engine execution.
+                <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                  {selectedWorkflow?.name ??
+                    'Selected workflow'}{' '}
+                  will receive this Decision Engine
+                  context through the native Automation
+                  Engine.
                 </p>
               </div>
             </div>
@@ -203,39 +433,89 @@ export function DecisionAction({
         ) : null}
 
         {state === 'executing' ? (
-          <div className="mt-2 rounded-lg bg-muted/40 p-3">
-            <p className="text-xs font-medium text-foreground">
-              Executing action…
-            </p>
+          <div className="mt-3 rounded-lg bg-muted/40 p-3">
+            <div className="flex items-center gap-2">
+              <RefreshCw
+                size={15}
+                className="animate-spin text-primary"
+              />
 
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Preparing the workflow execution.
+              <p className="text-xs font-medium text-foreground">
+                Executing workflow…
+              </p>
+            </div>
+
+            <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+              TechUnified Automation Engine is
+              processing the selected workflow.
             </p>
           </div>
         ) : null}
 
         {state === 'success' ? (
-          <div className="mt-2 flex items-center gap-2 rounded-lg bg-muted/40 p-3">
-            <CheckCircle2
-              size={16}
-              className="text-primary"
-            />
+          <div className="mt-3 rounded-lg bg-muted/40 p-3">
+            <div className="flex items-start gap-2">
+              <CheckCircle2
+                size={16}
+                className="mt-0.5 shrink-0 text-primary"
+              />
 
-            <div>
-              <p className="text-xs font-medium text-foreground">
-                Action prepared
-              </p>
+              <div>
+                <p className="text-xs font-medium text-foreground">
+                  Action executed
+                </p>
 
-              <p className="text-[11px] text-muted-foreground">
-                Ready for the Automation Engine.
-              </p>
+                <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                  {selectedWorkflow?.name ??
+                    'The selected workflow'}{' '}
+                  completed successfully.
+                </p>
+
+                {executionId ? (
+                  <p className="mt-2 break-all text-[10px] text-muted-foreground/70">
+                    Execution ID: {executionId}
+                  </p>
+                ) : null}
+              </div>
             </div>
+          </div>
+        ) : null}
+
+        {state === 'error' ? (
+          <div className="mt-3 rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+            <p className="text-xs font-medium text-destructive">
+              Action failed
+            </p>
+
+            <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+              Check the workflow configuration and
+              Automation Engine execution history.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                setState('selecting')
+                setMessage('')
+                void loadActiveWorkflows()
+              }}
+              className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border/70 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              <RefreshCw size={14} />
+              Try Again
+            </button>
           </div>
         ) : null}
       </div>
 
       {message ? (
-        <p className="mt-3 text-xs leading-5 text-muted-foreground">
+        <p
+          className={`mt-3 text-xs leading-5 ${
+            state === 'error'
+              ? 'text-destructive'
+              : 'text-muted-foreground'
+          }`}
+        >
           {message}
         </p>
       ) : null}
