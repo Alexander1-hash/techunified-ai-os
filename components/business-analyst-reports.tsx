@@ -97,16 +97,11 @@ function calculateChange(
     return null;
   }
 
-  return (
-    ((current - previous) / Math.abs(previous)) *
-    100
-  );
+  return ((current - previous) / Math.abs(previous)) * 100;
 }
 
 export function BusinessAnalystReports() {
-  const [data, setData] =
-    useState<AnalystData | null>(null);
-
+  const [data, setData] = useState<AnalystData | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -115,20 +110,16 @@ export function BusinessAnalystReports() {
       setLoading(true);
       setError("");
 
-      const response = await fetch(
-        "/api/business/analysis",
-        {
-          method: "GET",
-          cache: "no-store",
-        },
-      );
+      const response = await fetch("/api/business/analysis", {
+        method: "GET",
+        cache: "no-store",
+      });
 
       const json = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          json.error ||
-            "Unable to load the business report.",
+          json.error || "Unable to load the business report.",
         );
       }
 
@@ -154,10 +145,7 @@ export function BusinessAnalystReports() {
         <div className="mx-auto max-w-7xl">
           <Panel title="Loading business report">
             <div className="flex items-center gap-2">
-              <RefreshCw
-                size={15}
-                className="animate-spin"
-              />
+              <RefreshCw size={15} className="animate-spin" />
               Reading verified organization KPI evidence…
             </div>
           </Panel>
@@ -194,8 +182,7 @@ export function BusinessAnalystReports() {
   }
 
   const kpis = data.kpis ?? [];
-  const recommendations =
-    data.recommendations ?? [];
+  const recommendations = data.recommendations ?? [];
   const areas = data.areas ?? [];
 
   const declining = kpis.filter((kpi) => {
@@ -241,9 +228,9 @@ export function BusinessAnalystReports() {
               </h1>
 
               <p className="mt-4 max-w-2xl leading-7 text-muted-foreground">
-                A current evidence-based view of the
-                organization using confirmed KPI records
-                and connected business data.
+                A current evidence-based view of the organization
+                using confirmed KPI records and connected business
+                data.
               </p>
             </div>
 
@@ -255,11 +242,7 @@ export function BusinessAnalystReports() {
             >
               <RefreshCw
                 size={15}
-                className={
-                  loading
-                    ? "animate-spin"
-                    : ""
-                }
+                className={loading ? "animate-spin" : ""}
               />
               Refresh report
             </button>
@@ -277,8 +260,8 @@ export function BusinessAnalystReports() {
 
                 <div>
                   <p>
-                    There are currently no confirmed KPI
-                    records available for this organization.
+                    There are currently no confirmed KPI records
+                    available for this organization.
                   </p>
 
                   <Link
@@ -316,8 +299,7 @@ export function BusinessAnalystReports() {
                 </strong>
 
                 <p>
-                  Verified KPI coverage across available
-                  records.
+                  Verified KPI coverage across available records.
                 </p>
               </Panel>
 
@@ -327,8 +309,8 @@ export function BusinessAnalystReports() {
                 </strong>
 
                 <p>
-                  KPI records with positive movement from
-                  their previous value.
+                  KPI records with positive movement from their
+                  previous value.
                 </p>
               </Panel>
 
@@ -347,11 +329,10 @@ export function BusinessAnalystReports() {
               <Panel title="KPI Performance">
                 <div className="space-y-3">
                   {kpis.map((kpi) => {
-                    const change =
-                      calculateChange(
-                        kpi.value,
-                        kpi.previous_value,
-                      );
+                    const change = calculateChange(
+                      kpi.value,
+                      kpi.previous_value,
+                    );
 
                     return (
                       <div
@@ -365,16 +346,13 @@ export function BusinessAnalystReports() {
                             </p>
 
                             <p className="text-xs">
-                              {kpi.source ||
-                                "Verified source"}
+                              {kpi.source || "Verified source"}
                               {" · "}
-                              {kpi.period ||
-                                "Recorded period"}
+                              {kpi.period || "Recorded period"}
                             </p>
                           </div>
 
-                          {kpi.status ===
-                          "verified" ? (
+                          {kpi.status === "verified" ? (
                             <CheckCircle2
                               size={18}
                               className="shrink-0"
@@ -389,9 +367,7 @@ export function BusinessAnalystReports() {
 
                         <div className="mt-4 grid grid-cols-2 gap-4">
                           <div>
-                            <p className="text-xs">
-                              Current
-                            </p>
+                            <p className="text-xs">Current</p>
 
                             <strong className="text-xl text-foreground">
                               {formatValue(
@@ -402,9 +378,7 @@ export function BusinessAnalystReports() {
                           </div>
 
                           <div>
-                            <p className="text-xs">
-                              Previous
-                            </p>
+                            <p className="text-xs">Previous</p>
 
                             <strong className="text-xl text-foreground">
                               {formatValue(
@@ -422,9 +396,7 @@ export function BusinessAnalystReports() {
                               {change === null
                                 ? "Not available"
                                 : `${
-                                    change >= 0
-                                      ? "+"
-                                      : ""
+                                    change >= 0 ? "+" : ""
                                   }${change.toFixed(1)}%`}
                             </span>
                           </p>
@@ -439,11 +411,10 @@ export function BusinessAnalystReports() {
                 {declining.length ? (
                   <div className="space-y-4">
                     {declining.map((kpi) => {
-                      const change =
-                        calculateChange(
-                          kpi.value,
-                          kpi.previous_value,
-                        );
+                      const change = calculateChange(
+                        kpi.value,
+                        kpi.previous_value,
+                      );
 
                       return (
                         <div
@@ -491,8 +462,7 @@ export function BusinessAnalystReports() {
 
                     <p>
                       No declining KPI movement is currently
-                      supported by the available verified
-                      records.
+                      supported by the available verified records.
                     </p>
                   </div>
                 )}
@@ -518,22 +488,14 @@ export function BusinessAnalystReports() {
                   </div>
 
                   <p>
-                    The report uses organization-scoped KPI
-                    records from connected business sources.
+                    The report uses organization-scoped KPI records
+                    from connected business sources.
                   </p>
 
                   <p>
                     Recommendations appear only where the
                     available evidence supports them.
                   </p>
-
-                  <Link
-                    href="/inspector"
-                    className="inline-flex items-center gap-2 text-primary hover:underline"
-                  >
-                    Open data inspector
-                    <ArrowRight size={15} />
-                  </Link>
                 </div>
               </Panel>
 
@@ -561,8 +523,7 @@ export function BusinessAnalystReports() {
                           <p className="mt-2 text-xs">
                             Evidence confidence:{" "}
                             {Math.round(
-                              recommendation.confidence *
-                                100,
+                              recommendation.confidence * 100,
                             )}
                             %
                           </p>
@@ -604,8 +565,8 @@ export function BusinessAnalystReports() {
                   </div>
                 ) : (
                   <p>
-                    No business areas have confirmed KPI
-                    evidence yet.
+                    No business areas have confirmed KPI evidence
+                    yet.
                   </p>
                 )}
               </Panel>
