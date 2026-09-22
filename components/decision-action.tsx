@@ -61,12 +61,12 @@ export function DecisionAction({
 
     try {
       /*
-       * Execution endpoint will be connected to the
-       * existing Automation Engine after its exact
-       * workflow contract is verified.
+       * The Automation Engine execution endpoint
+       * will be connected after the existing workflow
+       * contract is verified.
        *
-       * We deliberately do not invent an API request
-       * here.
+       * We intentionally do not invent an API request
+       * or pretend that a workflow has executed.
        */
 
       await new Promise((resolve) =>
@@ -74,11 +74,13 @@ export function DecisionAction({
       )
 
       setState('success')
+
       setMessage(
         'Action prepared successfully. The next step is connecting the selected workflow to the Automation Engine.',
       )
     } catch {
       setState('ready')
+
       setMessage(
         'Unable to prepare this action.',
       )
