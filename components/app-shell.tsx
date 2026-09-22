@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  ArrowRight,
   Bell,
   ChevronDown,
   ChevronsLeft,
@@ -149,41 +150,6 @@ export function AppShell({
       [label]: !(groups[label] ?? true),
     }));
   }
-
-  const displayName = String(
-    profile?.full_name ??
-      user?.user_metadata?.full_name ??
-      user?.user_metadata?.name ??
-      user?.email?.split("@")[0] ??
-      "User",
-  );
-
-  const organizationName = String(
-    organization?.name ?? "No organization",
-  );
-
-  const displayRole = String(
-    role ?? profile?.role ?? "Viewer",
-  );
-
-  const plan = String(
-    organization?.plan ?? "Foundation",
-  );
-
-  const avatarUrl =
-    typeof profile?.avatar_url === "string"
-      ? profile.avatar_url
-      : null;
-
-  const initials =
-    displayName
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) =>
-        part.charAt(0).toUpperCase(),
-      )
-      .join("") || "U";
 
   const navigation = (
     <nav
@@ -470,17 +436,39 @@ export function AppShell({
 
           <div
             className="hidden size-8 items-center justify-center overflow-hidden rounded-full bg-accent text-sm font-semibold text-[#182016] sm:flex"
-            title={displayName}
+            title={
+              String(
+                profile?.full_name ??
+                  user?.user_metadata?.full_name ??
+                  user?.user_metadata?.name ??
+                  user?.email?.split("@")[0] ??
+                  "User",
+              )
+            }
           >
-            {avatarUrl ? (
+            {typeof profile?.avatar_url ===
+            "string" ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={avatarUrl}
+                src={profile.avatar_url}
                 alt=""
                 className="size-full object-cover"
               />
             ) : (
-              initials
+              String(
+                profile?.full_name ??
+                  user?.user_metadata?.full_name ??
+                  user?.user_metadata?.name ??
+                  user?.email?.split("@")[0] ??
+                  "U",
+              )
+                .split(/\s+/)
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((part) =>
+                  part.charAt(0).toUpperCase(),
+                )
+                .join("") || "U"
             )}
           </div>
         </div>
@@ -565,11 +553,17 @@ function WorkspaceFooter({
   role: string;
   onSignOut: () => Promise<void>;
 }) {
+  const [workspaceOpen, setWorkspaceOpen] =
+    useState(false);
+
   const [isSigningOut, setIsSigningOut] =
     useState(false);
 
   const [signOutError, setSignOutError] =
     useState("");
+
+  const workspaceRef =
+    useRef<HTMLDivElement>(null);
 
   const displayName = String(
     profile?.full_name ??
@@ -607,6 +601,52 @@ function WorkspaceFooter({
       )
       .join("") || "U";
 
+  useEffect(() => {
+    if (!workspaceOpen) return;
+
+    function handlePointerDown(
+      event: PointerEvent,
+    ) {
+      if (
+        !workspaceRef.current?.contains(
+          event.target as Node,
+        )
+      ) {
+        setWorkspaceOpen(false);
+      }
+    }
+
+    function handleKeyDown(
+      event: KeyboardEvent,
+    ) {
+      if (event.key === "Escape") {
+        setWorkspaceOpen(false);
+      }
+    }
+
+    document.addEventListener(
+      "pointerdown",
+      handlePointerDown,
+    );
+
+    document.addEventListener(
+      "keydown",
+      handleKeyDown,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        handlePointerDown,
+      );
+
+      document.removeEventListener(
+        "keydown",
+        handleKeyDown,
+      );
+    };
+  }, [workspaceOpen]);
+
   async function handleSignOut() {
     setIsSigningOut(true);
     setSignOutError("");
@@ -623,19 +663,108 @@ function WorkspaceFooter({
 
   return (
     <div className="border-t p-4">
-      <div className="mb-3 rounded-lg bg-muted/60 p-3">
-        <div className="text-xs text-muted-foreground">
-          Workspace
-        </div>
+      <div
+        ref={workspaceRef}
+        className="relative mb-3"
+      >
+        <button
+          type="button"
+          onClick={() =>
+            setWorkspaceOpen(
+              (open) => !open,
+            )
+          }
+          className="w-full rounded-lg bg-muted/60 p-3 text-left transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          aria-expanded={workspaceOpen}
+          aria-controls="workspace-popover"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-xs text-muted-foreground">
+                Workspace
+              </div>
 
-        <div className="mt-1 flex items-center justify-between text-sm font-medium">
-          {organizationName}
-          <ChevronDown size={14} />
-        </div>
+              <div className="mt-1 truncate text-sm font-medium">
+                {organizationName}
+              </div>
+            </div>
 
-        <div className="mt-2 text-xs text-primary">
-          {plan}
-        </div>
+            <ChevronDown
+              size={15}
+              className={`shrink-0 transition-transform duration-200 ${
+                workspaceOpen
+                  ? "rotate-180"
+                  : ""
+              }`}
+              aria-hidden="true"
+            />
+          </div>
+
+          <div className="mt-2 text-xs text-primary">
+            {plan}
+          </div>
+        </button>
+
+        {workspaceOpen && (
+          <div
+            id="workspace-popover"
+            className="absolute bottom-full left-0 right-0 z-50 mb-2 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-2xl"
+          >
+            <div className="border-b px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Current workspace
+              </p>
+
+              <p className="mt-1 truncate text-sm font-semibold">
+                {organizationName}
+              </p>
+
+              <p className="mt-1 text-xs text-muted-foreground">
+                {plan} plan
+              </p>
+            </div>
+
+            <div className="space-y-1 p-2">
+              <div className="rounded-lg px-3 py-2.5">
+                <p className="text-xs text-muted-foreground">
+                  Account
+                </p>
+
+                <p className="mt-1 truncate text-sm font-medium">
+                  {displayName}
+                </p>
+
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {displayRole} · {organizationName}
+                </p>
+              </div>
+
+              <Link
+                href="/settings"
+                onClick={() =>
+                  setWorkspaceOpen(false)
+                }
+                className="flex min-h-10 items-center justify-between rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                <span>
+                  Workspace settings
+                </span>
+
+                <ArrowRight size={15} />
+              </Link>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setWorkspaceOpen(false)
+                }
+                className="flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
@@ -690,4 +819,4 @@ function WorkspaceFooter({
       )}
     </div>
   );
-  }
+}
