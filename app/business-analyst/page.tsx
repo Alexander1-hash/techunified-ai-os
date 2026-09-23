@@ -38,7 +38,7 @@ export default function AnalystPage() {
       }
 
       setMessage(
-        'Sales intelligence synchronized successfully. Business KPIs have been updated.',
+        'Operational intelligence synchronized successfully. Business KPIs have been updated.',
       )
 
       window.setTimeout(() => {
@@ -65,7 +65,7 @@ export default function AnalystPage() {
             </p>
 
             <p className="mt-1 text-sm text-muted-foreground">
-              Connect operational Sales and Customer activity to verified Business KPIs.
+              Connect Customers, Services, Departments, and Sales activity to verified Business KPIs.
             </p>
           </div>
 
@@ -86,7 +86,7 @@ export default function AnalystPage() {
 
             {syncing
               ? 'Synchronizing…'
-              : 'Sync Sales Intelligence'}
+              : 'Sync Operations Intelligence'}
           </button>
         </div>
 
