@@ -6,23 +6,23 @@
   --card: #2f2f2f;
   --card-foreground: #f5f5f5;
   --muted: #383838;
-  --muted-foreground: #c4c4c4;
-  --border: rgba(255, 255, 255, 0.12);
+  --muted-foreground: #b8b8b8;
+  --border: rgba(255, 255, 255, 0.1);
   --primary: #5eead4;
   --primary-foreground: #05201d;
   --accent: #f6c766;
   --destructive: #f87171;
-  --radius: 0.8rem;
+  --radius: 0.7rem;
 }
 
 html[data-theme="light"] {
   --background: #ffffff;
   --foreground: #202020;
-  --card: #ffffff;
+  --card: #f7f7f8;
   --card-foreground: #202020;
-  --muted: #f3f3f3;
-  --muted-foreground: #555555;
-  --border: rgba(0, 0, 0, 0.12);
+  --muted: #eeeeef;
+  --muted-foreground: #6b6b6b;
+  --border: rgba(0, 0, 0, 0.1);
   --primary: #0b766b;
   --primary-foreground: #ffffff;
   --accent: #9a6717;
@@ -31,6 +31,7 @@ html[data-theme="light"] {
 
 * {
   border-color: var(--border);
+  box-sizing: border-box;
 }
 
 html {
@@ -52,6 +53,10 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 button,
@@ -93,22 +98,19 @@ select:focus-visible {
 }
 
 .grid-bg {
-  background-image:
-    linear-gradient(rgba(94, 234, 212, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(94, 234, 212, 0.045) 1px, transparent 1px);
-  background-size: 32px 32px;
+  background-image: none;
 }
 
 .card-hover {
   transition:
-    transform 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
 }
 
 .card-hover:hover {
   transform: translateY(-1px);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
 }
 
 @media (prefers-reduced-motion: reduce) {
