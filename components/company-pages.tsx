@@ -1,9 +1,190 @@
 'use client'
+
 import Link from 'next/link'
-import {ArrowRight,Bot,Brain,Building2,Check,Code2,Mail,Sparkles,Workflow} from 'lucide-react'
+import {ArrowRight,Bot,Brain,Building2,Check,Code2,Linkedin,Mail,Sparkles,Workflow} from 'lucide-react'
+
 const platform=[['AI Workspace','A focused environment for working with intelligent tools.','Available',Brain],['AI Automation','Repeatable workflows that help teams move with clarity.','In Development',Workflow],['AI Media Generation','A provider-independent creative engine for video and image work.','In Development',Sparkles],['Intelligent Agents','Modular agents designed to support real business operations.','Available',Bot],['Business Tools','Practical software for the work behind the work.','Coming Soon',Building2],['Developer Infrastructure','Flexible foundations for building the next layer of AI products.','Coming Soon',Code2]] as const
 const values=[['Build with Purpose','Make every system useful, considered, and accountable.'],['Make AI Accessible','Turn powerful technology into tools people can actually use.'],['Protect User Trust','Keep security, transparency, and control at the center.'],['Think Long Term','Build durable infrastructure instead of chasing noise.']]
-function SiteHeader(){return <header className="flex items-center justify-between border-b border-border/70 py-5"><Link href="/about" className="flex items-center gap-3"><span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><Sparkles size={18}/></span><span className="font-semibold">TECHUNIFIED <span className="text-primary">AI OS</span></span></Link><nav className="flex gap-4 text-sm text-muted-foreground"><Link href="/about">About</Link><Link href="/founder">Founder</Link><Link href="/studio" className="rounded-xl bg-primary px-3 py-2 text-primary-foreground">AI Studio</Link></nav></header>}
-function SiteFooter(){return <footer className="mt-20 border-t py-8 text-sm text-muted-foreground"><div className="flex flex-col gap-4 md:flex-row md:justify-between"><div><b className="text-foreground">TECHUNIFIED AI OS</b><p className="mt-2">Building the intelligent operating system for the next generation of work.</p></div><div className="flex gap-4"><Link href="/about">About</Link><Link href="/founder">Founder</Link><Link href="/studio">AI Studio</Link><a href="#contact">Contact</a></div></div><p className="mt-6 text-xs">Founded by Alexander Trimnell · Founder & CEO</p></footer>}
-export function AboutPage(){return <main className="min-h-screen bg-background px-5"><div className="mx-auto max-w-6xl"><SiteHeader/><section className="grid gap-10 py-16 md:grid-cols-[1.15fr_.85fr] md:py-24"><div><p className="text-sm font-medium uppercase tracking-[.2em] text-primary">TECHUNIFIED AI OS</p><h1 className="mt-5 text-4xl font-semibold tracking-tight md:text-6xl">Building the AI Operating System for the Next Generation</h1><p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">A unified platform where people and businesses can access intelligent tools, automation, creation, and workflows from one place.</p><div className="mt-8 flex gap-3"><Link href="/studio" className="flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground">Explore AI Studio <ArrowRight size={16}/></Link><Link href="/founder" className="rounded-xl border px-4 py-3 text-sm">Meet the Founder</Link></div></div><div className="app-surface rounded-3xl border p-6"><p className="text-sm text-muted-foreground">Company focus</p><p className="mt-4 text-2xl leading-9">An intelligent operating system for the next generation of work.</p><div className="mt-8 grid grid-cols-2 gap-3"><div className="rounded-xl bg-muted/50 p-4"><b>AI</b><p className="text-sm text-muted-foreground">Infrastructure</p></div><div className="rounded-xl bg-muted/50 p-4"><b>Human</b><p className="text-sm text-muted-foreground">Productivity</p></div></div></div></section><section className="border-t py-16"><p className="text-sm text-primary">OUR MISSION</p><h2 className="mt-3 max-w-3xl text-3xl font-semibold">One accessible operating layer for intelligence, automation, creation, and productivity.</h2><p className="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">AI should not require people to constantly move between disconnected tools. TechUnified is being built to bring intelligence, automation, creation, and productivity into one operating system.</p></section><section className="py-16"><p className="text-sm text-primary">THE PLATFORM</p><h2 className="mt-3 text-3xl font-semibold">What we are building</h2><div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{platform.map(([name,desc,status,Icon])=><div key={name} className="card-hover rounded-2xl border bg-card/75 p-5"><Icon className="text-primary" size={20}/><h3 className="mt-5 font-medium">{name}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{desc}</p><span className="mt-5 inline-flex rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{status}</span></div>)}</div></section><section className="grid gap-8 border-t py-16 md:grid-cols-2"><div><p className="text-sm text-primary">OUR VISION</p><h2 className="mt-3 text-3xl font-semibold">Software that works as an operating layer.</h2><p className="mt-5 text-lg leading-8 text-muted-foreground">An integrated operating layer that helps people create, automate, decide, and build.</p></div><div><p className="text-sm text-primary">OUR VALUES</p><div className="mt-5 space-y-4">{values.map(([a,b])=><div key={a} className="flex gap-3"><Check className="mt-1 text-primary" size={18}/><div><b>{a}</b><p className="text-sm leading-6 text-muted-foreground">{b}</p></div></div>)}</div></div></section><section className="grid gap-8 rounded-3xl border bg-card/75 p-6 md:grid-cols-[1fr_.8fr]"><div><p className="text-sm text-primary">MEET THE FOUNDER</p><h2 className="mt-3 text-3xl font-semibold">Alexander Trimnell</h2><p className="mt-1 text-sm text-muted-foreground">Founder & CEO</p><p className="mt-5 leading-7 text-muted-foreground">Alexander Trimnell is the founder and CEO of TechUnified AI OS, focused on building practical AI infrastructure and products that bring intelligent technology, automation, and digital creation into a unified platform.</p><Link href="/founder" className="mt-6 inline-flex items-center gap-2 text-sm text-primary">Read the founder profile <ArrowRight size={15}/></Link></div><div className="flex min-h-40 items-center justify-center rounded-2xl bg-muted/50"><div className="flex size-24 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-3xl font-semibold text-primary">AT</div></div></section><section id="contact" className="mt-16 grid gap-8 border-t py-16 md:grid-cols-2"><div><p className="text-sm text-primary">FOR INVESTORS</p><h2 className="mt-3 text-3xl font-semibold">Building toward a unified AI platform.</h2><p className="mt-5 leading-7 text-muted-foreground">TechUnified AI OS is building toward a unified AI platform spanning intelligent workflows, automation, media generation, and AI-powered business infrastructure.</p></div><div className="app-surface rounded-2xl border p-5"><p className="font-medium">Investor / Partnership Enquiries</p><p className="mt-2 text-sm text-muted-foreground">Use the contact channel configured for your current TechUnified deployment.</p><Link href="/settings" className="mt-5 inline-flex items-center gap-2 text-sm text-primary">Open workspace <ArrowRight size={15}/></Link></div></section><SiteFooter/></div></main>}
-export function FounderPage(){return <main className="min-h-screen bg-background px-5"><div className="mx-auto max-w-5xl"><SiteHeader/><section className="py-16 md:py-24"><div className="grid gap-10 lg:grid-cols-[.72fr_1.28fr]"><div className="app-surface rounded-3xl border p-6 lg:sticky lg:top-8"><div className="flex aspect-square items-center justify-center rounded-2xl bg-muted/50"><div className="text-center"><div className="mx-auto flex size-28 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-4xl font-semibold text-primary">AT</div><p className="mt-5 font-medium">Alexander Trimnell</p><p className="mt-1 text-xs text-muted-foreground">Founder & CEO</p></div></div><div className="mt-5 grid grid-cols-2 gap-2 text-xs"><div className="rounded-xl border p-3"><p className="text-muted-foreground">Role</p><b>Founder & CEO</b></div><div className="rounded-xl border p-3"><p className="text-muted-foreground">Company</p><b>TechUnified AI OS</b></div></div></div><div><p className="text-sm uppercase tracking-[.2em] text-primary">Founder profile</p><h1 className="mt-4 text-5xl font-semibold tracking-tight md:text-7xl">Alexander Trimnell</h1><p className="mt-4 text-xl text-muted-foreground">Founder & CEO of TechUnified AI OS</p><div className="mt-10 space-y-10"><div><h2 className="text-2xl font-semibold">What I&apos;m building</h2><p className="mt-3 leading-8 text-muted-foreground">I&apos;m building TechUnified AI OS as a unified technology platform for intelligent work: AI agents, business intelligence, automation, workflows, media creation, and the infrastructure that connects them.</p></div><div><h2 className="text-2xl font-semibold">The founder perspective</h2><p className="mt-3 leading-8 text-muted-foreground">The product is shaped around a practical idea: intelligent software should help people move from a question to an action without forcing them through a maze of disconnected tools.</p></div><div><h2 className="text-2xl font-semibold">Areas of focus</h2><div className="mt-4 grid gap-3 sm:grid-cols-2">{['AI operating systems','Intelligent automation','AI agents','Business intelligence','AI media and creation','Product infrastructure'].map(x=><div key={x} className="rounded-xl border bg-card/70 p-4 text-sm">{x}</div>)}</div></div><div className="rounded-2xl border border-primary/20 bg-primary/5 p-5"><p className="text-xs font-semibold uppercase tracking-[.18em] text-primary">TechUnified AI OS</p><p className="mt-2 text-lg font-medium">Your company. One intelligent operating system.</p><Link href="/dashboard" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground">Enter the workspace <ArrowRight size={15}/></Link></div></div></div></div></section><SiteFooter/></div></main>}
+
+const linkedinUrl='https://www.linkedin.com/in/trimnell-alexander-816032192/'
+const xUrl='https://x.com/alexdazztrimss'
+
+function SocialLinks(){
+  return <div className="flex flex-wrap gap-2">
+    <a href={linkedinUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border bg-card px-3 py-2 text-sm transition-colors hover:bg-muted">
+      <Linkedin size={16}/> LinkedIn
+    </a>
+    <a href={xUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border bg-card px-3 py-2 text-sm transition-colors hover:bg-muted">
+      <span className="font-semibold">𝕏</span> X
+    </a>
+  </div>
+}
+
+function SiteHeader(){
+  return <header className="flex items-center justify-between border-b border-border/70 py-5">
+    <Link href="/about" className="flex items-center gap-3">
+      <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><Sparkles size={18}/></span>
+      <span className="font-semibold">TECHUNIFIED <span className="text-primary">AI OS</span></span>
+    </Link>
+    <nav className="flex gap-4 text-sm text-muted-foreground">
+      <Link href="/about">About</Link>
+      <Link href="/founder">Founder</Link>
+      <Link href="/studio" className="rounded-xl bg-primary px-3 py-2 text-primary-foreground">AI Studio</Link>
+    </nav>
+  </header>
+}
+
+function SiteFooter(){
+  return <footer className="mt-20 border-t py-8 text-sm text-muted-foreground">
+    <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+      <div>
+        <b className="text-foreground">TECHUNIFIED AI OS</b>
+        <p className="mt-2 max-w-md">Building the intelligent operating system for the next generation of work.</p>
+      </div>
+      <div className="flex flex-col gap-4 md:items-end">
+        <div className="flex flex-wrap gap-4">
+          <Link href="/about">About</Link>
+          <Link href="/founder">Founder</Link>
+          <Link href="/studio">AI Studio</Link>
+          <a href="#contact">Contact</a>
+        </div>
+        <SocialLinks/>
+      </div>
+    </div>
+    <p className="mt-6 text-xs">Founded by Alexander Trimnell · Founder & CEO</p>
+  </footer>
+}
+
+export function AboutPage(){
+  return <main className="min-h-screen bg-background px-5">
+    <div className="mx-auto max-w-6xl">
+      <SiteHeader/>
+      <section className="grid gap-10 py-16 md:grid-cols-[1.15fr_.85fr] md:py-24">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[.2em] text-primary">TECHUNIFIED AI OS</p>
+          <h1 className="mt-5 text-4xl font-semibold tracking-tight md:text-6xl">Building the AI Operating System for the Next Generation</h1>
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">A unified platform where people and businesses can access intelligent tools, automation, creation, and workflows from one place.</p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link href="/studio" className="flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground">Explore AI Studio <ArrowRight size={16}/></Link>
+            <Link href="/founder" className="rounded-xl border px-4 py-3 text-sm">Meet the Founder</Link>
+          </div>
+        </div>
+        <div className="app-surface rounded-3xl border p-6">
+          <p className="text-sm text-muted-foreground">Company focus</p>
+          <p className="mt-4 text-2xl leading-9">An intelligent operating system for the next generation of work.</p>
+          <div className="mt-8 grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-muted/50 p-4"><b>AI</b><p className="text-sm text-muted-foreground">Infrastructure</p></div>
+            <div className="rounded-xl bg-muted/50 p-4"><b>Human</b><p className="text-sm text-muted-foreground">Productivity</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t py-16">
+        <p className="text-sm text-primary">OUR MISSION</p>
+        <h2 className="mt-3 max-w-3xl text-3xl font-semibold">One accessible operating layer for intelligence, automation, creation, and productivity.</h2>
+        <p className="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">AI should not require people to constantly move between disconnected tools. TechUnified is being built to bring intelligence, automation, creation, and productivity into one operating system.</p>
+      </section>
+
+      <section className="py-16">
+        <p className="text-sm text-primary">THE PLATFORM</p>
+        <h2 className="mt-3 text-3xl font-semibold">What we are building</h2>
+        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {platform.map(([name,desc,status,Icon])=><div key={name} className="card-hover rounded-2xl border bg-card/75 p-5">
+            <Icon className="text-primary" size={20}/>
+            <h3 className="mt-5 font-medium">{name}</h3>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{desc}</p>
+            <span className="mt-5 inline-flex rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{status}</span>
+          </div>)}
+        </div>
+      </section>
+
+      <section className="grid gap-8 border-t py-16 md:grid-cols-2">
+        <div>
+          <p className="text-sm text-primary">OUR VISION</p>
+          <h2 className="mt-3 text-3xl font-semibold">Software that works as an operating layer.</h2>
+          <p className="mt-5 text-lg leading-8 text-muted-foreground">An integrated operating layer that helps people create, automate, decide, and build.</p>
+        </div>
+        <div>
+          <p className="text-sm text-primary">OUR VALUES</p>
+          <div className="mt-5 space-y-4">
+            {values.map(([a,b])=><div key={a} className="flex gap-3"><Check className="mt-1 text-primary" size={18}/><div><b>{a}</b><p className="text-sm leading-6 text-muted-foreground">{b}</p></div></div>)}
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-8 rounded-3xl border bg-card/75 p-6 md:grid-cols-[1fr_.8fr]">
+        <div>
+          <p className="text-sm text-primary">MEET THE FOUNDER</p>
+          <h2 className="mt-3 text-3xl font-semibold">Alexander Trimnell</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Founder & CEO</p>
+          <p className="mt-5 leading-7 text-muted-foreground">Alexander Trimnell is the founder and CEO of TechUnified AI OS, focused on building practical AI infrastructure and products that bring intelligent technology, automation, and digital creation into a unified platform.</p>
+          <div className="mt-6"><SocialLinks/></div>
+          <Link href="/founder" className="mt-6 inline-flex items-center gap-2 text-sm text-primary">Read the founder profile <ArrowRight size={15}/></Link>
+        </div>
+        <div className="flex min-h-40 items-center justify-center rounded-2xl bg-muted/50"><div className="flex size-24 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-3xl font-semibold text-primary">AT</div></div>
+      </section>
+
+      <section id="contact" className="mt-16 grid gap-8 border-t py-16 md:grid-cols-2">
+        <div>
+          <p className="text-sm text-primary">FOR INVESTORS</p>
+          <h2 className="mt-3 text-3xl font-semibold">Building toward a unified AI platform.</h2>
+          <p className="mt-5 leading-7 text-muted-foreground">TechUnified AI OS is building toward a unified AI platform spanning intelligent workflows, automation, media generation, and AI-powered business infrastructure.</p>
+        </div>
+        <div className="app-surface rounded-2xl border p-5">
+          <p className="font-medium">Investor / Partnership Enquiries</p>
+          <p className="mt-2 text-sm text-muted-foreground">Use the contact channel configured for your current TechUnified deployment.</p>
+          <Link href="/settings" className="mt-5 inline-flex items-center gap-2 text-sm text-primary">Open workspace <ArrowRight size={15}/></Link>
+        </div>
+      </section>
+      <SiteFooter/>
+    </div>
+  </main>
+}
+
+export function FounderPage(){
+  return <main className="min-h-screen bg-background px-5">
+    <div className="mx-auto max-w-5xl">
+      <SiteHeader/>
+      <section className="py-16 md:py-24">
+        <div className="grid gap-10 lg:grid-cols-[.72fr_1.28fr]">
+          <div className="app-surface rounded-3xl border p-6 lg:sticky lg:top-8">
+            <div className="flex aspect-square items-center justify-center rounded-2xl bg-muted/50">
+              <div className="text-center">
+                <div className="mx-auto flex size-28 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-4xl font-semibold text-primary">AT</div>
+                <p className="mt-5 font-medium">Alexander Trimnell</p>
+                <p className="mt-1 text-xs text-muted-foreground">Founder & CEO</p>
+              </div>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-xl border p-3"><p className="text-muted-foreground">Role</p><b>Founder & CEO</b></div>
+              <div className="rounded-xl border p-3"><p className="text-muted-foreground">Company</p><b>TechUnified AI OS</b></div>
+            </div>
+            <div className="mt-4"><SocialLinks/></div>
+          </div>
+
+          <div>
+            <p className="text-sm uppercase tracking-[.2em] text-primary">Founder profile</p>
+            <h1 className="mt-4 text-5xl font-semibold tracking-tight md:text-7xl">Alexander Trimnell</h1>
+            <p className="mt-4 text-xl text-muted-foreground">Founder & CEO of TechUnified AI OS</p>
+            <div className="mt-10 space-y-10">
+              <div><h2 className="text-2xl font-semibold">What I&apos;m building</h2><p className="mt-3 leading-8 text-muted-foreground">I&apos;m building TechUnified AI OS as a unified technology platform for intelligent work: AI agents, business intelligence, automation, workflows, media creation, and the infrastructure that connects them.</p></div>
+              <div><h2 className="text-2xl font-semibold">The founder perspective</h2><p className="mt-3 leading-8 text-muted-foreground">The product is shaped around a practical idea: intelligent software should help people move from a question to an action without forcing them through a maze of disconnected tools.</p></div>
+              <div><h2 className="text-2xl font-semibold">Areas of focus</h2><div className="mt-4 grid gap-3 sm:grid-cols-2">{['AI operating systems','Intelligent automation','AI agents','Business intelligence','AI media and creation','Product infrastructure'].map(x=><div key={x} className="rounded-xl border bg-card/70 p-4 text-sm">{x}</div>)}</div></div>
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
+                <p className="text-xs font-semibold uppercase tracking-[.18em] text-primary">Connect with Alexander</p>
+                <p className="mt-2 text-lg font-medium">Follow the founder journey and the work behind TechUnified.</p>
+                <div className="mt-4"><SocialLinks/></div>
+              </div>
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
+                <p className="text-xs font-semibold uppercase tracking-[.18em] text-primary">TechUnified AI OS</p>
+                <p className="mt-2 text-lg font-medium">Your company. One intelligent operating system.</p>
+                <Link href="/dashboard" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground">Enter the workspace <ArrowRight size={15}/></Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <SiteFooter/>
+    </div>
+  </main>
+}
