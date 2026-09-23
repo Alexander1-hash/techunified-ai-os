@@ -12,6 +12,7 @@
   --primary-foreground: #05201d;
   --accent: #f6c766;
   --destructive: #f87171;
+  --overlay: #212121;
   --radius: 0.7rem;
 }
 
@@ -27,6 +28,7 @@ html[data-theme="light"] {
   --primary-foreground: #ffffff;
   --accent: #9a6717;
   --destructive: #dc2626;
+  --overlay: #ffffff;
 }
 
 * {
