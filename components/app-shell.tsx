@@ -166,7 +166,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         className={[
           "fixed inset-y-0 left-0 hidden border-r border-border bg-card lg:flex lg:flex-col",
           collapsed ? "w-[72px]" : "w-[256px]",
-          profileOpen ? "z-[120]" : "z-50",
+          profileOpen ? "z-[210]" : "z-50",
         ].join(" ")}
       >
         <div className="flex h-14 shrink-0 items-center border-b border-border px-3">
@@ -266,7 +266,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <button
             aria-label="Open profile menu"
-            onClick={() => setProfileOpen((value) => !value)}
+            onClick={() => {
+              setNotifications(false)
+              setProfileOpen((value) => !value)
+            }}
             className="flex size-8 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-[10px] font-semibold sm:size-9"
           >
             <Avatar profile={profile} user={user} />
@@ -278,7 +281,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <button
           aria-label="Close profile menu"
           onClick={() => setProfileOpen(false)}
-          className="fixed inset-0 z-[110] bg-black/80 lg:bg-black/70"
+          className="fixed inset-0 z-[200] bg-[var(--overlay)]"
         />
       )}
 
@@ -293,7 +296,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <aside
             className={[
               "fixed inset-y-0 left-0 flex w-[min(292px,82vw)] flex-col border-r border-border bg-card text-foreground shadow-2xl lg:hidden",
-              profileOpen ? "z-[120]" : "z-[100]",
+              profileOpen ? "z-[210]" : "z-[100]",
             ].join(" ")}
             role="dialog"
             aria-modal="true"
@@ -483,7 +486,7 @@ function ProfileMenu({
         {open && (
           <div
             className={[
-              "absolute z-[130] rounded-xl border border-border bg-card p-2 shadow-2xl",
+              "absolute z-[220] isolate overflow-hidden rounded-xl border border-border bg-card p-2 shadow-2xl",
               collapsed
                 ? "bottom-0 left-full ml-2 w-72"
                 : "bottom-[calc(100%+8px)] left-0 right-0",
