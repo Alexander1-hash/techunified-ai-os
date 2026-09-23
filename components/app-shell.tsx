@@ -199,6 +199,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           pref={pref}
           open={open}
           setOpen={setOpen}
+          onNavigate={closeMobile}
         />
       </aside>
 
@@ -305,7 +306,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main
         className={
           "min-h-[calc(100vh-4rem)] " +
-          (collapsed ? "lg:ml-20" : "lg:ml-72")
+          (collapsed ? "lg:ml-[72px]" : "lg:ml-[264px]")
         }
       >
         <div className="mx-auto max-w-[1600px] p-4 sm:p-5 lg:p-8">
