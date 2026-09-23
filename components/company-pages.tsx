@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import {ArrowRight,Bot,Brain,Building2,Check,Code2,Linkedin,Mail,Sparkles,Workflow} from 'lucide-react'
+import {ArrowRight,Bot,Brain,Building2,Check,Code2,Mail,Sparkles,Workflow} from 'lucide-react'
 
 const platform=[['AI Workspace','A focused environment for working with intelligent tools.','Available',Brain],['AI Automation','Repeatable workflows that help teams move with clarity.','In Development',Workflow],['AI Media Generation','A provider-independent creative engine for video and image work.','In Development',Sparkles],['Intelligent Agents','Modular agents designed to support real business operations.','Available',Bot],['Business Tools','Practical software for the work behind the work.','Coming Soon',Building2],['Developer Infrastructure','Flexible foundations for building the next layer of AI products.','Coming Soon',Code2]] as const
 const values=[['Build with Purpose','Make every system useful, considered, and accountable.'],['Make AI Accessible','Turn powerful technology into tools people can actually use.'],['Protect User Trust','Keep security, transparency, and control at the center.'],['Think Long Term','Build durable infrastructure instead of chasing noise.']]
@@ -12,7 +12,7 @@ const xUrl='https://x.com/alexdazztrimss'
 function SocialLinks(){
   return <div className="flex flex-wrap gap-2">
     <a href={linkedinUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border bg-card px-3 py-2 text-sm transition-colors hover:bg-muted">
-      <Linkedin size={16}/> LinkedIn
+      <span className="flex size-4 items-center justify-center rounded-[4px] bg-primary text-[9px] font-bold text-primary-foreground">in</span> LinkedIn
     </a>
     <a href={xUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border bg-card px-3 py-2 text-sm transition-colors hover:bg-muted">
       <span className="font-semibold">𝕏</span> X
