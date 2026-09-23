@@ -366,6 +366,7 @@ function ProfileMenu({
   pref,
   open,
   setOpen,
+  onNavigate,
 }: {
   profile: Record<string, unknown> | null
   user: {
@@ -379,6 +380,7 @@ function ProfileMenu({
   pref: React.RefObject<HTMLDivElement | null>
   open: boolean
   setOpen: (value: boolean) => void
+  onNavigate: () => void
 }) {
   const { theme, setTheme } = useTheme()
 
