@@ -5,6 +5,7 @@ import { getCurrentProfile } from '@/lib/repositories/profile'
 type SalesRow = {
   amount: number | string | null
   quantity: number | string | null
+  service_id: string | null
   currency: string | null
   status: string | null
   payment_status: string | null
@@ -49,7 +50,7 @@ async function calculateSalesMetrics(
     supabase
       .from('sales')
       .select(
-        'amount,quantity,currency,status,payment_status,sale_date',
+        'amount,quantity,service_id,currency,status,payment_status,sale_date',
       )
       .eq('organization_id', organizationId),
 
