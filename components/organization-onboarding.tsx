@@ -88,8 +88,7 @@ export function OrganizationOnboarding() {
         );
       }
 
-      router.replace("/workspace");
-      router.refresh();
+      window.location.assign("/workspace");
     } catch (submissionError) {
       setState("error");
 
