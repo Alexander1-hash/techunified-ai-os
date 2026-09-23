@@ -192,7 +192,7 @@ export const navGroups: NavigationGroup[] = [
         icon: Plug,
       },
       {
-        label: 'Data Sources',
+        label: 'Knowledge Sources',
         href: '/brain/data-sources',
         icon: Database,
       },
