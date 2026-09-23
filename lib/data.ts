@@ -61,7 +61,9 @@ import {
   Lightbulb,
   Plug,
   Settings,
+  ShoppingCart,
   Sparkles,
+  Users,
   Workflow,
 } from 'lucide-react'
 
@@ -167,6 +169,16 @@ export const navGroups: NavigationGroup[] = [
         label: 'Services',
         href: '/services',
         icon: BriefcaseBusiness,
+      },
+      {
+        label: 'Customers',
+        href: '/customers',
+        icon: Users,
+      },
+      {
+        label: 'Sales',
+        href: '/sales',
+        icon: ShoppingCart,
       },
     ],
   },
