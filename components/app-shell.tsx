@@ -247,7 +247,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
 
             {notifications && (
-              <div className="absolute right-0 top-11 z-[80] w-80 max-w-[calc(100vw-1rem)] rounded-xl border border-border bg-card p-3 shadow-2xl">
+              <div className="fixed right-3 top-[4.25rem] z-[120] w-80 max-w-[calc(100vw-1.5rem)] rounded-xl border border-border bg-card p-3 shadow-2xl sm:absolute sm:right-0 sm:top-11 sm:max-w-[calc(100vw-1rem)]">
                 <p className="px-2 text-sm font-semibold">Notifications</p>
                 <p className="px-2 pt-1 text-xs leading-5 text-muted-foreground">
                   Notification preferences can be managed in Settings.
@@ -278,7 +278,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <button
             aria-label="Close navigation"
             onClick={closeMobile}
-            className="fixed inset-0 z-[90] bg-black/20 lg:hidden"
+            className="fixed inset-0 z-[90] bg-black lg:hidden"
           />
 
           <aside
