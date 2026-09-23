@@ -164,8 +164,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background text-foreground">
       <aside
         className={[
-          "fixed inset-y-0 left-0 z-50 hidden border-r border-border bg-card lg:flex lg:flex-col",
+          "fixed inset-y-0 left-0 hidden border-r border-border bg-card lg:flex lg:flex-col",
           collapsed ? "w-[72px]" : "w-[256px]",
+          profileOpen ? "z-[120]" : "z-50",
         ].join(" ")}
       >
         <div className="flex h-14 shrink-0 items-center border-b border-border px-3">
@@ -273,6 +274,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
+      {profileOpen && (
+        <button
+          aria-label="Close profile menu"
+          onClick={() => setProfileOpen(false)}
+          className="fixed inset-0 z-[110] bg-black/80 lg:bg-black/70"
+        />
+      )}
+
       {mobile && (
         <>
           <button
@@ -282,7 +291,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           />
 
           <aside
-            className="fixed inset-y-0 left-0 z-[100] flex w-[min(292px,82vw)] flex-col border-r border-border bg-card text-foreground shadow-2xl lg:hidden"
+            className={[
+              "fixed inset-y-0 left-0 flex w-[min(292px,82vw)]",
+              profileOpen ? "z-[120]" : "z-[100]",
+            ].join(" ")} flex-col border-r border-border bg-card text-foreground shadow-2xl lg:hidden"
             role="dialog"
             aria-modal="true"
             aria-label="Navigation menu"
@@ -471,7 +483,7 @@ function ProfileMenu({
         {open && (
           <div
             className={[
-              "absolute z-[120] rounded-xl border border-border bg-card p-2 shadow-2xl",
+              "absolute z-[130] rounded-xl border border-border bg-card p-2 shadow-2xl",
               collapsed
                 ? "bottom-0 left-full ml-2 w-72"
                 : "bottom-[calc(100%+8px)] left-0 right-0",
