@@ -437,7 +437,7 @@ function ProfileMenu({
               href="/dashboard"
               onClick={() => {
                 setOpen(false)
-                setMobile(false)
+                setOpen(false)
               }}
               className="mt-2 flex min-h-11 items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-3 text-sm font-semibold text-primary hover:bg-primary/10"
             >
@@ -449,7 +449,7 @@ function ProfileMenu({
               href="/founder"
               onClick={() => {
                 setOpen(false)
-                setMobile(false)
+                setOpen(false)
               }}
               className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-foreground hover:bg-muted"
             >
@@ -462,7 +462,7 @@ function ProfileMenu({
               href="/settings"
               onClick={() => {
                 setOpen(false)
-                setMobile(false)
+                setOpen(false)
               }}
               className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-foreground hover:bg-muted"
             >
