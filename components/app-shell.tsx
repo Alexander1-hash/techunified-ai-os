@@ -210,13 +210,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <button
           aria-label={mobile ? "Close navigation" : "Open navigation"}
-          className="rounded-xl p-2 text-foreground hover:bg-muted lg:hidden"
+          className="flex size-10 shrink-0 items-center justify-center rounded-lg text-foreground hover:bg-muted lg:hidden"
           onClick={() => setMobile((value) => !value)}
         >
           {mobile ? <X size={20} /> : <Menu size={20} />}
         </button>
 
-        <div className="min-w-0 flex-1 lg:ml-0">\n          <GlobalSearch />\n        </div>
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="shrink-0 lg:hidden">
+            <div className="text-xs font-semibold tracking-tight">TECHUNIFIED</div>
+            <div className="text-[8px] uppercase tracking-[.2em] text-muted-foreground">AI OS</div>
+          </div>
+          <div className="min-w-0 flex-1">
+            <GlobalSearch />
+          </div>
+        </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <div ref={nref} className="relative">
