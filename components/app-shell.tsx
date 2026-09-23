@@ -281,7 +281,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <button
           aria-label="Close profile menu"
           onClick={() => setProfileOpen(false)}
-          className="fixed inset-0 z-[200] bg-[var(--overlay)]"
+          className="fixed inset-x-0 bottom-0 top-14 z-[200] bg-[var(--overlay)]"
         />
       )}
 
