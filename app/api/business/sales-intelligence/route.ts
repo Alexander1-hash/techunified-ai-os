@@ -15,6 +15,17 @@ type CustomerRow = {
   status: string | null
 }
 
+type ServiceRow = {
+  id: string
+  department_id: string | null
+  status: string | null
+}
+
+type DepartmentRow = {
+  id: string
+  is_active: boolean | null
+}
+
 function toNumber(value: number | string | null | undefined) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
@@ -34,7 +45,7 @@ async function calculateSalesMetrics(
   supabase: Awaited<ReturnType<typeof createClient>>,
   organizationId: string,
 ) {
-  const [salesResult, customersResult] = await Promise.all([
+  const [salesResult, customersResult, servicesResult, departmentsResult] = await Promise.all([
     supabase
       .from('sales')
       .select(
@@ -46,14 +57,31 @@ async function calculateSalesMetrics(
       .from('customers')
       .select('status')
       .eq('organization_id', organizationId),
+
+    supabase
+      .from('services')
+      .select('id,department_id,status')
+      .eq('organization_id', organizationId),
+
+    supabase
+      .from('departments')
+      .select('id,is_active')
+      .eq('organization_id', organizationId),
   ])
 
-  if (salesResult.error || customersResult.error) {
+  if (
+    salesResult.error ||
+    customersResult.error ||
+    servicesResult.error ||
+    departmentsResult.error
+  ) {
     throw new Error('Unable to read sales intelligence data.')
   }
 
   const sales = (salesResult.data ?? []) as SalesRow[]
   const customers = (customersResult.data ?? []) as CustomerRow[]
+  const services = (servicesResult.data ?? []) as ServiceRow[]
+  const departments = (departmentsResult.data ?? []) as DepartmentRow[]
 
   const wonSales = sales.filter(
     (sale) => sale.status === 'won',
@@ -112,6 +140,20 @@ async function calculateSalesMetrics(
       customer.status === 'customer',
   ).length
 
+  const activeDepartments = departments.filter(
+    (department) => department.is_active !== false,
+  ).length
+
+  const activeServices = services.filter(
+    (service) => service.status === 'active',
+  ).length
+
+  const servicesWithWonSales = new Set(
+    wonSales
+      .map((sale) => sale.service_id)
+      .filter((serviceId): serviceId is string => Boolean(serviceId)),
+  ).size
+
   const metrics = [
     {
       name: 'Sales',
@@ -151,6 +193,36 @@ async function calculateSalesMetrics(
       name: 'Active Customers',
       category: 'Customers',
       value: activeCustomerCount,
+      unit: 'count',
+    },
+    {
+      name: 'Departments',
+      category: 'Operations',
+      value: departments.length,
+      unit: 'count',
+    },
+    {
+      name: 'Active Departments',
+      category: 'Operations',
+      value: activeDepartments,
+      unit: 'count',
+    },
+    {
+      name: 'Services',
+      category: 'Operations',
+      value: services.length,
+      unit: 'count',
+    },
+    {
+      name: 'Active Services',
+      category: 'Operations',
+      value: activeServices,
+      unit: 'count',
+    },
+    {
+      name: 'Services With Sales',
+      category: 'Operations',
+      value: servicesWithWonSales,
       unit: 'count',
     },
   ]
