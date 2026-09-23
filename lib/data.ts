@@ -80,13 +80,18 @@ export type NavigationGroup = {
 
 export const navGroups: NavigationGroup[] = [
   {
-    label: 'Main',
+    label: 'Command Center',
     items: [
       {
         label: 'Dashboard',
         href: '/dashboard',
         icon: LayoutDashboard,
       },
+    ],
+  },
+  {
+    label: 'Main',
+    items: [
       {
         label: 'Company Brain',
         href: '/brain',
@@ -99,7 +104,6 @@ export const navGroups: NavigationGroup[] = [
       },
     ],
   },
-
   {
     label: 'AI & Automation',
     items: [
@@ -125,7 +129,6 @@ export const navGroups: NavigationGroup[] = [
       },
     ],
   },
-
   {
     label: 'Intelligence',
     items: [
@@ -149,14 +152,18 @@ export const navGroups: NavigationGroup[] = [
         href: '/reports',
         icon: FileBarChart,
       },
+    ],
+  },
+  {
+    label: 'Knowledge',
+    items: [
       {
-        label: 'Inspector',
-        href: '/business-analyst/inspector',
-        icon: Activity,
+        label: 'Knowledge Sources',
+        href: '/brain/data-sources',
+        icon: Database,
       },
     ],
   },
-
   {
     label: 'Business',
     items: [
@@ -182,7 +189,6 @@ export const navGroups: NavigationGroup[] = [
       },
     ],
   },
-
   {
     label: 'Connect',
     items: [
@@ -191,26 +197,25 @@ export const navGroups: NavigationGroup[] = [
         href: '/integrations',
         icon: Plug,
       },
-      {
-        label: 'Knowledge Sources',
-        href: '/brain/data-sources',
-        icon: Database,
-      },
     ],
   },
-
   {
     label: 'System',
     items: [
       {
-        label: 'Settings',
-        href: '/settings',
-        icon: Settings,
+        label: 'Inspector',
+        href: '/business-analyst/inspector',
+        icon: Activity,
       },
       {
         label: 'Activity',
         href: '/activity',
         icon: History,
+      },
+      {
+        label: 'Settings',
+        href: '/settings',
+        icon: Settings,
       },
     ],
   },
