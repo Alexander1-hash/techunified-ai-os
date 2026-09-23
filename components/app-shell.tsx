@@ -292,9 +292,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <aside
             className={[
-              "fixed inset-y-0 left-0 flex w-[min(292px,82vw)]",
+              "fixed inset-y-0 left-0 flex w-[min(292px,82vw)] flex-col border-r border-border bg-card text-foreground shadow-2xl lg:hidden",
               profileOpen ? "z-[120]" : "z-[100]",
-            ].join(" ")} flex-col border-r border-border bg-card text-foreground shadow-2xl lg:hidden"
+            ].join(" ")}
             role="dialog"
             aria-modal="true"
             aria-label="Navigation menu"
