@@ -144,7 +144,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside
         className={
           "fixed inset-y-0 left-0 z-50 hidden border-r border-border bg-card lg:flex lg:flex-col " +
-          (collapsed ? "w-20" : "w-72")
+          (collapsed ? "w-[72px]" : "w-[264px]")
         }
       >
         <div
@@ -205,7 +205,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header
         className={
           "sticky top-0 z-30 flex h-16 items-center border-b border-border bg-background px-4 lg:px-8 " +
-          (collapsed ? "lg:ml-20" : "lg:ml-72")
+          (collapsed ? "lg:ml-[72px]" : "lg:ml-[264px]")
         }
       >
         <button
@@ -216,9 +216,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {mobile ? <X size={20} /> : <Menu size={20} />}
         </button>
 
-        <GlobalSearch />
+        <div className="min-w-0 flex-1 lg:ml-0">\n          <GlobalSearch />\n        </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <div ref={nref} className="relative">
             <button
               aria-label="Notifications"
@@ -247,7 +247,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <button
             aria-label="Open profile menu"
-            className="hidden size-9 items-center justify-center overflow-hidden rounded-full border border-border bg-card text-foreground sm:flex"
+            className="flex size-9 items-center justify-center overflow-hidden rounded-full border border-border bg-card text-[11px] font-semibold text-foreground sm:size-10"
             onClick={() => setOpen((value) => !value)}
           >
             <Avatar profile={profile} user={user} />
@@ -336,7 +336,7 @@ function Avatar({
   ) : (
     <span>
       {name
-        .split(/s+/)
+        .split(/\s+/)
         .filter(Boolean)
         .slice(0, 2)
         .map((value) => value[0])
@@ -449,7 +449,6 @@ function ProfileMenu({
               href="/founder"
               onClick={() => {
                 setOpen(false)
-                setOpen(false)
               }}
               className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-foreground hover:bg-muted"
             >
@@ -461,7 +460,6 @@ function ProfileMenu({
             <Link
               href="/settings"
               onClick={() => {
-                setOpen(false)
                 setOpen(false)
               }}
               className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-foreground hover:bg-muted"
