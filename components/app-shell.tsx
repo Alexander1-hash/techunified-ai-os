@@ -298,6 +298,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               pref={pref}
               open={open}
               setOpen={setOpen}
+              onNavigate={closeMobile}
             />
           </div>
         </div>
