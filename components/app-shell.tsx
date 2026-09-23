@@ -437,7 +437,7 @@ function ProfileMenu({
               href="/dashboard"
               onClick={() => {
                 setOpen(false)
-                setOpen(false)
+                onNavigate()
               }}
               className="mt-2 flex min-h-11 items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-3 text-sm font-semibold text-primary hover:bg-primary/10"
             >
