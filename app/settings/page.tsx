@@ -11,6 +11,7 @@ import {
   Save,
   Shield,
   User,
+  Upload,
   X,
 } from "lucide-react";
 
@@ -43,6 +44,15 @@ export default function SettingsPage() {
 
   const [savingProfile, setSavingProfile] = useState(false);
 
+  const initialLogoUrl =
+    typeof organization?.logo_url === "string"
+      ? organization.logo_url
+      : "";
+
+  const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
+  const [logoError, setLogoError] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] =
     useState<MessageType>(null);
@@ -67,6 +77,16 @@ export default function SettingsPage() {
     setAvatarPreviewError(false);
     setDisplayAvatarError(false);
   }, [profile]);
+
+  useEffect(() => {
+    const nextLogoUrl =
+      typeof organization?.logo_url === "string"
+        ? organization.logo_url
+        : "";
+
+    setLogoUrl(nextLogoUrl);
+    setLogoError(false);
+  }, [organization]);
 
   const showMessage = (
     text: string,
@@ -332,7 +352,7 @@ export default function SettingsPage() {
     (typeof user?.email === "string"
       ? user.email.split("@")[0]
       : "") ||
-    "Alexander Trimnell";
+    "User";
 
   const profileEmail =
     typeof user?.email === "string"
