@@ -25,6 +25,9 @@ import { useAuth } from "@/components/auth-provider"
 import { useTheme, type Theme } from "@/components/theme-provider"
 import { TechUnifiedBrand } from "@/components/techunified-brand"
 
+const LOCAL_PROFILE_IMAGE =
+  "/profile/b22e2190-dc10-4de4-af97-92fc1437e690_20260924_040359_0000.png"
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname()
   const { user, profile, organization, role } = useAuth()
@@ -370,24 +373,17 @@ function Avatar({
   )
 
   const url =
-    typeof profile?.avatar_url === "string"
+    typeof profile?.avatar_url === "string" && profile.avatar_url.trim()
       ? profile.avatar_url
-      : null
+      : LOCAL_PROFILE_IMAGE
 
-  if (url) {
-    return <img src={url} alt="" className="size-full object-cover" />
-  }
-
-  const initials =
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((value) => value[0])
-      .join("")
-      .toUpperCase() || "U"
-
-  return <span>{initials}</span>
+  return (
+    <img
+      src={url}
+      alt={name}
+      className="size-full object-cover"
+    />
+  )
 }
 
 function ProfileMenu({
