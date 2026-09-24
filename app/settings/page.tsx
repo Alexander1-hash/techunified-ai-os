@@ -207,6 +207,109 @@ export default function SettingsPage() {
     }
   };
 
+  const handleLogoUpload = async (file: File | undefined) => {
+    if (!file) return;
+
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      showMessage("Logo must be a PNG, JPG, or WebP image.", "error");
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      showMessage("Logo must be smaller than 2 MB.", "error");
+      return;
+    }
+
+    setUploadingLogo(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("logo", file);
+
+      const response = await fetch("/api/organization/logo", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data: unknown = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const errorMessage =
+          typeof data === "object" &&
+          data !== null &&
+          "error" in data &&
+          typeof data.error === "string"
+            ? data.error
+            : "Failed to upload company logo.";
+
+        throw new Error(errorMessage);
+      }
+
+      const nextLogo =
+        typeof data === "object" &&
+        data !== null &&
+        "organization" in data &&
+        typeof data.organization === "object" &&
+        data.organization !== null &&
+        "logo_url" in data.organization &&
+        typeof data.organization.logo_url === "string"
+          ? data.organization.logo_url
+          : "";
+
+      setLogoUrl(nextLogo);
+      setLogoError(false);
+      showMessage("Company logo uploaded successfully.", "success");
+      window.location.reload();
+    } catch (error) {
+      showMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to upload company logo.",
+        "error",
+      );
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    setUploadingLogo(true);
+
+    try {
+      const response = await fetch("/api/organization/logo/delete", {
+        method: "DELETE",
+      });
+
+      const data: unknown = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const errorMessage =
+          typeof data === "object" &&
+          data !== null &&
+          "error" in data &&
+          typeof data.error === "string"
+            ? data.error
+            : "Failed to remove company logo.";
+
+        throw new Error(errorMessage);
+      }
+
+      setLogoUrl("");
+      setLogoError(false);
+      showMessage("Company logo removed.", "success");
+      window.location.reload();
+    } catch (error) {
+      showMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to remove company logo.",
+        "error",
+      );
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   const getInitials = (name: string) => {
     const parts = name
       .trim()
@@ -524,6 +627,65 @@ export default function SettingsPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Your organization and workspace configuration.
               </p>
+            </div>
+
+            <div className="rounded-xl border bg-muted/30 p-4 sm:col-span-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Company logo
+              </p>
+
+              <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border bg-background text-xl font-semibold">
+                  {logoUrl && !logoError ? (
+                    <img
+                      src={logoUrl}
+                      alt={`${organizationName} logo`}
+                      className="h-full w-full object-contain"
+                      onError={() => setLogoError(true)}
+                    />
+                  ) : (
+                    <Building2 className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">
+                    Add your company logo
+                  </p>
+
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Upload a PNG, JPG, or WebP file up to 2 MB. This logo belongs to your company workspace, not your personal profile.
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90">
+                      <Upload className="h-4 w-4" />
+                      {uploadingLogo ? "Uploading..." : "Upload logo"}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="sr-only"
+                        disabled={uploadingLogo}
+                        onChange={(event) => {
+                          void handleLogoUpload(event.target.files?.[0]);
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </label>
+
+                    {logoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => void handleLogoRemove()}
+                        disabled={uploadingLogo}
+                        className="inline-flex items-center justify-center rounded-lg border bg-background px-4 py-2 text-sm font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Remove logo
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="grid gap-4 p-5 sm:grid-cols-2">
