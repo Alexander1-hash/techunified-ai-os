@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import useSWR from 'swr'
 import { useState } from 'react'
+import { useAuth } from '@/components/auth-provider'
 import {
   Activity,
   ArrowRight,
@@ -63,6 +64,7 @@ const countValue = (value: unknown) =>
   typeof value === 'number' && Number.isFinite(value) ? value : 0
 
 export function CommandCenter() {
+  const { profile, user } = useAuth()
   const { data, error, isLoading, mutate } = useSWR<WorkspaceData>('/api/workspace', fetcher)
   const { data: decisionData, error: decisionError, isLoading: decisionsLoading } =
     useSWR<DecisionResponse>('/api/business/decisions', fetcher)
@@ -72,6 +74,14 @@ export function CommandCenter() {
   const [message, setMessage] = useState('')
   const [session, setSession] = useState<Session | null>(null)
   const decisions = decisionData?.decisions ?? []
+
+  const displayName = String(
+    profile?.full_name ??
+      user?.user_metadata?.full_name ??
+      user?.user_metadata?.name ??
+      user?.email?.split('@')[0] ??
+      'there',
+  ).trim() || 'there'
 
   async function createSession(sessionType = 'session') {
     if (!prompt.trim() || state === 'creating') return
@@ -125,7 +135,7 @@ export function CommandCenter() {
             <span className="size-1.5 rounded-full bg-primary" />
             Command Center
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Good morning, Alexander</h1>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Good morning, {displayName}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
             Your company workspace for AI agents, workflows, knowledge and business intelligence.
           </p>
