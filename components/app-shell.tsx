@@ -474,17 +474,31 @@ function ProfileMenu({
         {open && (
           <div
             className={[
-              "absolute z-[220] isolate overflow-hidden rounded-xl border border-border bg-card p-2 shadow-2xl",
+              "absolute z-[220] isolate overflow-hidden rounded-xl border border-white/10 bg-[#0b0b0b] p-2 text-white shadow-2xl",
               collapsed
                 ? "bottom-0 left-full ml-2 w-72"
                 : "bottom-[calc(100%+8px)] left-0 right-0",
             ].join(" ")}
           >
-            <div className="rounded-lg bg-muted px-3 py-2.5">
-              <p className="truncate text-sm font-semibold">{name}</p>
-              <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                {role} · {org}
-              </p>
+            <div className="rounded-lg border border-white/10 bg-[#111111] px-3 py-3 text-white shadow-inner">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-[#1b1b1b] text-[10px] font-semibold">
+                  <Avatar profile={profile} user={user} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-white">{name}</p>
+                  <p className="mt-1 truncate text-[11px] text-white/60">
+                    {role} · {org}
+                  </p>
+                </div>
+                <ChevronDown
+                  size={15}
+                  className={[
+                    "shrink-0 text-white/60 transition-transform",
+                    open ? "rotate-180" : "",
+                  ].join(" ")}
+                />
+              </div>
             </div>
 
             <Link
@@ -493,7 +507,7 @@ function ProfileMenu({
                 setOpen(false)
                 onNavigate()
               }}
-              className="mt-1 flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm hover:bg-muted"
+              className="mt-1 flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm text-white/80 hover:bg-white/10 hover:text-white"
             >
               <UserRound size={15} />
               Founder profile
@@ -505,13 +519,13 @@ function ProfileMenu({
                 setOpen(false)
                 onNavigate()
               }}
-              className="flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm hover:bg-muted"
+              className="flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm text-white/80 hover:bg-white/10 hover:text-white"
             >
               <Settings2 size={15} />
               Workspace settings
             </Link>
 
-            <div className="my-2 border-t border-border" />
+            <div className="my-2 border-t border-white/10" />
 
             <p className="px-3 pt-1 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
               Appearance
@@ -537,7 +551,7 @@ function ProfileMenu({
 
             <button
               onClick={signOut}
-              className="mt-2 flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="mt-2 flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-sm text-white/70 hover:bg-white/10 hover:text-white"
             >
               <LogOut size={15} />
               Log out
