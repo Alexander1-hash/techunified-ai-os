@@ -170,7 +170,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ].join(" ")}
       >
         <div className="flex h-14 shrink-0 items-center border-b border-border px-3">
-          <TechUnifiedBrand compact={collapsed} />
+          <WorkspaceBrand
+            compact={collapsed}
+            organization={organization}
+          />
 
           {!collapsed && (
             <button
@@ -300,7 +303,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             aria-label="Navigation menu"
           >
             <div className="flex h-14 shrink-0 items-center border-b border-border px-3">
-              <TechUnifiedBrand />
+              <WorkspaceBrand organization={organization} />
 
               <button
                 aria-label="Close navigation"
@@ -345,6 +348,55 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+    </div>
+  )
+}
+
+function WorkspaceBrand({
+  compact = false,
+  organization,
+}: {
+  compact?: boolean
+  organization: Record<string, unknown> | null
+}) {
+  const name =
+    typeof organization?.name === "string" && organization.name.trim()
+      ? organization.name.trim()
+      : "TechUnified"
+
+  const logoUrl =
+    typeof organization?.logo_url === "string" &&
+    organization.logo_url.trim()
+      ? organization.logo_url.trim()
+      : null
+
+  return (
+    <div
+      className={`flex min-w-0 items-center ${compact ? "justify-center" : "gap-3"}`}
+      aria-label={name}
+    >
+      <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-background">
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt={`${name} logo`}
+            className="size-full object-contain p-1"
+          />
+        ) : (
+          <TechUnifiedBrand compact />
+        )}
+      </div>
+
+      {!compact && (
+        <div className="min-w-0">
+          <div className="truncate font-semibold tracking-tight">
+            {name}
+          </div>
+          <div className="text-[10px] uppercase tracking-[.24em] text-muted-foreground">
+            AI OS
+          </div>
+        </div>
+      )}
     </div>
   )
 }
