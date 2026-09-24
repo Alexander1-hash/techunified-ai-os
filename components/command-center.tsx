@@ -64,7 +64,7 @@ const countValue = (value: unknown) =>
   typeof value === 'number' && Number.isFinite(value) ? value : 0
 
 export function CommandCenter() {
-  const { profile, user } = useAuth()
+  const { profile, user, organization } = useAuth()
   const { data, error, isLoading, mutate } = useSWR<WorkspaceData>('/api/workspace', fetcher)
   const { data: decisionData, error: decisionError, isLoading: decisionsLoading } =
     useSWR<DecisionResponse>('/api/business/decisions', fetcher)
@@ -127,13 +127,36 @@ export function CommandCenter() {
     { title: 'Reports', description: 'Generate and organize business reports.', href: '/reports', icon: FileBarChart },
   ]
 
+    const organizationName =
+    typeof organization?.name === "string" && organization.name.trim()
+      ? organization.name.trim()
+      : "Your company"
+
+  const organizationLogo =
+    typeof organization?.logo_url === "string" &&
+    organization.logo_url.trim()
+      ? organization.logo_url.trim()
+      : null
+
   return (
     <div className="min-w-0 space-y-8">
       <section className="flex min-w-0 flex-col gap-5 border-b border-border pb-7 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0 max-w-3xl">
-          <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[.2em] text-primary">
-            <span className="size-1.5 rounded-full bg-primary" />
-            Command Center
+          <div className="mb-3 flex items-center gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-card">
+              {organizationLogo ? (
+                <img
+                  src={organizationLogo}
+                  alt={`${organizationName} logo`}
+                  className="size-full object-contain p-1"
+                />
+              ) : (
+                <span className="size-1.5 rounded-full bg-primary" />
+              )}
+            </div>
+            <span className="text-[11px] font-semibold uppercase tracking-[.2em] text-primary">
+              {organizationName}
+            </span>
           </div>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Good morning, {displayName}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
