@@ -251,15 +251,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
 
             {notifications && (
-              <div className="fixed right-3 top-[4.25rem] z-[120] w-80 max-w-[calc(100vw-1.5rem)] rounded-xl border border-border bg-card p-3 shadow-2xl sm:absolute sm:right-0 sm:top-11 sm:max-w-[calc(100vw-1rem)]">
-                <p className="px-2 text-sm font-semibold">Notifications</p>
-                <p className="px-2 pt-1 text-xs leading-5 text-muted-foreground">
-                  Notification preferences can be managed in Settings.
-                </p>
+              <div
+                className="fixed right-3 top-[4.25rem] z-[220] isolate w-80 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-white/10 bg-[#0b0b0b] p-2 text-white shadow-2xl sm:absolute sm:right-0 sm:top-11 sm:max-w-[calc(100vw-1rem)]"
+              >
+                <div className="rounded-lg border border-white/10 bg-[#111111] px-3 py-3 text-white shadow-inner">
+                  <p className="text-sm font-semibold text-white">Notifications</p>
+                  <p className="pt-1 text-xs leading-5 text-white/60">
+                    Notification preferences can be managed in Settings.
+                  </p>
+                </div>
+
                 <Link
                   href="/settings"
                   onClick={() => setNotifications(false)}
-                  className="mt-2 flex min-h-9 items-center rounded-lg px-2 text-xs font-medium text-primary hover:bg-muted"
+                  className="mt-1 flex min-h-10 items-center rounded-lg px-3 text-xs font-medium text-white/80 hover:bg-white/10 hover:text-white"
                 >
                   Notification settings
                 </Link>
