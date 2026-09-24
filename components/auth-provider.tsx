@@ -90,7 +90,7 @@ export function AuthProvider({
           const { data } = await supabase
             .from("organizations")
             .select(
-              "id, name, description, industry, website, timezone, plan, created_at, updated_at",
+              "id, name, description, industry, website, timezone, plan, logo_url, created_at, updated_at",
             )
             .eq("id", nextProfile.organization_id)
             .maybeSingle();
