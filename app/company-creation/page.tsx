@@ -299,22 +299,24 @@ export default function CompanyCreationPage() {
                     <option>Nigeria</option><option>United States</option><option>United Kingdom</option><option>Other / decide later</option>
                   </select>
                 </div>
+
                 <div className="rounded-2xl border border-sky-400/20 bg-sky-400/5 p-5">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="font-semibold">Identity & Availability Intelligence</div>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">Generate name, domain, and social-handle candidates. These are suggestions until checked through the relevant provider or official registry.</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">Generate company names, domains, and social-handle candidates. These are suggestions until checked through the relevant provider or official registry.</p>
                     </div>
                     <button onClick={() => void generateIdentity()} disabled={loadingIdentity || !projectId}
                       className="shrink-0 rounded-xl bg-sky-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">
-                      {loadingIdentity ? "Generating..." : "Generate"}
+                      {loadingIdentity ? "Generating..." : identity ? "Regenerate" : "Generate"}
                     </button>
                   </div>
+
                   {identity && (
                     <div className="mt-5 space-y-4">
                       <div>
-                        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Suggested names</div>
-                        <div className="mt-2 flex flex-wrap gap-2">{[identity.proposed_name, ...([])].filter(Boolean).map((name) => <span key={name} className="rounded-full border border-border bg-background/50 px-3 py-1.5 text-xs">{name}</span>)}</div>
+                        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Suggested primary name</div>
+                        <div className="mt-2 rounded-xl border border-border bg-background/50 p-3 text-sm font-medium">{identity.proposed_name || "No name generated"}</div>
                       </div>
                       <div>
                         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Domain candidates</div>
@@ -325,26 +327,13 @@ export default function CompanyCreationPage() {
                         <div className="mt-2 flex flex-wrap gap-2">{identity.social_handles.map((handle) => <span key={handle} className="rounded-full border border-border bg-background/50 px-3 py-1.5 text-xs">@{handle.replace(/^@/, "")}</span>)}</div>
                       </div>
                       <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs leading-5 text-amber-200">
-                        {identity.metadata?.verification_note || "Availability has not been verified."}
+                        <div className="font-medium">Availability status: {identity.verification_status === "needs_provider_check" ? "Provider check required" : identity.verification_status}</div>
+                        <div className="mt-1">{identity.metadata?.verification_note || "Availability has not been verified."}</div>
                       </div>
                     </div>
                   )}
                 </div>
-                {architect?.missing_information?.length ? (
-              <div className="space-y-5">
-                <div>
-                  <label className="text-sm font-medium">Company / trading name</label>
-                  <input value={companyName} onChange={(event) => setCompanyName(event.target.value)}
-                    placeholder="Example: Lagos Streetwear"
-                    className="mt-2 w-full rounded-2xl border border-border bg-background/70 px-4 py-3 text-sm outline-none focus:border-sky-400/60" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Primary jurisdiction</label>
-                  <select value={jurisdiction} onChange={(event) => setJurisdiction(event.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-border bg-background/70 px-4 py-3 text-sm outline-none focus:border-sky-400/60">
-                    <option>Nigeria</option><option>United States</option><option>United Kingdom</option><option>Other / decide later</option>
-                  </select>
-                </div>
+
                 {architect?.missing_information?.length ? (
                   <div className="rounded-2xl border border-sky-400/20 bg-sky-400/5 p-4">
                     <div className="font-semibold">The Architect needs a little more information</div>
