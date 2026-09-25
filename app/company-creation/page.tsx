@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { ArrowRight, BadgeCheck, Building2, ChevronLeft, CircleHelp, Globe2, Landmark, LockKeyhole, Sparkles, Store, WalletCards } from "lucide-react"
 
 const steps = [
@@ -35,6 +35,48 @@ export default function CompanyCreationPage() {
   const [savingAgreement, setSavingAgreement] = useState(false)
   const [agreementId, setAgreementId] = useState<string | null>(null)
   const [error, setError] = useState("")
+  const [loadingWorkspace, setLoadingWorkspace] = useState(true)
+
+  useEffect(() => {
+    let active = true
+
+    async function resumeWorkspace() {
+      try {
+        const response = await fetch("/api/company-creation/architect", { cache: "no-store" })
+        const data = await response.json()
+        if (!active || !response.ok || !data.project) return
+
+        const savedArchitect = data.project.metadata?.architect as Architect | undefined
+        setProjectId(data.project.id)
+        setCompanyName(data.project.company_name || "")
+        setIdea(data.project.business_idea || "")
+        setJurisdiction(data.project.jurisdiction || "Nigeria")
+        if (savedArchitect) setArchitect(savedArchitect)
+        if (data.agreement?.status === "accepted") {
+          setAgreed(true)
+          setAgreementId(data.agreement.id)
+        }
+
+        const stageToStep: Record<string, number> = {
+          idea: 0,
+          agreement: 1,
+          identity: 2,
+          formation: 3,
+          infrastructure: 4,
+          launch: 5,
+          completed: 5,
+        }
+        setStep(stageToStep[data.project.stage] ?? 0)
+      } catch {
+        // A resume failure should not block starting a new company creation project.
+      } finally {
+        if (active) setLoadingWorkspace(false)
+      }
+    }
+
+    void resumeWorkspace()
+    return () => { active = false }
+  }, [])
 
   const progress = architect ? Math.max(10, Math.round(((step + 1) / steps.length) * 100)) : Math.round(((step + 1) / steps.length) * 100)
   const current = steps[step]
@@ -53,7 +95,7 @@ export default function CompanyCreationPage() {
       const response = await fetch("/api/company-creation/architect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idea, companyName, jurisdiction }),
+        body: JSON.stringify({ idea, companyName, jurisdiction, projectId }),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || "The Company Architect could not analyze this idea.")
@@ -319,14 +361,14 @@ export default function CompanyCreationPage() {
             )}
 
             <div className="mt-8 flex items-center justify-between gap-3 border-t border-border pt-5">
-              <button onClick={() => setStep((value) => Math.max(value - 1, 0))} disabled={step === 0 || loadingArchitect}
+              <button onClick={() => setStep((value) => Math.max(value - 1, 0))} disabled={step === 0 || loadingWorkspace || loadingArchitect}
                 className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40">
                 <ChevronLeft className="h-4 w-4" /> Back
               </button>
               {step < steps.length - 1 && (
-                <button onClick={next} disabled={loadingArchitect || savingAgreement || (step === 0 && idea.trim().length < 20) || (step === 1 && !agreed)}
+                <button onClick={next} disabled={loadingWorkspace || loadingArchitect || savingAgreement || (step === 0 && idea.trim().length < 20) || (step === 1 && !agreed)}
                   className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 disabled:cursor-not-allowed disabled:opacity-40">
-                  {loadingArchitect ? "Architect is thinking..." : savingAgreement ? "Saving agreement..." : "Continue"} <ArrowRight className="h-4 w-4" />
+                  {loadingWorkspace ? "Loading workspace..." : loadingArchitect ? "Architect is thinking..." : savingAgreement ? "Saving agreement..." : "Continue"} <ArrowRight className="h-4 w-4" />
                 </button>
               )}
             </div>
