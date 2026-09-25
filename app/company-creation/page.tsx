@@ -470,7 +470,7 @@ export default function CompanyCreationPage() {
                     </div>
                   ))}
                 </div>
-                <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 bg-amber-400/5 p-4 text-xs leading-5 text-muted-foreground">
+                <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-xs leading-5 text-muted-foreground">
                   <strong className="text-foreground">Provider handoff:</strong> TechUnified organizes the blueprint and can prepare assets, but domains, mailboxes, payment accounts and social accounts must be created or controlled through their respective providers.
                 </div>
                 <button onClick={() => void generateInfrastructure()} disabled={loadingInfrastructure || !projectId} className="rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40">{loadingInfrastructure ? "Building blueprint..." : infrastructure ? "Refresh infrastructure blueprint" : "Build infrastructure blueprint"}</button>
