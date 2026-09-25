@@ -12,22 +12,64 @@ const steps = [
   { id: "launch", label: "Launch plan", icon: BadgeCheck },
 ]
 
+type Architect = {
+  company_summary: string
+  industry: string
+  business_model: string
+  target_customer: string
+  key_assumptions: string[]
+  missing_information: Array<{ question: string; why_it_matters: string }>
+  roadmap: Array<{ category: string; title: string; description: string; priority: "high" | "medium" | "low" }>
+  next_action: string
+}
+
 export default function CompanyCreationPage() {
   const [step, setStep] = useState(0)
   const [idea, setIdea] = useState("")
   const [companyName, setCompanyName] = useState("")
   const [jurisdiction, setJurisdiction] = useState("Nigeria")
   const [agreed, setAgreed] = useState(false)
+  const [architect, setArchitect] = useState<Architect | null>(null)
+  const [projectId, setProjectId] = useState<string | null>(null)
+  const [loadingArchitect, setLoadingArchitect] = useState(false)
+  const [error, setError] = useState("")
 
-  const progress = Math.round(((step + 1) / steps.length) * 100)
+  const progress = architect ? Math.max(10, Math.round(((step + 1) / steps.length) * 100)) : Math.round(((step + 1) / steps.length) * 100)
   const current = steps[step]
 
   const summary = useMemo(() => {
-    if (!idea.trim()) return "Your company plan will appear here as you answer a few questions."
-    return "TechUnified will organize a company creation plan around: " + idea.trim() + "."
-  }, [idea])
+    if (loadingArchitect) return "Company Architect is analyzing your idea and designing the first company-building plan."
+    if (architect) return architect.company_summary
+    if (!idea.trim()) return "Describe what you want to build. The Architect will identify the company structure, missing information, and next actions."
+    return "Your idea is ready for analysis. TechUnified will turn it into a structured company creation plan."
+  }, [architect, idea, loadingArchitect])
+
+  async function analyzeIdea() {
+    setError("")
+    setLoadingArchitect(true)
+    try {
+      const response = await fetch("/api/company-creation/architect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idea, companyName, jurisdiction }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "The Company Architect could not analyze this idea.")
+      setArchitect(data.architect)
+      setProjectId(data.project?.id || null)
+      setStep(1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.")
+    } finally {
+      setLoadingArchitect(false)
+    }
+  }
 
   function next() {
+    if (step === 0) {
+      void analyzeIdea()
+      return
+    }
     if (step === 1 && !agreed) return
     setStep((value) => Math.min(value + 1, steps.length - 1))
   }
@@ -90,8 +132,9 @@ export default function CompanyCreationPage() {
                 </div>
                 <div className="rounded-2xl border border-sky-400/20 bg-sky-400/5 p-4 text-sm text-muted-foreground">
                   <Sparkles className="mb-2 h-5 w-5 text-sky-400" />
-                  TechUnified will turn your description into a structured company creation plan.
+                  The Company Architect will analyze your idea, identify missing information, and generate a tailored company-building roadmap.
                 </div>
+                {error && <div className="rounded-2xl border border-red-400/30 bg-red-400/5 p-4 text-sm text-red-300">{error}</div>}
               </div>
             )}
 
@@ -103,8 +146,7 @@ export default function CompanyCreationPage() {
                     <div>
                       <h3 className="font-semibold">Company Creation Agreement</h3>
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                        This prototype records the commercial framework before company-creation services begin.
-                        Any equity arrangement must be finalized in a legally valid agreement for the applicable jurisdiction.
+                        This presents the proposed commercial framework before company-creation services begin. Any equity arrangement must be finalized in a legally valid agreement for the applicable jurisdiction.
                       </p>
                     </div>
                   </div>
@@ -114,8 +156,8 @@ export default function CompanyCreationPage() {
                       <div className="mt-1 font-semibold">5% equity — subject to final agreement</div>
                     </div>
                     <div className="rounded-xl border border-border p-3">
-                      <div className="text-xs text-muted-foreground">Customer company</div>
-                      <div className="mt-1 font-semibold">{companyName || "To be defined"}</div>
+                      <div className="text-xs text-muted-foreground">Company Architect</div>
+                      <div className="mt-1 font-semibold">{architect?.industry || "Analyzing business type"}</div>
                     </div>
                   </div>
                 </div>
@@ -123,8 +165,7 @@ export default function CompanyCreationPage() {
                   <input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)}
                     className="mt-1 h-4 w-4 accent-sky-500" />
                   <span className="text-sm leading-6">
-                    I understand the proposed commercial framework and want to continue to the company-creation setup.
-                    I understand that this screen is not itself a substitute for a jurisdiction-specific legal agreement.
+                    I understand the proposed commercial framework and want to continue. I understand that this screen is not itself a substitute for a jurisdiction-specific legal agreement.
                   </span>
                 </label>
               </div>
@@ -145,23 +186,51 @@ export default function CompanyCreationPage() {
                     <option>Nigeria</option><option>United States</option><option>United Kingdom</option><option>Other / decide later</option>
                   </select>
                 </div>
+                {architect?.missing_information?.length ? (
+                  <div className="rounded-2xl border border-sky-400/20 bg-sky-400/5 p-4">
+                    <div className="font-semibold">The Architect needs a little more information</div>
+                    <div className="mt-3 space-y-3">
+                      {architect.missing_information.slice(0, 4).map((item) => (
+                        <div key={item.question} className="rounded-xl border border-border/70 p-3">
+                          <div className="text-sm font-medium">{item.question}</div>
+                          <div className="mt-1 text-xs leading-5 text-muted-foreground">{item.why_it_matters}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             )}
 
             {step === 3 && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {[
-                  ["Business registration", "Identify the appropriate official formation route."],
-                  ["Tax setup", "Identify relevant tax and reporting requirements."],
-                  ["Business banking", "Prepare the information needed for a business account."],
-                  ["Regulatory checks", "Surface industry-specific requirements before launch."],
-                ].map(([title, text]) => (
-                  <div key={title} className="rounded-2xl border border-border p-5">
-                    <Landmark className="h-5 w-5 text-sky-400" />
-                    <h3 className="mt-3 font-semibold">{title}</h3>
-                    <p className="mt-1 text-sm leading-6 text-muted-foreground">{text}</p>
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    ["Business registration", "Identify the appropriate official formation route."],
+                    ["Tax setup", "Identify relevant tax and reporting requirements."],
+                    ["Business banking", "Prepare the information needed for a business account."],
+                    ["Regulatory checks", "Surface industry-specific requirements before launch."],
+                  ].map(([title, text]) => (
+                    <div key={title} className="rounded-2xl border border-border p-5">
+                      <Landmark className="h-5 w-5 text-sky-400" />
+                      <h3 className="mt-3 font-semibold">{title}</h3>
+                      <p className="mt-1 text-sm leading-6 text-muted-foreground">{text}</p>
+                    </div>
+                  ))}
+                </div>
+                {architect?.roadmap?.length ? (
+                  <div className="rounded-2xl border border-border p-5">
+                    <div className="font-semibold">Architect roadmap</div>
+                    <div className="mt-3 space-y-3">
+                      {architect.roadmap.map((item) => (
+                        <div key={item.title} className="flex gap-3 rounded-xl border border-border/70 p-3">
+                          <BadgeCheck className="mt-0.5 h-4 w-4 text-sky-400" />
+                          <div><div className="text-sm font-medium">{item.title}</div><div className="text-xs leading-5 text-muted-foreground">{item.description}</div></div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                ) : null}
               </div>
             )}
 
@@ -186,16 +255,16 @@ export default function CompanyCreationPage() {
               <div className="space-y-5">
                 <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/5 p-5">
                   <BadgeCheck className="h-6 w-6 text-emerald-400" />
-                  <h3 className="mt-3 text-lg font-semibold">Your creation plan is ready.</h3>
+                  <h3 className="mt-3 text-lg font-semibold">Your first company blueprint is ready.</h3>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    Next, TechUnified can connect the plan to real service providers, payments, company data, and the Company Brain.
+                    {architect?.next_action || "The next phase connects your plan to verified services, payments, company data, and the Company Brain."}
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3">
                   {[
                     ["Company", companyName || "Name pending"],
                     ["Jurisdiction", jurisdiction],
-                    ["Framework", "Agreement recorded"],
+                    ["Project", projectId ? "Saved to workspace" : "Not saved"],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-2xl border border-border p-4">
                       <div className="text-xs text-muted-foreground">{label}</div>
@@ -207,14 +276,14 @@ export default function CompanyCreationPage() {
             )}
 
             <div className="mt-8 flex items-center justify-between gap-3 border-t border-border pt-5">
-              <button onClick={() => setStep((value) => Math.max(value - 1, 0))} disabled={step === 0}
+              <button onClick={() => setStep((value) => Math.max(value - 1, 0))} disabled={step === 0 || loadingArchitect}
                 className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40">
                 <ChevronLeft className="h-4 w-4" /> Back
               </button>
               {step < steps.length - 1 && (
-                <button onClick={next} disabled={(step === 0 && !idea.trim()) || (step === 1 && !agreed)}
+                <button onClick={next} disabled={loadingArchitect || (step === 0 && idea.trim().length < 20) || (step === 1 && !agreed)}
                   className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 disabled:cursor-not-allowed disabled:opacity-40">
-                  Continue <ArrowRight className="h-4 w-4" />
+                  {loadingArchitect ? "Architect is thinking..." : "Continue"} <ArrowRight className="h-4 w-4" />
                 </button>
               )}
             </div>
@@ -224,6 +293,13 @@ export default function CompanyCreationPage() {
             <div className="rounded-3xl border border-border/70 bg-card/60 p-5">
               <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-sky-400" /><span className="text-sm font-semibold">Company Architect</span></div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">{summary}</p>
+              {architect && (
+                <div className="mt-4 space-y-2 text-xs">
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">Business model</span><span className="text-right font-medium">{architect.business_model}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">Customer</span><span className="text-right font-medium">{architect.target_customer}</span></div>
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">Missing answers</span><span className="font-medium">{architect.missing_information.length}</span></div>
+                </div>
+              )}
             </div>
             <div className="rounded-3xl border border-border/70 bg-card/60 p-5">
               <div className="text-sm font-semibold">What TechUnified will organize</div>
