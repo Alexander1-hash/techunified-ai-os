@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+
 
 type ArchitectResult = {
   company_summary: string
@@ -57,6 +57,8 @@ export async function POST(request: Request) {
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({ error: "AI configuration is missing on the server." }, { status: 503 })
     }
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
     const response = await openai.responses.create({
       model: process.env.OPENAI_MODEL || "gpt-5.6-luna",
