@@ -37,6 +37,35 @@ const fallback = (idea: string): ArchitectResult => ({
   next_action: "Answer the missing questions so the Company Architect can refine the roadmap.",
 })
 
+export async function GET() {
+  try {
+    const user = await getCurrentUser()
+    const profile = await getCurrentProfile()
+    if (!user || !profile?.organization_id) return NextResponse.json({ error: "You must be signed in with an organization." }, { status: 401 })
+
+    const supabase = await createClient()
+    const { data: project, error: projectError } = await supabase
+      .from("company_creation_projects")
+      .select("id,company_name,business_idea,jurisdiction,stage,progress,metadata,created_at,updated_at")
+      .eq("organization_id", profile.organization_id)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (projectError) return NextResponse.json({ error: "Your Company Creation workspace could not be loaded." }, { status: 500 })
+    if (!project) return NextResponse.json({ project: null, agreement: null, tasks: [] })
+
+    const [{ data: agreement }, { data: tasks }] = await Promise.all([
+      supabase.from("company_creation_agreements").select("id,version,status,accepted_at,accepted_by").eq("project_id", project.id).eq("accepted_by", user.id).eq("status", "accepted").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("company_creation_tasks").select("id,category,title,description,status,provider_key,external_reference,metadata").eq("project_id", project.id).order("created_at", { ascending: true }),
+    ])
+    return NextResponse.json({ project, agreement: agreement || null, tasks: tasks || [] })
+  } catch (error) {
+    console.error("[company-creation] resume lookup failed:", error)
+    return NextResponse.json({ error: "Your Company Creation workspace could not be loaded." }, { status: 500 })
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const user = await getCurrentUser()
@@ -49,7 +78,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const idea = typeof body.idea === "string" ? body.idea.trim() : ""
     const companyName = typeof body.companyName === "string" ? body.companyName.trim() : null
-    const jurisdiction = typeof body.jurisdiction === "string" ? body.jurisdiction.trim() : "Nigeria"
+    const jurisdiction = typeof body.jurisdiction === "string" ? body.jurisdiction.trim() : "Nigeria"\n    const projectId = typeof body.projectId === "string" ? body.projectId.trim() : ""
 
     if (idea.length < 20) {
       return NextResponse.json({ error: "Describe the company idea in at least 20 characters." }, { status: 400 })
@@ -73,31 +102,51 @@ export async function POST(request: Request) {
     }
 
     const supabase = await createClient()
-    const { data: project, error } = await supabase.from("company_creation_projects").insert({
-      organization_id: profile.organization_id,
-      created_by: user.id,
-      company_name: companyName,
-      business_idea: idea,
-      jurisdiction,
-      stage: "idea",
-      progress: 10,
-      metadata: { architect, source: "company_creation_architect" },
-    }).select("id,company_name,business_idea,jurisdiction,stage,progress,metadata").single()
+    let project: any
+    let error: any = null
 
-    if (error) {
-      console.error("[company-creation] project insert failed:", error.message)
+    if (projectId) {
+      const { data: existingProject, error: lookupError } = await supabase
+        .from("company_creation_projects")
+        .select("id,company_name,business_idea,jurisdiction,stage,progress,metadata")
+        .eq("id", projectId)
+        .eq("organization_id", profile.organization_id)
+        .single()
+      if (lookupError || !existingProject) return NextResponse.json({ error: "The Company Creation project could not be found." }, { status: 404 })
+
+      const { data: updatedProject, error: updateError } = await supabase
+        .from("company_creation_projects")
+        .update({ company_name: companyName || existingProject.company_name, business_idea: idea, jurisdiction, metadata: { ...(existingProject.metadata || {}), architect, source: "company_creation_architect" }, updated_at: new Date().toISOString() })
+        .eq("id", projectId)
+        .eq("organization_id", profile.organization_id)
+        .select("id,company_name,business_idea,jurisdiction,stage,progress,metadata")
+        .single()
+      project = updatedProject
+      error = updateError
+    } else {
+      const { data: insertedProject, error: insertError } = await supabase.from("company_creation_projects").insert({
+        organization_id: profile.organization_id, created_by: user.id, company_name: companyName, business_idea: idea, jurisdiction,
+        stage: "idea", progress: 10, metadata: { architect, source: "company_creation_architect" },
+      }).select("id,company_name,business_idea,jurisdiction,stage,progress,metadata").single()
+      project = insertedProject
+      error = insertError
+    }
+
+    if (error || !project) {
+      console.error("[company-creation] project save failed:", error?.message)
       return NextResponse.json({ error: "The plan was generated but could not be saved." }, { status: 500 })
     }
 
-    const tasks = architect.roadmap.map((item) => ({
-      project_id: project.id,
-      category: item.category,
-      title: item.title,
-      description: item.description,
-      status: "planned",
+    const { data: existingTasks } = await supabase.from("company_creation_tasks").select("title").eq("project_id", project.id)
+    const existingTitles = new Set((existingTasks || []).map((task) => task.title))
+    const tasks = architect.roadmap.filter((item) => !existingTitles.has(item.title)).map((item) => ({
+      project_id: project.id, category: item.category, title: item.title, description: item.description, status: "planned",
       metadata: { priority: item.priority, source: "company_architect" },
     }))
-    if (tasks.length) await supabase.from("company_creation_tasks").insert(tasks)
+    if (tasks.length) {
+      const { error: taskError } = await supabase.from("company_creation_tasks").insert(tasks)
+      if (taskError) console.error("[company-creation] task save failed:", taskError.message)
+    }
 
     return NextResponse.json({ project, architect })
   } catch (error) {
