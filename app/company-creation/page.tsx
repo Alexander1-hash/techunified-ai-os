@@ -41,6 +41,8 @@ export default function CompanyCreationPage() {
   const [loadingVerification, setLoadingVerification] = useState(false)
   const [formation, setFormation] = useState<any>(null)
   const [loadingFormation, setLoadingFormation] = useState(false)
+  const [infrastructure, setInfrastructure] = useState<any>(null)
+  const [loadingInfrastructure, setLoadingInfrastructure] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -59,6 +61,8 @@ export default function CompanyCreationPage() {
         if (savedArchitect) setArchitect(savedArchitect)
         const formationResponse = await fetch(`/api/company-creation/formation?projectId=${encodeURIComponent(data.project.id)}`, { cache: "no-store" })
         if (formationResponse.ok) { const formationData = await formationResponse.json(); if (active && formationData.assessment) setFormation(formationData.assessment) }
+        const infrastructureResponse = await fetch(`/api/company-creation/infrastructure?projectId=${encodeURIComponent(data.project.id)}`, { cache: "no-store" })
+        if (infrastructureResponse.ok) { const infrastructureData = await infrastructureResponse.json(); if (active && infrastructureData.plan) setInfrastructure(infrastructureData.plan) }
         if (data.project.id) {
           const identityResponse = await fetch(`/api/company-creation/identity?projectId=${encodeURIComponent(data.project.id)}`, { cache: "no-store" })
           if (identityResponse.ok) {
@@ -155,6 +159,20 @@ export default function CompanyCreationPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Formation intelligence could not be generated.")
     } finally { setLoadingFormation(false) }
+  }
+
+  async function generateInfrastructure() {
+    if (!projectId || loadingInfrastructure) return
+    setError("")
+    setLoadingInfrastructure(true)
+    try {
+      const response = await fetch("/api/company-creation/infrastructure", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId }) })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Infrastructure blueprint could not be generated.")
+      setInfrastructure(data.plan)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Infrastructure blueprint could not be generated.")
+    } finally { setLoadingInfrastructure(false) }
   }
 
   async function verifyIdentity() {
@@ -452,9 +470,11 @@ export default function CompanyCreationPage() {
                     </div>
                   ))}
                 </div>
-                <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-xs leading-5 text-muted-foreground">
+                <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 bg-amber-400/5 p-4 text-xs leading-5 text-muted-foreground">
                   <strong className="text-foreground">Provider handoff:</strong> TechUnified organizes the blueprint and can prepare assets, but domains, mailboxes, payment accounts and social accounts must be created or controlled through their respective providers.
                 </div>
+                <button onClick={() => void generateInfrastructure()} disabled={loadingInfrastructure || !projectId} className="rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40">{loadingInfrastructure ? "Building blueprint..." : infrastructure ? "Refresh infrastructure blueprint" : "Build infrastructure blueprint"}</button>
+                {infrastructure && <div className="rounded-2xl border border-border p-4"><div className="font-semibold">Provider action map</div><div className="mt-3 grid gap-2 sm:grid-cols-2">{Object.entries(infrastructure).filter(([key]) => ["domain","email","website","brand","social","payments"].includes(key)).map(([key, item]: any) => <div key={key} className="rounded-xl border border-border/70 p-3"><div className="text-sm font-medium capitalize">{key}</div><div className="mt-1 text-xs text-muted-foreground">{item.detail}</div><div className="mt-2 text-[10px] uppercase tracking-wide text-sky-400">{item.status.replace("_"," ")}</div></div>)}</div></div>}
               </div>
             )}
 
