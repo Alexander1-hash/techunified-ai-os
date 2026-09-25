@@ -39,6 +39,8 @@ export default function CompanyCreationPage() {
   const [identity, setIdentity] = useState<{ proposed_name: string | null; domain_candidates: string[]; social_handles: string[]; verification_status: string; metadata?: { rationale?: string; verification_note?: string } } | null>(null)
   const [loadingIdentity, setLoadingIdentity] = useState(false)
   const [loadingVerification, setLoadingVerification] = useState(false)
+  const [formation, setFormation] = useState<any>(null)
+  const [loadingFormation, setLoadingFormation] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -55,6 +57,8 @@ export default function CompanyCreationPage() {
         setIdea(data.project.business_idea || "")
         setJurisdiction(data.project.jurisdiction || "Nigeria")
         if (savedArchitect) setArchitect(savedArchitect)
+        const formationResponse = await fetch(`/api/company-creation/formation?projectId=${encodeURIComponent(data.project.id)}`, { cache: "no-store" })
+        if (formationResponse.ok) { const formationData = await formationResponse.json(); if (active && formationData.assessment) setFormation(formationData.assessment) }
         if (data.project.id) {
           const identityResponse = await fetch(`/api/company-creation/identity?projectId=${encodeURIComponent(data.project.id)}`, { cache: "no-store" })
           if (identityResponse.ok) {
@@ -137,6 +141,20 @@ export default function CompanyCreationPage() {
     } finally {
       setLoadingIdentity(false)
     }
+  }
+
+  async function generateFormation() {
+    if (!projectId || loadingFormation) return
+    setError("")
+    setLoadingFormation(true)
+    try {
+      const response = await fetch("/api/company-creation/formation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId }) })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Formation intelligence could not be generated.")
+      setFormation(data.assessment)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Formation intelligence could not be generated.")
+    } finally { setLoadingFormation(false) }
   }
 
   async function verifyIdentity() {
@@ -386,20 +404,17 @@ export default function CompanyCreationPage() {
 
             {step === 3 && (
               <div className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {[
-                    ["Business registration", "Identify the appropriate official formation route."],
-                    ["Tax setup", "Identify relevant tax and reporting requirements."],
-                    ["Business banking", "Prepare the information needed for a business account."],
-                    ["Regulatory checks", "Surface industry-specific requirements before launch."],
-                  ].map(([title, text]) => (
-                    <div key={title} className="rounded-2xl border border-border p-5">
-                      <Landmark className="h-5 w-5 text-sky-400" />
-                      <h3 className="mt-3 font-semibold">{title}</h3>
-                      <p className="mt-1 text-sm leading-6 text-muted-foreground">{text}</p>
-                    </div>
-                  ))}
+                <div className="rounded-2xl border border-sky-400/20 bg-sky-400/5 p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div><div className="font-semibold">Formation Intelligence Center</div><p className="mt-1 text-xs leading-5 text-muted-foreground">Turn your company plan into a formation checklist. TechUnified does not file or provide legal/tax advice.</p></div>
+                    <button onClick={() => void generateFormation()} disabled={loadingFormation || !projectId} className="rounded-xl bg-sky-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">{loadingFormation ? "Building..." : formation ? "Refresh" : "Build checklist"}</button>
+                  </div>
                 </div>
+                {formation && <div className="space-y-3">
+                  <div className="rounded-2xl border border-border p-4"><div className="text-xs text-muted-foreground">Formation path</div><div className="mt-1 font-semibold">{formation.entity_path}</div></div>
+                  {(formation.checklist || []).map((item: any) => <div key={item.title} className="rounded-2xl border border-border p-4"><div className="flex items-center gap-2"><Landmark className="h-4 w-4 text-sky-400" /><div className="font-medium">{item.title}</div><span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">{item.status.replace("_"," ")}</span></div><p className="mt-2 text-xs leading-5 text-muted-foreground">{item.detail}</p></div>)}
+                  <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-xs leading-5 text-amber-200">Planning only. Confirm current CAC requirements, fees and applicable professional advice before submission.</div>
+                </div>}
                 {architect?.roadmap?.length ? (
                   <div className="rounded-2xl border border-border p-5">
                     <div className="font-semibold">Architect roadmap</div>
