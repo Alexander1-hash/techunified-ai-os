@@ -32,6 +32,8 @@ export default function CompanyCreationPage() {
   const [architect, setArchitect] = useState<Architect | null>(null)
   const [projectId, setProjectId] = useState<string | null>(null)
   const [loadingArchitect, setLoadingArchitect] = useState(false)
+  const [savingAgreement, setSavingAgreement] = useState(false)
+  const [agreementId, setAgreementId] = useState<string | null>(null)
   const [error, setError] = useState("")
 
   const progress = architect ? Math.max(10, Math.round(((step + 1) / steps.length) * 100)) : Math.round(((step + 1) / steps.length) * 100)
@@ -65,12 +67,46 @@ export default function CompanyCreationPage() {
     }
   }
 
+  async function acceptAgreement() {
+    if (!projectId || !agreed || savingAgreement) return
+
+    setError("")
+    setSavingAgreement(true)
+
+    try {
+      const response = await fetch("/api/company-creation/agreement", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Your agreement acceptance could not be saved.")
+      }
+
+      setAgreementId(data.agreement?.id || null)
+      setStep(2)
+
+      if (data.warning) {
+        setError(data.warning)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Your agreement acceptance could not be saved.")
+    } finally {
+      setSavingAgreement(false)
+    }
+  }
+
   function next() {
     if (step === 0) {
       void analyzeIdea()
       return
     }
-    if (step === 1 && !agreed) return
+    if (step === 1) {
+      void acceptAgreement()
+      return
+    }
     setStep((value) => Math.min(value + 1, steps.length - 1))
   }
 
@@ -165,9 +201,15 @@ export default function CompanyCreationPage() {
                   <input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)}
                     className="mt-1 h-4 w-4 accent-sky-500" />
                   <span className="text-sm leading-6">
-                    I understand the proposed commercial framework and want to continue. I understand that this screen is not itself a substitute for a jurisdiction-specific legal agreement.
+                    I understand the proposed commercial framework and want to continue. I understand that this screen is not itself a substitute for a jurisdiction-specific legal agreement. My acceptance will be securely recorded against this Company Creation project.
                   </span>
                 </label>
+                {agreementId && (
+                  <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/5 p-4 text-sm text-emerald-300">
+                    Agreement v1.0 accepted and securely recorded for this Company Creation project.
+                  </div>
+                )}
+                {error && <div className="rounded-2xl border border-red-400/30 bg-red-400/5 p-4 text-sm text-red-300">{error}</div>}
               </div>
             )}
 
@@ -265,6 +307,7 @@ export default function CompanyCreationPage() {
                     ["Company", companyName || "Name pending"],
                     ["Jurisdiction", jurisdiction],
                     ["Project", projectId ? "Saved to workspace" : "Not saved"],
+                    ["Agreement", agreementId ? "v1.0 recorded" : "Not accepted"],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-2xl border border-border p-4">
                       <div className="text-xs text-muted-foreground">{label}</div>
@@ -281,9 +324,9 @@ export default function CompanyCreationPage() {
                 <ChevronLeft className="h-4 w-4" /> Back
               </button>
               {step < steps.length - 1 && (
-                <button onClick={next} disabled={loadingArchitect || (step === 0 && idea.trim().length < 20) || (step === 1 && !agreed)}
+                <button onClick={next} disabled={loadingArchitect || savingAgreement || (step === 0 && idea.trim().length < 20) || (step === 1 && !agreed)}
                   className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 disabled:cursor-not-allowed disabled:opacity-40">
-                  {loadingArchitect ? "Architect is thinking..." : "Continue"} <ArrowRight className="h-4 w-4" />
+                  {loadingArchitect ? "Architect is thinking..." : savingAgreement ? "Saving agreement..." : "Continue"} <ArrowRight className="h-4 w-4" />
                 </button>
               )}
             </div>
