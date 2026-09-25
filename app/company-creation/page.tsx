@@ -43,6 +43,8 @@ export default function CompanyCreationPage() {
   const [loadingFormation, setLoadingFormation] = useState(false)
   const [infrastructure, setInfrastructure] = useState<any>(null)
   const [loadingInfrastructure, setLoadingInfrastructure] = useState(false)
+  const [services, setServices] = useState<any[]>([])
+  const [loadingServices, setLoadingServices] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -159,6 +161,18 @@ export default function CompanyCreationPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Formation intelligence could not be generated.")
     } finally { setLoadingFormation(false) }
+  }
+
+  async function loadServices() {
+    if (!projectId) return
+    setLoadingServices(true)
+    try {
+      const response = await fetch(`/api/company-creation/services?projectId=${encodeURIComponent(projectId)}`, { cache: "no-store" })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Services could not be loaded.")
+      setServices(data.services || [])
+    } catch (err) { setError(err instanceof Error ? err.message : "Services could not be loaded.") }
+    finally { setLoadingServices(false) }
   }
 
   async function generateInfrastructure() {
@@ -476,6 +490,13 @@ export default function CompanyCreationPage() {
                 <button onClick={() => void generateInfrastructure()} disabled={loadingInfrastructure || !projectId} className="rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40">{loadingInfrastructure ? "Building blueprint..." : infrastructure ? "Refresh infrastructure blueprint" : "Build infrastructure blueprint"}</button>
                 {infrastructure && <div className="rounded-2xl border border-border p-4"><div className="font-semibold">Provider action map</div><div className="mt-3 grid gap-2 sm:grid-cols-2">{Object.entries(infrastructure).filter(([key]) => ["domain","email","website","brand","social","payments"].includes(key)).map(([key, item]: any) => <div key={key} className="rounded-xl border border-border/70 p-3"><div className="text-sm font-medium capitalize">{key}</div><div className="mt-1 text-xs text-muted-foreground">{item.detail}</div><div className="mt-2 text-[10px] uppercase tracking-wide text-sky-400">{item.status.replace("_"," ")}</div></div>)}</div></div>}
               </div>
+                <div className="rounded-2xl border border-sky-400/20 bg-sky-400/5 p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div><div className="font-semibold">Service Marketplace</div><p className="mt-1 text-xs leading-5 text-muted-foreground">Turn the blueprint into concrete services. TechUnified can prepare the work; regulated or provider-controlled actions stay with the appropriate provider.</p></div>
+                    <button onClick={() => void loadServices()} disabled={loadingServices || !projectId} className="rounded-xl border border-border px-3 py-2 text-xs font-semibold disabled:opacity-40">{loadingServices ? "Loading..." : services.length ? "Refresh services" : "Load services"}</button>
+                  </div>
+                </div>
+                {services.length > 0 && <div className="grid gap-3 sm:grid-cols-2">{services.map((service) => <div key={service.key} className="rounded-2xl border border-border p-4"><div className="text-[10px] uppercase tracking-wide text-muted-foreground">{service.category}</div><div className="mt-1 font-semibold">{service.title}</div><p className="mt-2 text-xs leading-5 text-muted-foreground">{service.description}</p><div className="mt-3 text-[10px] uppercase tracking-wide text-sky-400">{service.providerAction}</div><div className="mt-2 text-xs text-muted-foreground">Status: {service.blueprintStatus.replaceAll("_"," ")}</div></div>)}</div>}
             )}
 
             {step === 5 && (
