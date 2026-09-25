@@ -36,6 +36,8 @@ export default function CompanyCreationPage() {
   const [agreementId, setAgreementId] = useState<string | null>(null)
   const [error, setError] = useState("")
   const [loadingWorkspace, setLoadingWorkspace] = useState(true)
+  const [identity, setIdentity] = useState<{ proposed_name: string | null; domain_candidates: string[]; social_handles: string[]; verification_status: string; metadata?: { rationale?: string; verification_note?: string } } | null>(null)
+  const [loadingIdentity, setLoadingIdentity] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -52,6 +54,13 @@ export default function CompanyCreationPage() {
         setIdea(data.project.business_idea || "")
         setJurisdiction(data.project.jurisdiction || "Nigeria")
         if (savedArchitect) setArchitect(savedArchitect)
+        if (data.project.id) {
+          const identityResponse = await fetch(`/api/company-creation/identity?projectId=${encodeURIComponent(data.project.id)}`, { cache: "no-store" })
+          if (identityResponse.ok) {
+            const identityData = await identityResponse.json()
+            if (active && identityData.identity) setIdentity(identityData.identity)
+          }
+        }
         if (data.agreement?.status === "accepted") {
           setAgreed(true)
           setAgreementId(data.agreement.id)
@@ -106,6 +115,26 @@ export default function CompanyCreationPage() {
       setError(err instanceof Error ? err.message : "Something went wrong.")
     } finally {
       setLoadingArchitect(false)
+    }
+  }
+
+  async function generateIdentity() {
+    if (!projectId || loadingIdentity) return
+    setError("")
+    setLoadingIdentity(true)
+    try {
+      const response = await fetch("/api/company-creation/identity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, companyName }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Identity intelligence could not be generated.")
+      setIdentity(data.identity)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Identity intelligence could not be generated.")
+    } finally {
+      setLoadingIdentity(false)
     }
   }
 
@@ -256,6 +285,52 @@ export default function CompanyCreationPage() {
             )}
 
             {step === 2 && (
+              <div className="space-y-5">
+                <div>
+                  <label className="text-sm font-medium">Company / trading name</label>
+                  <input value={companyName} onChange={(event) => setCompanyName(event.target.value)}
+                    placeholder="Example: Lagos Streetwear"
+                    className="mt-2 w-full rounded-2xl border border-border bg-background/70 px-4 py-3 text-sm outline-none focus:border-sky-400/60" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Primary jurisdiction</label>
+                  <select value={jurisdiction} onChange={(event) => setJurisdiction(event.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-border bg-background/70 px-4 py-3 text-sm outline-none focus:border-sky-400/60">
+                    <option>Nigeria</option><option>United States</option><option>United Kingdom</option><option>Other / decide later</option>
+                  </select>
+                </div>
+                <div className="rounded-2xl border border-sky-400/20 bg-sky-400/5 p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-semibold">Identity & Availability Intelligence</div>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">Generate name, domain, and social-handle candidates. These are suggestions until checked through the relevant provider or official registry.</p>
+                    </div>
+                    <button onClick={() => void generateIdentity()} disabled={loadingIdentity || !projectId}
+                      className="shrink-0 rounded-xl bg-sky-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">
+                      {loadingIdentity ? "Generating..." : "Generate"}
+                    </button>
+                  </div>
+                  {identity && (
+                    <div className="mt-5 space-y-4">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Suggested names</div>
+                        <div className="mt-2 flex flex-wrap gap-2">{[identity.proposed_name, ...([])].filter(Boolean).map((name) => <span key={name} className="rounded-full border border-border bg-background/50 px-3 py-1.5 text-xs">{name}</span>)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Domain candidates</div>
+                        <div className="mt-2 flex flex-wrap gap-2">{identity.domain_candidates.map((domain) => <span key={domain} className="rounded-full border border-border bg-background/50 px-3 py-1.5 text-xs">{domain}</span>)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Social handle candidates</div>
+                        <div className="mt-2 flex flex-wrap gap-2">{identity.social_handles.map((handle) => <span key={handle} className="rounded-full border border-border bg-background/50 px-3 py-1.5 text-xs">@{handle.replace(/^@/, "")}</span>)}</div>
+                      </div>
+                      <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs leading-5 text-amber-200">
+                        {identity.metadata?.verification_note || "Availability has not been verified."}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {architect?.missing_information?.length ? (
               <div className="space-y-5">
                 <div>
                   <label className="text-sm font-medium">Company / trading name</label>
