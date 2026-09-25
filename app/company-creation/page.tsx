@@ -432,19 +432,29 @@ export default function CompanyCreationPage() {
             )}
 
             {step === 4 && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {[
-                  ["Domain", "Find and secure the company's digital address."],
-                  ["Business email", "Create a professional communication layer."],
-                  ["Brand identity", "Build a consistent visual identity."],
-                  ["Social presence", "Check relevant social handles and launch assets."],
-                ].map(([title, text]) => (
-                  <div key={title} className="rounded-2xl border border-border p-5">
-                    <Globe2 className="h-5 w-5 text-sky-400" />
-                    <h3 className="mt-3 font-semibold">{title}</h3>
-                    <p className="mt-1 text-sm leading-6 text-muted-foreground">{text}</p>
-                  </div>
-                ))}
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-sky-400/20 bg-sky-400/5 p-5">
+                  <div className="flex items-center gap-2"><Globe2 className="h-5 w-5 text-sky-400" /><div><div className="font-semibold">Company Infrastructure Blueprint</div><p className="mt-1 text-xs leading-5 text-muted-foreground">Everything the company needs to operate digitally after formation.</p></div></div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    ["Domain", "Select and purchase through an authorized registrar. Availability and ownership are provider-controlled."],
+                    ["Business email", "Create professional mailboxes after the company controls its domain."],
+                    ["Website", "Build the public company presence from the approved identity, services and positioning."],
+                    ["Brand system", "Turn the approved identity into logo direction, typography, colors and reusable assets."],
+                    ["Social presence", "Create and verify accounts directly with the relevant platforms."],
+                    ["Payments", "Choose an authorized payment provider that fits the business model and compliance requirements."],
+                  ].map(([title, text]) => (
+                    <div key={title} className="rounded-2xl border border-border p-5">
+                      <Globe2 className="h-5 w-5 text-sky-400" />
+                      <h3 className="mt-3 font-semibold">{title}</h3>
+                      <p className="mt-1 text-sm leading-6 text-muted-foreground">{text}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-xs leading-5 text-muted-foreground">
+                  <strong className="text-foreground">Provider handoff:</strong> TechUnified organizes the blueprint and can prepare assets, but domains, mailboxes, payment accounts and social accounts must be created or controlled through their respective providers.
+                </div>
               </div>
             )}
 
