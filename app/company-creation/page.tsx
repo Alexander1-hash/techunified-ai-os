@@ -38,6 +38,7 @@ export default function CompanyCreationPage() {
   const [loadingWorkspace, setLoadingWorkspace] = useState(true)
   const [identity, setIdentity] = useState<{ proposed_name: string | null; domain_candidates: string[]; social_handles: string[]; verification_status: string; metadata?: { rationale?: string; verification_note?: string } } | null>(null)
   const [loadingIdentity, setLoadingIdentity] = useState(false)
+  const [loadingVerification, setLoadingVerification] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -135,6 +136,26 @@ export default function CompanyCreationPage() {
       setError(err instanceof Error ? err.message : "Identity intelligence could not be generated.")
     } finally {
       setLoadingIdentity(false)
+    }
+  }
+
+  async function verifyIdentity() {
+    if (!projectId || loadingVerification) return
+    setError("")
+    setLoadingVerification(true)
+    try {
+      const response = await fetch("/api/company-creation/identity/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Identity verification could not be completed.")
+      setIdentity(data.identity)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Identity verification could not be completed.")
+    } finally {
+      setLoadingVerification(false)
     }
   }
 
@@ -306,10 +327,18 @@ export default function CompanyCreationPage() {
                       <div className="font-semibold">Identity & Availability Intelligence</div>
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">Generate company names, domains, and social-handle candidates. These are suggestions until checked through the relevant provider or official registry.</p>
                     </div>
-                    <button onClick={() => void generateIdentity()} disabled={loadingIdentity || !projectId}
-                      className="shrink-0 rounded-xl bg-sky-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">
-                      {loadingIdentity ? "Generating..." : identity ? "Regenerate" : "Generate"}
-                    </button>
+                    <div className="flex shrink-0 gap-2">
+                      <button onClick={() => void generateIdentity()} disabled={loadingIdentity || loadingVerification || !projectId}
+                        className="rounded-xl border border-border px-3 py-2 text-xs font-semibold disabled:opacity-40">
+                        {loadingIdentity ? "Generating..." : identity ? "Regenerate" : "Generate"}
+                      </button>
+                      {identity && (
+                        <button onClick={() => void verifyIdentity()} disabled={loadingVerification || loadingIdentity}
+                          className="rounded-xl bg-sky-500 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">
+                          {loadingVerification ? "Checking..." : "Verify"}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {identity && (
@@ -320,14 +349,19 @@ export default function CompanyCreationPage() {
                       </div>
                       <div>
                         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Domain candidates</div>
-                        <div className="mt-2 flex flex-wrap gap-2">{identity.domain_candidates.map((domain) => <span key={domain} className="rounded-full border border-border bg-background/50 px-3 py-1.5 text-xs">{domain}</span>)}</div>
+                        <div className="mt-2 flex flex-wrap gap-2">{identity.domain_candidates.map((domain) => {
+                          const checks = (identity.metadata as any)?.verification?.domain_checks as Array<{ domain: string; status: string }> | undefined
+                          const check = checks?.find((item) => item.domain === domain.toLowerCase())
+                          const label = check?.status === "not_found" ? "not registered" : check?.status === "registered" ? "registered" : check?.status === "unknown" ? "unknown" : "not checked"
+                          return <span key={domain} className="rounded-xl border border-border bg-background/50 px-3 py-2 text-xs"><span className="font-medium">{domain}</span><span className="ml-2 text-muted-foreground">{label}</span></span>
+                        })}</div>
                       </div>
                       <div>
                         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Social handle candidates</div>
                         <div className="mt-2 flex flex-wrap gap-2">{identity.social_handles.map((handle) => <span key={handle} className="rounded-full border border-border bg-background/50 px-3 py-1.5 text-xs">@{handle.replace(/^@/, "")}</span>)}</div>
                       </div>
                       <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs leading-5 text-amber-200">
-                        <div className="font-medium">Availability status: {identity.verification_status === "needs_provider_check" ? "Provider check required" : identity.verification_status}</div>
+                        <div className="font-medium">Verification status: {identity.verification_status === "needs_provider_check" ? "Some checks require a provider" : identity.verification_status === "verified_available" ? "A domain candidate was not found in RDAP" : identity.verification_status === "verified_unavailable" ? "Domain candidates were found registered" : identity.verification_status}</div>
                         <div className="mt-1">{identity.metadata?.verification_note || "Availability has not been verified."}</div>
                       </div>
                     </div>
