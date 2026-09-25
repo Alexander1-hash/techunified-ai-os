@@ -81,8 +81,16 @@ export async function POST(request: Request) {
   const domainChecks = await Promise.all(domains.map(checkDomain))
   const hasUnknown = domainChecks.some((check) => check.status === "unknown")
   const hasNotFound = domainChecks.some((check) => check.status === "not_found")
+  const hasRegistered = domainChecks.some((check) => check.status === "registered")
 
-  const verificationStatus = hasNotFound && !hasUnknown ? "verified_available" : hasUnknown ? "needs_provider_check" : "verified_unavailable"
+  const verificationStatus =
+    domainChecks.length === 0 || hasUnknown
+      ? "needs_provider_check"
+      : hasNotFound && !hasRegistered
+        ? "verified_available"
+        : hasRegistered && !hasNotFound
+          ? "verified_unavailable"
+          : "needs_provider_check"
 
   const metadata = {
     ...(identity.metadata || {}),
