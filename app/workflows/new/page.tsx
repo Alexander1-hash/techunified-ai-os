@@ -5,12 +5,10 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2, Plus, Workflow } from 'lucide-react'
 import Link from 'next/link'
 
-import { createClient } from '@/lib/supabase/client'
 import { Card, PageHeader } from '@/components/ui'
 
 export default function NewWorkflowPage() {
   const router = useRouter()
-  const supabase = createClient()
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -32,6 +30,12 @@ export default function NewWorkflowPage() {
     setError('')
 
     try {
+      // Create the browser Supabase client only when the user submits.
+      // This prevents the client from requiring public Supabase environment
+      // variables while Next.js is prerendering the page during a build.
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
+
       const {
         data: { user },
         error: authError,
@@ -115,9 +119,7 @@ export default function NewWorkflowPage() {
               </div>
 
               <div>
-                <h2 className="font-semibold">
-                  Workflow details
-                </h2>
+                <h2 className="font-semibold">Workflow details</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Start with the basic information. The workflow will be
                   created as a draft.
@@ -125,10 +127,7 @@ export default function NewWorkflowPage() {
               </div>
             </div>
 
-            <form
-              onSubmit={handleSubmit}
-              className="mt-8 space-y-6"
-            >
+            <form onSubmit={handleSubmit} className="mt-8 space-y-6">
               <div>
                 <label
                   htmlFor="workflow-name"
@@ -159,21 +158,17 @@ export default function NewWorkflowPage() {
                 <textarea
                   id="workflow-description"
                   value={description}
-                  onChange={(event) =>
-                    setDescription(event.target.value)
-                  }
+                  onChange={(event) => setDescription(event.target.value)}
                   placeholder="Describe what this workflow is supposed to automate..."
                   rows={5}
                   disabled={saving}
-                  className="w-full resize-none rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full resize-none rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition-colors placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
 
               {error ? (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-                  <p className="text-sm text-destructive">
-                    {error}
-                  </p>
+                  <p className="text-sm text-destructive">{error}</p>
                 </div>
               ) : null}
 
@@ -192,10 +187,7 @@ export default function NewWorkflowPage() {
                 >
                   {saving ? (
                     <>
-                      <Loader2
-                        size={16}
-                        className="animate-spin"
-                      />
+                      <Loader2 size={16} className="animate-spin" />
                       Creating...
                     </>
                   ) : (
@@ -212,4 +204,4 @@ export default function NewWorkflowPage() {
       </div>
     </main>
   )
-             }
+}

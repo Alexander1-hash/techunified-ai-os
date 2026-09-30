@@ -78,7 +78,18 @@ export type NavigationGroup = {
   items: NavigationItem[]
 }
 
+export const companyCreationNavItem: NavigationItem = {
+  label: 'Company Creation',
+  href: '/company-creation',
+  icon: Building2,
+}
+
 export const navGroups: NavigationGroup[] = [
+
+  {
+    label: 'Company Building',
+    items: [companyCreationNavItem],
+  },
   {
     label: 'Command Center',
     items: [
