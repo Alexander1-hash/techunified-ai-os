@@ -31,7 +31,7 @@ async function loadContext(
   organizationId: string,
   agentId: string,
 ) {
-  const [outcomes, actionRuns, memories] = await Promise.all([
+  const [outcomes, actionRuns, memories, evaluations] = await Promise.all([
     supabase.from('business_outcomes')
       .select('id,title,outcome_type,evidence_status,hours_saved,cost_avoided,revenue_impact,currency,action_run_id,created_at')
       .eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(10),
@@ -39,14 +39,18 @@ async function loadContext(
       .select('id,decision_id,decision_title,workflow_id,execution_id,status,output,created_at')
       .eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(10),
     supabase.from('agent_memory')
-      .select('id,memory_type,content,importance,metadata,created_at')
-      .eq('organization_id', organizationId).eq('agent_id', agentId)
-      .order('importance', { ascending: false }).order('created_at', { ascending: false }).limit(20),
+      .select('id,memory_type,content,importance,confidence,evidence_status,source_type,source_id,metadata,created_at')
+      .eq('organization_id', organizationId).eq('agent_id', agentId).is('superseded_at', null)
+      .order('confidence', { ascending: false }).order('importance', { ascending: false }).order('created_at', { ascending: false }).limit(30),
+    supabase.from('agent_evaluations')
+      .select('groundedness_score,tool_accuracy_score,execution_success,outcome_linked,human_feedback,reviewer_note,created_at')
+      .eq('organization_id', organizationId).eq('agent_id', agentId).order('created_at', { ascending: false }).limit(10),
   ])
   return {
     recentOutcomes: outcomes.data ?? [],
     recentActionRuns: actionRuns.data ?? [],
     memories: memories.data ?? [],
+    evaluations: evaluations.data ?? [],
   }
 }
 
@@ -318,9 +322,16 @@ export async function runGovernedAgent(agentId: string, task: string, userId: st
     }).eq('id', run.id).eq('organization_id', organizationId)
 
     await supabase.from('agent_memory').insert({
-      organization_id: organizationId, agent_id: agentId, run_id: run.id, memory_type: 'working',
+      organization_id: organizationId,
+      agent_id: agentId,
+      run_id: run.id,
+      memory_type: 'working',
       content: 'Task: ' + task + '\nResult: ' + output.slice(0, 4000),
-      importance: 50,
+      importance: 40,
+      confidence: 30,
+      evidence_status: 'unverified',
+      source_type: 'run',
+      source_id: run.id,
       metadata: { autonomyMode, requiresApproval, toolCount: toolCalls.length },
     })
 
