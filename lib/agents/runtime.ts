@@ -151,6 +151,7 @@ async function runTool(
     return {
       proposal: {
         workflow: data?.[0] ?? null,
+        workflowId: data?.[0]?.id ?? null,
         reason,
         input: args.input && typeof args.input === 'object' ? args.input : {},
         execution: 'not_executed',
