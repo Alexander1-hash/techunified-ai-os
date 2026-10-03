@@ -47,6 +47,10 @@ type AnalystData = {
     confidence: number;
   }>;
   nextAction: string;
+  outcomes?: {
+    verified: OutcomeSummary;
+    estimated: OutcomeSummary;
+  };
   sources: Array<{
     id: string;
     name: string;
@@ -139,15 +143,8 @@ export function BusinessAnalystReports() {
 
       setData(json);
 
-      const outcomesResponse = await fetch("/api/business/outcomes/summary", {
-        method: "GET",
-        cache: "no-store",
-      });
-      const outcomesJson = await outcomesResponse.json();
-      if (outcomesResponse.ok) {
-        setVerifiedOutcomes(outcomesJson.evidence?.verified ?? null);
-        setEstimatedOutcomes(outcomesJson.evidence?.estimated ?? null);
-      }
+      setVerifiedOutcomes(json.outcomes?.verified ?? null);
+      setEstimatedOutcomes(json.outcomes?.estimated ?? null);
     } catch (err) {
       setError(
         err instanceof Error
