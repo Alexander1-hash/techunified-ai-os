@@ -53,6 +53,25 @@ type WorkspaceData = {
 
 type DecisionResponse = { decisions?: Decision[] }
 
+type OutcomeSummary = {
+  count: number
+  currencies: string[]
+  currency: string | null
+  costAvoided: number
+  revenueImpact: number
+  implementationCost: number
+  hoursSaved: number
+  netImpact: number | null
+  roi: number | null
+}
+
+type OutcomeResponse = {
+  evidence?: {
+    verified: OutcomeSummary
+    estimated: OutcomeSummary
+  }
+}
+
 const fetcher = async (url: string) => {
   const response = await fetch(url)
   const data = await response.json()
@@ -63,11 +82,29 @@ const fetcher = async (url: string) => {
 const countValue = (value: unknown) =>
   typeof value === 'number' && Number.isFinite(value) ? value : 0
 
+
+function OutcomeStat({ label, value, suffix = '', currency }: { label: string; value: number | null | undefined; suffix?: string; currency?: string | null }) {
+  const display = value === null || value === undefined
+    ? 'Not calculable'
+    : currency
+      ? new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value)
+      : new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value) + suffix
+
+  return (
+    <div className="rounded-lg border border-border/70 bg-background p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-muted-foreground">{label}</p>
+      <p className="mt-3 text-2xl font-semibold tracking-tight">{display}</p>
+    </div>
+  )
+}
+
 export function CommandCenter() {
   const { profile, user, organization } = useAuth()
   const { data, error, isLoading, mutate } = useSWR<WorkspaceData>('/api/workspace', fetcher)
   const { data: decisionData, error: decisionError, isLoading: decisionsLoading } =
     useSWR<DecisionResponse>('/api/business/decisions', fetcher)
+  const { data: outcomeData, error: outcomeError, isLoading: outcomesLoading } =
+    useSWR<OutcomeResponse>('/api/business/outcomes/summary', fetcher)
 
   const [prompt, setPrompt] = useState('')
   const [state, setState] = useState<'idle' | 'creating' | 'success' | 'failed'>('idle')
@@ -275,6 +312,31 @@ export function CommandCenter() {
             )}
           <Link href="/activity" className="mt-4 inline-flex min-h-10 items-center gap-2 text-sm font-medium text-primary">View activity <ArrowRight size={14} /></Link>
         </div>
+      </section>
+
+      <section aria-labelledby="business-outcomes" className="min-w-0 rounded-xl border border-border bg-card p-5 sm:p-6">
+        <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[.2em] text-primary">Business Outcomes</p>
+            <h2 id="business-outcomes" className="mt-2 text-xl font-semibold">Measure the value created by the operating layer</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Verified outcomes use measured or attributed evidence. Planning estimates remain separate and are never presented as realized results.</p>
+          </div>
+          <Link href="/business-outcomes" className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-medium hover:border-primary/50">
+            View outcomes <ArrowRight size={15} />
+          </Link>
+        </div>
+        {outcomeError ? (
+          <p className="mt-5 text-sm text-destructive">{outcomeError.message}</p>
+        ) : outcomesLoading ? (
+          <div className="mt-5 rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground">Reading verified outcome evidence…</div>
+        ) : (
+          <div className="mt-5 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <OutcomeStat label="Verified outcomes" value={outcomeData?.evidence?.verified.count ?? 0} />
+            <OutcomeStat label="Verified hours saved" value={outcomeData?.evidence?.verified.hoursSaved ?? 0} suffix=" hrs" />
+            <OutcomeStat label="Planning estimates" value={outcomeData?.evidence?.estimated.count ?? 0} />
+            <OutcomeStat label="Verified net impact" value={outcomeData?.evidence?.verified.netImpact} currency={outcomeData?.evidence?.verified.currency} />
+          </div>
+        )}
       </section>
 
       <section aria-labelledby="decision-engine" className="min-w-0 rounded-xl border border-primary/20 bg-primary/[0.04] p-5 sm:p-6">
