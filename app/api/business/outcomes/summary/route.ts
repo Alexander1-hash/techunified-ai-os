@@ -40,7 +40,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from('business_outcomes')
       .select(
-        'id,title,outcome_type,baseline_value,current_value,unit,hours_saved,cost_avoided,revenue_impact,implementation_cost,currency,evidence_status,source,period_start,period_end',
+        'id,title,outcome_type,baseline_value,current_value,unit,hours_saved,cost_avoided,revenue_impact,implementation_cost,currency,evidence_status,source,period_start,period_end,action_run_id',
       )
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: false })
