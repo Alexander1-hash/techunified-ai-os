@@ -3,6 +3,7 @@ import { Bot, Plus, ArrowRight, Activity } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/server'
 import AgentWorkforceConsole from '@/components/agent-workforce-console'
+import AgentApprovalCenter from '@/components/agent-approval-center'
 import { Card, PageHeader, Status } from '@/components/ui'
 
 const agentSelect =
@@ -220,6 +221,8 @@ export default async function AgentsPage() {
             </div>
           )}
         </section>
+
+        <div className="mt-8"><AgentApprovalCenter /></div>
 
         {agentList.some((agent) => agent.status === 'active' || agent.status === 'running') && (
           <AgentWorkforceConsole
