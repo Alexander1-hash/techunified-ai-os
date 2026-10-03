@@ -7,6 +7,7 @@ const MODEL = process.env.OPENAI_MODEL?.trim() || 'gpt-5.6-luna'
 const MAX_RESULTS = 5
 const MAX_CONTEXT_CHARS = 18000
 const MAX_WEB_RECORDS = 50
+const MAX_OUTCOME_RECORDS = 50
 
 function cleanSearchTerms(question: string): string[] {
   return question
@@ -122,6 +123,42 @@ async function searchWebIntelligence(
     .slice(0, MAX_RESULTS)
 }
 
+async function searchBusinessOutcomes(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  terms: string[],
+) {
+  const { data, error } = await supabase
+    .from('business_outcomes')
+    .select('id,title,outcome_type,baseline_value,current_value,unit,hours_saved,cost_avoided,revenue_impact,implementation_cost,currency,evidence_status,source,notes,period_start,period_end,created_at')
+    .eq('organization_id', organizationId)
+    .order('created_at', { ascending: false })
+    .limit(MAX_OUTCOME_RECORDS)
+
+  if (error) return []
+
+  const lowered = terms.map((term) => term.toLowerCase())
+  return (data ?? [])
+    .map((outcome) => {
+      const text = [
+        outcome.title,
+        outcome.outcome_type,
+        outcome.unit,
+        outcome.source,
+        outcome.notes,
+        outcome.evidence_status,
+      ]
+        .filter((value) => typeof value === 'string')
+        .join(' ')
+        .toLowerCase()
+      const score = lowered.reduce((total, term) => total + (text.includes(term) ? 1 : 0), 0)
+      return { outcome, score }
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_RESULTS)
+}
+
 async function searchKnowledge(
   supabase: Awaited<ReturnType<typeof createClient>>,
   organizationId: string,
@@ -224,8 +261,9 @@ export async function askCompanyBrainServer(
 
   const chunks = await searchKnowledge(supabase, organizationId, terms)
   const webRecords = await searchWebIntelligence(supabase, organizationId, terms)
+  const outcomeRecords = await searchBusinessOutcomes(supabase, organizationId, terms)
 
-  if (!chunks.length && !webRecords.length) {
+  if (!chunks.length && !webRecords.length && !outcomeRecords.length) {
     return {
       answer: 'Company Brain does not have enough relevant indexed knowledge to answer that question yet.',
       citations: [],
@@ -270,8 +308,29 @@ export async function askCompanyBrainServer(
           ? payload.description
           : '',
   }))
-  const citations = [...knowledgeCitations, ...webCitations]
+  const outcomeCitations = outcomeRecords.map(({ outcome }) => ({
+    documentId: outcome.id,
+    documentName: outcome.title,
+    department: null,
+    excerpt: `${outcome.evidence_status} outcome: ${outcome.cost_avoided} ${outcome.currency} cost avoided; ${outcome.revenue_impact} ${outcome.currency} revenue impact; ${outcome.hours_saved} hours saved.`,
+  }))
+  const citations = [...knowledgeCitations, ...webCitations, ...outcomeCitations]
   const knowledgeContext = buildContext(chunks, safeDocuments)
+  const outcomeContext = outcomeRecords
+    .map(({ outcome }, index) =>
+      `[Business Outcome ${index + 1}] ${outcome.title}\n` +
+      `Evidence status: ${outcome.evidence_status}\n` +
+      `Outcome type: ${outcome.outcome_type}\n` +
+      `Baseline: ${outcome.baseline_value ?? 'not recorded'} ${outcome.unit ?? ''}\n` +
+      `Current: ${outcome.current_value ?? 'not recorded'} ${outcome.unit ?? ''}\n` +
+      `Hours saved: ${outcome.hours_saved}\n` +
+      `Cost avoided: ${outcome.cost_avoided} ${outcome.currency}\n` +
+      `Revenue impact: ${outcome.revenue_impact} ${outcome.currency}\n` +
+      `Implementation cost: ${outcome.implementation_cost} ${outcome.currency}\n` +
+      `Evidence source: ${outcome.source ?? 'not specified'}\n` +
+      `Period: ${outcome.period_start ?? 'not specified'} to ${outcome.period_end ?? 'not specified'}`,
+    )
+    .join('\\n\\n')
   const webContext = webRecords
     .map(({ payload }, index) => {
       const title = typeof payload.title === 'string' ? payload.title : 'Web page'
@@ -281,7 +340,7 @@ export async function askCompanyBrainServer(
       return `[Web Source ${index + 1}] ${title}\n${url}\n${description}\n${pageContent}`
     })
     .join('\n\n')
-  const context = [knowledgeContext, webContext].filter(Boolean).join('\n\n')
+  const context = [knowledgeContext, outcomeContext, webContext].filter(Boolean).join('\n\n')
 
   if (!context.trim()) {
     return {
@@ -313,8 +372,10 @@ export async function askCompanyBrainServer(
             'or operational details. Treat public web information as external source material, ' +
             'not as confirmed internal company facts. If the supplied sources do not support an answer, ' +
             'say that the available company knowledge does not contain enough information. ' +
-            'When using internal knowledge, cite it inline using [Source N]. When using web material, ' +
+            'When using internal knowledge, cite it inline using [Source N]. When using business outcomes, cite them as [Business Outcome N]. When using web material, ' +
             'cite it as [Web Source N]. ' +
+            'Business outcome evidence_status is authoritative: measured is directly observed, attributed is linked to an intervention with documented basis, and estimated is not verified. ' +
+            'Never present estimated outcomes as measured results. Do not combine currencies. Do not claim ROI unless the supplied outcome data supports the calculation and its evidence status is stated. ' +
             'Keep the answer practical, clear, and concise.',
         },
         {
