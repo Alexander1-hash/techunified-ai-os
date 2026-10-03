@@ -4,6 +4,7 @@ import { Bot, Plus, ArrowRight, Activity } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import AgentWorkforceConsole from '@/components/agent-workforce-console'
 import AgentApprovalCenter from '@/components/agent-approval-center'
+import AgentLearningConsole from '@/components/agent-learning-console'
 import { Card, PageHeader, Status } from '@/components/ui'
 
 const agentSelect =
