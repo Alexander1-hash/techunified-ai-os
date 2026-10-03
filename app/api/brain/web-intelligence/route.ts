@@ -27,24 +27,24 @@ function normalizeUrl(value: string) {
 
 function cleanText(html: string) {
   return html
-    .replace(/<script[\\s\\S]*?<\\/script>/gi, " ")
-    .replace(/<style[\\s\\S]*?<\\/style>/gi, " ")
-    .replace(/<noscript[\\s\\S]*?<\\/noscript>/gi, " ")
-    .replace(/<svg[\\s\\S]*?<\\/svg>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
-    .replace(/\\s+/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
     .slice(0, MAX_TEXT);
 }
 
 function titleFrom(html: string) {
-  return (html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i)?.[1] ?? "")
+  return (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "")
     .replace(/<[^>]+>/g, " ")
-    .replace(/\\s+/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
     .slice(0, 300);
 }
@@ -109,7 +109,7 @@ async function robotsAllows(base: URL, target: URL) {
     const body = await robots.text();
     let applies = false;
     let blocked = false;
-    for (const raw of body.split(/\\r?\\n/)) {
+    for (const raw of body.split(/\r?\n/)) {
       const line = raw.split("#")[0].trim();
       if (!line) continue;
       const [key, ...rest] = line.split(":");
