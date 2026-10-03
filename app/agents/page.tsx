@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Bot, Plus, ArrowRight, Activity } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/server'
+import AgentWorkforceConsole from '@/components/agent-workforce-console'
 import { Card, PageHeader, Status } from '@/components/ui'
 
 const agentSelect =
@@ -219,6 +220,20 @@ export default async function AgentsPage() {
             </div>
           )}
         </section>
+
+        {agentList.some((agent) => agent.status === 'active' || agent.status === 'running') && (
+          <AgentWorkforceConsole
+            agents={agentList
+              .filter((agent) => agent.status === 'active' || agent.status === 'running')
+              .map((agent) => ({
+                id: agent.id,
+                name: agent.name,
+                purpose: agent.purpose,
+                status: agent.status,
+                autonomy_level: agent.autonomy_level,
+              }))}
+          />
+        )}
       </div>
     </main>
   )
