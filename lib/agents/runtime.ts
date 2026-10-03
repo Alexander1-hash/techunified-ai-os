@@ -217,7 +217,7 @@ export async function runGovernedAgent(agentId: string, task: string, userId: st
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   const model = config.model?.trim() || process.env.OPENAI_MODEL?.trim() || 'gpt-5.6-luna'
   const toolDefinitions = tools.map((tool) => ({
-    type: 'function',
+    type: 'function' as const,
     name: tool.tool_key,
     description: tool.description,
     parameters: tool.input_schema,
