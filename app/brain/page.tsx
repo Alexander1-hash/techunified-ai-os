@@ -1,5 +1,11 @@
-import { BrainWorkspace } from '@/components/brain-workspace'
+import { BrainWorkspace } from "@/components/brain-workspace";
+import { WebIntelligence } from "@/components/web-intelligence";
 
 export default function BrainPage() {
-  return <BrainWorkspace />
+  return (
+    <>
+      <WebIntelligence />
+      <BrainWorkspace />
+    </>
+  );
 }

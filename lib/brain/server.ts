@@ -6,6 +6,7 @@ const MODEL = process.env.OPENAI_MODEL?.trim() || 'gpt-5.6-luna'
 
 const MAX_RESULTS = 5
 const MAX_CONTEXT_CHARS = 18000
+const MAX_WEB_RECORDS = 50
 
 function cleanSearchTerms(question: string): string[] {
   return question
@@ -84,6 +85,41 @@ function buildContext(
   }
 
   return sections.join('\n\n')
+}
+
+async function searchWebIntelligence(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  terms: string[],
+) {
+  const { data, error } = await supabase
+    .from('business_source_records')
+    .select('id,source_id,payload,recorded_at')
+    .eq('organization_id', organizationId)
+    .order('recorded_at', { ascending: false })
+    .limit(MAX_WEB_RECORDS)
+
+  if (error) return []
+
+  const lowered = terms.map((term) => term.toLowerCase())
+  return (data ?? [])
+    .map((record) => {
+      const payload =
+        record.payload &&
+        typeof record.payload === 'object' &&
+        !Array.isArray(record.payload)
+          ? (record.payload as Record<string, unknown>)
+          : {}
+      const text = [payload.title, payload.description, payload.content, payload.url]
+        .filter((value) => typeof value === 'string')
+        .join(' ')
+        .toLowerCase()
+      const score = lowered.reduce((total, term) => total + (text.includes(term) ? 1 : 0), 0)
+      return { record, payload, score }
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_RESULTS)
 }
 
 async function searchKnowledge(
@@ -186,51 +222,66 @@ export async function askCompanyBrainServer(
     }
   }
 
-  const chunks = await searchKnowledge(
-    supabase,
-    organizationId,
-    terms,
-  )
+  const chunks = await searchKnowledge(supabase, organizationId, terms)
+  const webRecords = await searchWebIntelligence(supabase, organizationId, terms)
 
-  if (!chunks.length) {
+  if (!chunks.length && !webRecords.length) {
     return {
-      answer:
-        'Company Brain does not have enough relevant indexed knowledge to answer that question yet.',
+      answer: 'Company Brain does not have enough relevant indexed knowledge to answer that question yet.',
       citations: [],
       demo: false,
     }
   }
 
-  const documentIds = [
-    ...new Set(chunks.map((chunk) => chunk.document_id)),
-  ]
+  const documentIds = [...new Set(chunks.map((chunk) => chunk.document_id))]
+  const { data: documents, error: documentsError } = documentIds.length
+    ? await supabase
+        .from('knowledge_documents')
+        .select('id,name,metadata')
+        .eq('organization_id', organizationId)
+        .in('id', documentIds)
+    : { data: [], error: null }
 
-  const { data: documents, error: documentsError } = await supabase
-    .from('knowledge_documents')
-    .select('id,name,metadata')
-    .eq('organization_id', organizationId)
-    .in('id', documentIds)
-
-  if (documentsError) {
-    console.error(
-      '[Company Brain] Document lookup failed:',
-      documentsError,
-    )
-  }
+  if (documentsError) console.error('[Company Brain] Document lookup failed:', documentsError)
 
   const safeDocuments = (documents ?? []).map((document) => ({
     id: document.id,
     name: document.name,
     metadata:
-      document.metadata &&
-      typeof document.metadata === 'object' &&
-      !Array.isArray(document.metadata)
+      document.metadata && typeof document.metadata === 'object' && !Array.isArray(document.metadata)
         ? (document.metadata as Record<string, unknown>)
         : null,
   }))
 
-  const citations = buildCitations(chunks, safeDocuments)
-  const context = buildContext(chunks, safeDocuments)
+  const knowledgeCitations = buildCitations(chunks, safeDocuments)
+  const webCitations = webRecords.map(({ record, payload }) => ({
+    documentId: record.id,
+    documentName:
+      typeof payload.title === 'string' && payload.title
+        ? payload.title
+        : typeof payload.url === 'string'
+          ? payload.url
+          : 'Web Intelligence source',
+    department: null,
+    excerpt:
+      typeof payload.content === 'string'
+        ? payload.content.slice(0, 220)
+        : typeof payload.description === 'string'
+          ? payload.description
+          : '',
+  }))
+  const citations = [...knowledgeCitations, ...webCitations]
+  const knowledgeContext = buildContext(chunks, safeDocuments)
+  const webContext = webRecords
+    .map(({ payload }, index) => {
+      const title = typeof payload.title === 'string' ? payload.title : 'Web page'
+      const url = typeof payload.url === 'string' ? payload.url : ''
+      const description = typeof payload.description === 'string' ? payload.description : ''
+      const pageContent = typeof payload.content === 'string' ? payload.content : ''
+      return `[Web Source ${index + 1}] ${title}\n${url}\n${description}\n${pageContent}`
+    })
+    .join('\n\n')
+  const context = [knowledgeContext, webContext].filter(Boolean).join('\n\n')
 
   if (!context.trim()) {
     return {
@@ -257,11 +308,13 @@ export async function askCompanyBrainServer(
           role: 'developer',
           content:
             'You are Company Brain, an organizational intelligence assistant. ' +
-            'Answer only from the organization knowledge supplied in the user message. ' +
+            'Answer only from the organization knowledge and Web Intelligence supplied in the user message. ' +
             'Do not invent company facts, metrics, customers, policies, financial figures, ' +
-            'or operational details. If the supplied sources do not support an answer, ' +
+            'or operational details. Treat public web information as external source material, ' +
+            'not as confirmed internal company facts. If the supplied sources do not support an answer, ' +
             'say that the available company knowledge does not contain enough information. ' +
-            'When using information from a source, cite it inline using [Source N]. ' +
+            'When using internal knowledge, cite it inline using [Source N]. When using web material, ' +
+            'cite it as [Web Source N]. ' +
             'Keep the answer practical, clear, and concise.',
         },
         {
