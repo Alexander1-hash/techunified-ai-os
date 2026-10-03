@@ -18,6 +18,7 @@ type OutcomeInput = {
   notes?: string | null
   period_start?: string | null
   period_end?: string | null
+  action_run_id?: string | null
 }
 
 function numberOrZero(value: unknown) {
@@ -36,6 +37,9 @@ async function getContext() {
   }
 }
 
+const outcomeSelect =
+  'id,title,outcome_type,baseline_value,current_value,unit,hours_saved,cost_avoided,revenue_impact,implementation_cost,currency,evidence_status,source,notes,period_start,period_end,action_run_id,created_at,updated_at'
+
 export async function GET() {
   try {
     const { supabase, organizationId } = await getContext()
@@ -46,9 +50,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('business_outcomes')
-      .select(
-        'id,title,outcome_type,baseline_value,current_value,unit,hours_saved,cost_avoided,revenue_impact,implementation_cost,currency,evidence_status,source,notes,period_start,period_end,created_at,updated_at',
-      )
+      .select(outcomeSelect)
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: false })
 
@@ -95,6 +97,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid evidence status.' }, { status: 400 })
     }
 
+    let actionRunId: string | null = null
+
+    if (body.action_run_id?.trim()) {
+      const { data: actionRun, error: actionRunError } = await supabase
+        .from('business_action_runs')
+        .select('id,status')
+        .eq('id', body.action_run_id.trim())
+        .eq('organization_id', organizationId)
+        .maybeSingle()
+
+      if (actionRunError) throw actionRunError
+
+      if (!actionRun) {
+        return NextResponse.json({ error: 'Action run not found.' }, { status: 404 })
+      }
+
+      if (actionRun.status !== 'completed') {
+        return NextResponse.json(
+          { error: 'Only completed action runs can receive measured or attributed outcomes.' },
+          { status: 409 },
+        )
+      }
+
+      actionRunId = actionRun.id
+    }
+
     const { data, error } = await supabase
       .from('business_outcomes')
       .insert({
@@ -115,10 +143,9 @@ export async function POST(request: Request) {
         notes: body.notes?.trim() || null,
         period_start: body.period_start || null,
         period_end: body.period_end || null,
+        action_run_id: actionRunId,
       })
-      .select(
-        'id,title,outcome_type,baseline_value,current_value,unit,hours_saved,cost_avoided,revenue_impact,implementation_cost,currency,evidence_status,source,notes,period_start,period_end,created_at,updated_at',
-      )
+      .select(outcomeSelect)
       .single()
 
     if (error) throw error
