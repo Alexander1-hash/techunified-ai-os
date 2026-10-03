@@ -23,6 +23,18 @@ type KPI = {
   recorded_at?: string | null;
 };
 
+type OutcomeSummary = {
+  count: number;
+  currencies: string[];
+  currency: string | null;
+  costAvoided: number;
+  revenueImpact: number;
+  implementationCost: number;
+  hoursSaved: number;
+  netImpact: number | null;
+  roi: number | null;
+};
+
 type AnalystData = {
   kpis: KPI[];
   quality: number;
@@ -104,6 +116,8 @@ export function BusinessAnalystReports() {
   const [data, setData] = useState<AnalystData | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [verifiedOutcomes, setVerifiedOutcomes] = useState<OutcomeSummary | null>(null);
+  const [estimatedOutcomes, setEstimatedOutcomes] = useState<OutcomeSummary | null>(null);
 
   async function loadReport() {
     try {
@@ -124,6 +138,16 @@ export function BusinessAnalystReports() {
       }
 
       setData(json);
+
+      const outcomesResponse = await fetch("/api/business/outcomes/summary", {
+        method: "GET",
+        cache: "no-store",
+      });
+      const outcomesJson = await outcomesResponse.json();
+      if (outcomesResponse.ok) {
+        setVerifiedOutcomes(outcomesJson.evidence?.verified ?? null);
+        setEstimatedOutcomes(outcomesJson.evidence?.estimated ?? null);
+      }
     } catch (err) {
       setError(
         err instanceof Error
@@ -281,6 +305,40 @@ export function BusinessAnalystReports() {
           </div>
         ) : (
           <>
+            <div className="mb-4">
+              <Panel title="Business Outcomes Evidence">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <p className="text-xs">Verified outcomes</p>
+                    <strong className="text-xl text-foreground">{verifiedOutcomes?.count ?? 0}</strong>
+                  </div>
+                  <div>
+                    <p className="text-xs">Verified hours saved</p>
+                    <strong className="text-xl text-foreground">{(verifiedOutcomes?.hoursSaved ?? 0).toLocaleString()}</strong>
+                  </div>
+                  <div>
+                    <p className="text-xs">Verified net impact</p>
+                    <strong className="text-xl text-foreground">
+                      {verifiedOutcomes?.netImpact === null || verifiedOutcomes?.netImpact === undefined
+                        ? "Not calculable"
+                        : new Intl.NumberFormat("en-US", {
+                            style: "currency",
+                            currency: verifiedOutcomes.currency || "NGN",
+                            maximumFractionDigits: 0,
+                          }).format(verifiedOutcomes.netImpact)}
+                    </strong>
+                  </div>
+                  <div>
+                    <p className="text-xs">Planning estimates</p>
+                    <strong className="text-xl text-foreground">{estimatedOutcomes?.count ?? 0}</strong>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs">
+                  Verified totals include measured and attributed evidence only. Estimates are intentionally excluded from verified impact and ROI.
+                </p>
+              </Panel>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Panel title="Business Health">
                 <strong className="text-3xl text-foreground">
