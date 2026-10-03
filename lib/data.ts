@@ -64,6 +64,7 @@ import {
   Settings,
   ShoppingCart,
   Sparkles,
+  Target,
   Users,
   Workflow,
 } from 'lucide-react'
@@ -83,156 +84,67 @@ export const navGroups: NavigationGroup[] = [
   {
     label: 'Command Center',
     items: [
-      {
-        label: 'Dashboard',
-        href: '/dashboard',
-        icon: LayoutDashboard,
-      },
+      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     ],
   },
   {
     label: 'Main',
     items: [
-      {
-        label: 'Company Brain',
-        href: '/brain',
-        icon: Brain,
-      },
-      {
-        label: 'Business Analyst',
-        href: '/business-analyst',
-        icon: Lightbulb,
-      },
+      { label: 'Company Brain', href: '/brain', icon: Brain },
+      { label: 'Business Analyst', href: '/business-analyst', icon: Lightbulb },
     ],
   },
   {
     label: 'AI & Automation',
     items: [
-      {
-        label: 'AI Agents',
-        href: '/agents',
-        icon: Bot,
-      },
-      {
-        label: 'AI Studio',
-        href: '/studio',
-        icon: Sparkles,
-      },
-      {
-        label: 'Workflows',
-        href: '/workflows',
-        icon: Workflow,
-      },
-      {
-        label: 'Automations',
-        href: '/automations',
-        icon: GitBranch,
-      },
+      { label: 'AI Agents', href: '/agents', icon: Bot },
+      { label: 'AI Studio', href: '/studio', icon: Sparkles },
+      { label: 'Workflows', href: '/workflows', icon: Workflow },
+      { label: 'Automations', href: '/automations', icon: GitBranch },
     ],
   },
   {
     label: 'Intelligence',
     items: [
-      {
-        label: 'Market Intelligence',
-        href: '/market-intelligence',
-        icon: CandlestickChart,
-      },
-      {
-        label: 'Analytics',
-        href: '/analytics',
-        icon: BarChart3,
-      },
-      {
-        label: 'Decision Engine',
-        href: '/business-analyst/decisions',
-        icon: Lightbulb,
-      },
-      {
-        label: 'Forecast',
-        href: '/business-analyst/forecast',
-        icon: Gauge,
-      },
-      {
-        label: 'Reports',
-        href: '/reports',
-        icon: FileBarChart,
-      },
+      { label: 'Market Intelligence', href: '/market-intelligence', icon: CandlestickChart },
+      { label: 'Analytics', href: '/analytics', icon: BarChart3 },
+      { label: 'Decision Engine', href: '/business-analyst/decisions', icon: Lightbulb },
+      { label: 'Forecast', href: '/business-analyst/forecast', icon: Gauge },
+      { label: 'Reports', href: '/reports', icon: FileBarChart },
     ],
   },
   {
     label: 'Knowledge',
     items: [
-      {
-        label: 'Knowledge Sources',
-        href: '/brain/data-sources',
-        icon: Database,
-      },
+      { label: 'Knowledge Sources', href: '/brain/data-sources', icon: Database },
     ],
   },
   {
     label: 'Business',
     items: [
-      {
-        label: 'Departments',
-        href: '/departments',
-        icon: Building2,
-      },
-      {
-        label: 'Services',
-        href: '/services',
-        icon: BriefcaseBusiness,
-      },
-      {
-        label: 'Customers',
-        href: '/customers',
-        icon: Users,
-      },
-      {
-        label: 'Sales',
-        href: '/sales',
-        icon: ShoppingCart,
-      },
+      { label: 'Departments', href: '/departments', icon: Building2 },
+      { label: 'Services', href: '/services', icon: BriefcaseBusiness },
+      { label: 'Customers', href: '/customers', icon: Users },
+      { label: 'Sales', href: '/sales', icon: ShoppingCart },
+      { label: 'Business Outcomes', href: '/business-outcomes', icon: Target },
     ],
   },
   {
     label: 'Connect',
     items: [
-      {
-        label: 'Integrations',
-        href: '/integrations',
-        icon: Plug,
-      },
+      { label: 'Integrations', href: '/integrations', icon: Plug },
     ],
   },
   {
     label: 'System',
     items: [
-      {
-        label: 'Inspector',
-        href: '/business-analyst/inspector',
-        icon: Activity,
-      },
-      {
-        label: 'Activity',
-        href: '/activity',
-        icon: History,
-      },
-      {
-        label: 'Settings',
-        href: '/settings',
-        icon: Settings,
-      },
+      { label: 'Inspector', href: '/business-analyst/inspector', icon: Activity },
+      { label: 'Activity', href: '/activity', icon: History },
+      { label: 'Settings', href: '/settings', icon: Settings },
     ],
   },
 ]
 
-export const nav = navGroups.flatMap(
-  (group) => group.items,
-)
+export const nav = navGroups.flatMap((group) => group.items)
 
-export const modelTypes = [
-  'GPT-4o',
-  'Claude 3.5 Sonnet',
-  'Gemini 1.5 Pro',
-]
+export const modelTypes = ['GPT-4o', 'Claude 3.5 Sonnet', 'Gemini 1.5 Pro']
