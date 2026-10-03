@@ -59,6 +59,7 @@ import {
   History,
   LayoutDashboard,
   Lightbulb,
+  CandlestickChart,
   Plug,
   Settings,
   ShoppingCart,
@@ -132,6 +133,11 @@ export const navGroups: NavigationGroup[] = [
   {
     label: 'Intelligence',
     items: [
+      {
+        label: 'Market Intelligence',
+        href: '/market-intelligence',
+        icon: CandlestickChart,
+      },
       {
         label: 'Analytics',
         href: '/analytics',
