@@ -2,6 +2,19 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { BarChart3, CheckCircle2, Clock3, DollarSign, Plus, Target, TrendingUp } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+
+type OutcomeSummary = {
+  count: number
+  currencies: string[]
+  currency: string | null
+  costAvoided: number
+  revenueImpact: number
+  implementationCost: number
+  hoursSaved: number
+  netImpact: number | null
+  roi: number | null
+}
 
 type Outcome = {
   id: string
@@ -58,6 +71,8 @@ export default function BusinessOutcomesPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [verifiedSummary, setVerifiedSummary] = useState<OutcomeSummary | null>(null)
+  const [estimatedSummary, setEstimatedSummary] = useState<OutcomeSummary | null>(null)
 
   async function load() {
     setLoading(true)
@@ -67,6 +82,12 @@ export default function BusinessOutcomesPage() {
       const json = await response.json()
       if (!response.ok) throw new Error(json.error || 'Unable to load outcomes.')
       setOutcomes(json.outcomes ?? [])
+      const summaryResponse = await fetch('/api/business/outcomes/summary', { cache: 'no-store' })
+      const summaryJson = await summaryResponse.json()
+      if (summaryResponse.ok) {
+        setVerifiedSummary(summaryJson.evidence?.verified ?? null)
+        setEstimatedSummary(summaryJson.evidence?.estimated ?? null)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load outcomes.')
     } finally {
@@ -111,12 +132,22 @@ export default function BusinessOutcomesPage() {
   }
 
   const summary = useMemo(() => {
-    const value = outcomes.reduce((sum, item) => sum + n(item.cost_avoided) + n(item.revenue_impact), 0)
-    const implementation = outcomes.reduce((sum, item) => sum + n(item.implementation_cost), 0)
-    const hours = outcomes.reduce((sum, item) => sum + n(item.hours_saved), 0)
-    const net = value - implementation
-    return { value, implementation, hours, net }
-  }, [outcomes])
+    const fallback = {
+      value: 0,
+      implementation: 0,
+      hours: 0,
+      net: 0,
+      currency: 'NGN',
+    }
+    if (!verifiedSummary) return fallback
+    return {
+      value: verifiedSummary.costAvoided + verifiedSummary.revenueImpact,
+      implementation: verifiedSummary.implementationCost,
+      hours: verifiedSummary.hoursSaved,
+      net: verifiedSummary.netImpact ?? 0,
+      currency: verifiedSummary.currency || 'NGN',
+    }
+  }, [verifiedSummary])
 
   return (
     <div className="space-y-6">
@@ -136,15 +167,15 @@ export default function BusinessOutcomesPage() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          ['Measured value', money(summary.value, outcomes[0]?.currency || 'NGN'), DollarSign],
-          ['Hours saved', summary.hours.toLocaleString(), Clock3],
-          ['Implementation cost', money(summary.implementation, outcomes[0]?.currency || 'NGN'), Target],
-          ['Net measured impact', money(summary.net, outcomes[0]?.currency || 'NGN'), TrendingUp],
-        ].map(([label, value, Icon]) => (
-          <div key={String(label)} className="rounded-2xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground"><Icon size={15} /> {String(label)}</div>
-            <div className="mt-3 text-xl font-semibold">{String(value)}</div>
+        {([
+          { label: 'Verified value', value: money(summary.value, summary.currency), icon: DollarSign },
+          { label: 'Verified hours saved', value: summary.hours.toLocaleString(), icon: Clock3 },
+          { label: 'Verified implementation cost', value: money(summary.implementation, summary.currency), icon: Target },
+          { label: 'Verified net impact', value: money(summary.net, summary.currency), icon: TrendingUp },
+        ] as { label: string; value: string; icon: LucideIcon }[]).map(({ label, value, icon: Icon }) => (
+          <div key={label} className="rounded-2xl border border-border bg-card p-5">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground"><Icon size={15} /> {label}</div>
+            <div className="mt-3 text-xl font-semibold">{value}</div>
           </div>
         ))}
       </section>
@@ -219,6 +250,11 @@ export default function BusinessOutcomesPage() {
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
               </div>
             ))}
+          </div>
+          <div className="mt-4 rounded-xl border border-border bg-background p-4 text-xs leading-5 text-muted-foreground">
+            <div className="flex items-center justify-between gap-4"><span>Verified evidence</span><span className="font-medium text-foreground">{verifiedSummary?.count ?? 0} outcomes</span></div>
+            <div className="mt-1 flex items-center justify-between gap-4"><span>Planning estimates</span><span className="font-medium text-foreground">{estimatedSummary?.count ?? 0} outcomes</span></div>
+            <div className="mt-2">Verified totals include measured and attributed outcomes only. Estimates remain separate and are never included in verified value or ROI.</div>
           </div>
           <p className="mt-4 text-xs leading-5 text-muted-foreground">
             This foundation intentionally does not manufacture ROI. It creates a durable evidence trail that can later feed reports, grants, investor materials, customer success reviews, and enterprise ROI analysis.
