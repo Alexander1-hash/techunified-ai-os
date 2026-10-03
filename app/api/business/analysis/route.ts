@@ -96,7 +96,7 @@ export async function GET() {
 
     supabase
       .from('business_outcomes')
-      .select('id,title,outcome_type,hours_saved,cost_avoided,revenue_impact,implementation_cost,currency,evidence_status,source,period_start,period_end,created_at')
+      .select('id,title,outcome_type,hours_saved,cost_avoided,revenue_impact,implementation_cost,currency,evidence_status,source,period_start,period_end,action_run_id,created_at')
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: false }),
   ])
