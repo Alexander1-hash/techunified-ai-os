@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/repositories/profile'
+import { executeAutomation } from '@/lib/automation/engine'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -26,6 +27,18 @@ export async function POST(request: Request) {
   if (!approval) return NextResponse.json({ error: 'Approval request not found.' }, { status: 404 })
   if (approval.status !== 'pending') return NextResponse.json({ error: 'This approval is no longer pending.' }, { status: 409 })
 
+  const proposedAction = approval.proposed_action && typeof approval.proposed_action === 'object'
+    ? approval.proposed_action as Record<string, unknown>
+    : {}
+  const workflowId = typeof proposedAction.workflowId === 'string' ? proposedAction.workflowId.trim() : ''
+  const actionInput = proposedAction.input && typeof proposedAction.input === 'object' && !Array.isArray(proposedAction.input)
+    ? proposedAction.input as Record<string, unknown>
+    : {}
+
+  if (decision === 'approved' && approval.action_type === 'workflow_execution' && !workflowId) {
+    return NextResponse.json({ error: 'Approved workflow execution is missing workflowId.' }, { status: 400 })
+  }
+
   const { error: updateError } = await supabase
     .from('agent_approvals')
     .update({
@@ -47,14 +60,74 @@ export async function POST(request: Request) {
 
   if (runError) return NextResponse.json({ error: 'Approval updated, but agent run state could not be synchronized.' }, { status: 500 })
 
-  return NextResponse.json({
-    ok: true,
-    approvalId,
-    agentRunId: approval.agent_run_id,
-    status: decision,
-    execution: 'not_started',
-    message: decision === 'approved'
-      ? 'Approval granted. Execution remains a separate controlled step.'
-      : 'Approval rejected. No execution was started.',
+  if (decision === 'rejected' || approval.action_type !== 'workflow_execution') {
+    return NextResponse.json({
+      ok: true,
+      approvalId,
+      agentRunId: approval.agent_run_id,
+      status: decision,
+      execution: 'not_started',
+      message: decision === 'rejected' ? 'Approval rejected. No execution was started.' : 'Proposal approved. No workflow execution was requested.',
+    })
+  }
+
+  const { data: workflow } = await supabase
+    .from('workflows')
+    .select('id,name,status')
+    .eq('id', workflowId)
+    .eq('organization_id', organizationId)
+    .maybeSingle()
+
+  if (!workflow || String(workflow.status).toLowerCase() !== 'active') {
+    return NextResponse.json({ error: 'Approved workflow is no longer active.' }, { status: 409 })
+  }
+
+  const { data: actionRun, error: actionInsertError } = await supabase
+    .from('business_action_runs')
+    .insert({
+      organization_id: organizationId,
+      created_by: userId,
+      decision_id: approval.agent_run_id,
+      decision_type: 'agent_workflow_execution',
+      decision_title: approval.action_type,
+      workflow_id: workflow.id,
+      status: 'running',
+      input: actionInput,
+      evidence: { approvalId, agentRunId: approval.agent_run_id, approvedBy: userId },
+      started_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single()
+
+  if (actionInsertError || !actionRun) return NextResponse.json({ error: 'Unable to create controlled action run.' }, { status: 500 })
+
+  const result = await executeAutomation(workflow.id, organizationId, {
+    type: 'decision',
+    input: {
+      ...actionInput,
+      agentRunId: approval.agent_run_id,
+      approvalId,
+      actionRunId: actionRun.id,
+    },
   })
+
+  if (!result.success) {
+    await supabase.from('business_action_runs').update({
+      status: 'failed', execution_id: result.executionId ?? null,
+      error_message: result.error ?? 'Automation execution failed.', completed_at: new Date().toISOString(),
+    }).eq('id', actionRun.id).eq('organization_id', organizationId)
+    return NextResponse.json({ ok: false, approvalId, agentRunId: approval.agent_run_id, actionRunId: actionRun.id, executionId: result.executionId ?? null, error: result.error ?? 'Automation execution failed.' }, { status: 400 })
+  }
+
+  const { data: completedAction, error: actionUpdateError } = await supabase
+    .from('business_action_runs')
+    .update({ status: 'completed', execution_id: result.executionId ?? null, output: result.output ?? {}, completed_at: new Date().toISOString() })
+    .eq('id', actionRun.id)
+    .eq('organization_id', organizationId)
+    .select('id,workflow_id,execution_id,status,output,started_at,completed_at')
+    .single()
+
+  if (actionUpdateError) return NextResponse.json({ error: 'Workflow executed, but action evidence could not be finalized.' }, { status: 500 })
+
+  return NextResponse.json({ ok: true, approvalId, agentRunId: approval.agent_run_id, status: 'approved', execution: 'completed', actionRun: completedAction, message: 'Approved workflow executed through the controlled Phase 1 action path.' })
 }
