@@ -27,6 +27,30 @@ const units: Record<string, string> = {
   Retention: 'percent',
 }
 
+const VERIFIED_OUTCOME_STATUSES = new Set(['measured', 'attributed'])
+
+function outcomeNumber(value: unknown) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function summarizeOutcomes(rows: any[]) {
+  const summarize = (items: any[]) => {
+    const currencies = [...new Set(items.map((row) => row.currency || 'NGN'))]
+    const currency = currencies.length === 1 ? currencies[0] : null
+    const costAvoided = items.reduce((sum, row) => sum + outcomeNumber(row.cost_avoided), 0)
+    const revenueImpact = items.reduce((sum, row) => sum + outcomeNumber(row.revenue_impact), 0)
+    const implementationCost = items.reduce((sum, row) => sum + outcomeNumber(row.implementation_cost), 0)
+    const hoursSaved = items.reduce((sum, row) => sum + outcomeNumber(row.hours_saved), 0)
+    const netImpact = currency ? costAvoided + revenueImpact - implementationCost : null
+    const roi = currency && implementationCost > 0 ? netImpact! / implementationCost : null
+    return { count: items.length, currencies, currency, costAvoided, revenueImpact, implementationCost, hoursSaved, netImpact, roi }
+  }
+  const verified = rows.filter((row) => VERIFIED_OUTCOME_STATUSES.has(row.evidence_status))
+  const estimated = rows.filter((row) => row.evidence_status === 'estimated')
+  return { verified: summarize(verified), estimated: summarize(estimated) }
+}
+
 async function context() {
   const supabase = await createClient()
   const { profile } = await getCurrentProfile(supabase)
@@ -47,7 +71,7 @@ export async function GET() {
     )
   }
 
-  const [kpis, mappings, sources] = await Promise.all([
+  const [kpis, mappings, sources, outcomes] = await Promise.all([
     supabase
       .from('business_kpis')
       .select(
@@ -69,9 +93,15 @@ export async function GET() {
         'id,name,provider,status,configuration_metadata,last_synced_at',
       )
       .eq('organization_id', organizationId),
+
+    supabase
+      .from('business_outcomes')
+      .select('id,title,outcome_type,hours_saved,cost_avoided,revenue_impact,implementation_cost,currency,evidence_status,source,period_start,period_end,created_at')
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: false }),
   ])
 
-  if (kpis.error || mappings.error || sources.error) {
+  if (kpis.error || mappings.error || sources.error || outcomes.error) {
     return NextResponse.json(
       { error: 'Unable to load analyst data.' },
       { status: 500 },
@@ -192,6 +222,7 @@ export async function GET() {
     kpis: rows,
     mappings: mappings.data ?? [],
     sources: sources.data ?? [],
+    outcomes: summarizeOutcomes(outcomes.data ?? []),
     health,
     areas: [...areas],
     quality,
