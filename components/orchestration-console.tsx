@@ -152,8 +152,14 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
                 </div>
               )}
               <div className="rounded-lg border bg-muted/20 p-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Next recommended move</p>
-                <p className="mt-1 text-sm">{String(progress.nextRecommendedMove ?? '')}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Decision intelligence</p>
+                <p className="mt-1 text-sm font-medium">{String(progress.decisionIntelligence?.recommendation ?? progress.nextRecommendedMove ?? '')}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{String(progress.decisionIntelligence?.reason ?? '')}</p>
+                <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                  <span className="rounded-full border px-2 py-1">Evidence: {String(progress.decisionIntelligence?.evidence ?? 'objective_record')}</span>
+                  <span className="rounded-full border px-2 py-1">Grounded: {progress.decisionIntelligence?.grounded ? 'Yes' : 'No'}</span>
+                  <span className="rounded-full border px-2 py-1">Execution: not started</span>
+                </div>
               </div>
             </div>
           ) : (
