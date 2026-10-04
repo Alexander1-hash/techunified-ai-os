@@ -60,6 +60,37 @@ export async function POST(request: Request) {
 
   if (runError) return NextResponse.json({ error: 'Approval updated, but agent run state could not be synchronized.' }, { status: 500 })
 
+  const approvalLesson = decision === 'rejected'
+    ? 'Human reviewer rejected the proposed action. Do not treat this proposal as approved; reviewer note: ' + (reviewerNote || 'No reviewer note provided.')
+    : 'Human reviewer approved the proposed action. Approval grants permission for the controlled path only; it does not itself prove business success.'
+
+  const { data: existingApprovalMemory } = await supabase.from('agent_memory')
+    .select('id,memory_type,content,confidence,evidence_status,source_type,source_id')
+    .eq('organization_id', organizationId)
+    .eq('agent_id', (await supabase.from('agent_runs').select('agent_id').eq('id', approval.agent_run_id).eq('organization_id', organizationId).maybeSingle()).data?.agent_id ?? '')
+    .eq('source_type', 'human')
+    .eq('source_id', approval.id)
+    .eq('memory_type', 'lesson')
+    .is('superseded_at', null)
+    .limit(1)
+    .maybeSingle()
+
+  if (!existingApprovalMemory) {
+    await supabase.from('agent_memory').insert({
+      organization_id: organizationId,
+      agent_id: (await supabase.from('agent_runs').select('agent_id').eq('id', approval.agent_run_id).eq('organization_id', organizationId).maybeSingle()).data?.agent_id,
+      run_id: approval.agent_run_id,
+      memory_type: 'lesson',
+      content: approvalLesson,
+      importance: decision === 'rejected' ? 85 : 65,
+      confidence: 100,
+      evidence_status: 'explicit',
+      source_type: 'human',
+      source_id: approval.id,
+      metadata: { approvalId: approval.id, decision, reviewerId: userId, reviewerNote: reviewerNote || null },
+    })
+  }
+
   if (decision === 'rejected' || approval.action_type !== 'workflow_execution') {
     return NextResponse.json({
       ok: true,
