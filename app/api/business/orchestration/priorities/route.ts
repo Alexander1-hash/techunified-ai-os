@@ -29,6 +29,11 @@ export async function GET() {
       const successfulEvaluations = objectiveEvaluations.filter((evaluation: any) => evaluation.execution_success === true)
       const failedEvaluations = objectiveEvaluations.filter((evaluation: any) => evaluation.execution_success === false)
       const learningSignal = successfulEvaluations.length > 0 && verified.length > 0 ? 'positive_verified_learning' : failedEvaluations.length > 0 ? 'negative_execution_learning' : objectiveEvaluations.length > 0 ? 'evaluated_no_verified_outcome' : 'no_learning_signal'
+      const evidenceConfidence = verified.length > 0
+        ? 'high'
+        : objectiveEvaluations.length > 0 || objectiveRuns.some((run: any) => run.status === 'completed')
+          ? 'medium'
+          : 'low'
       const pendingApproval = objectiveRuns.filter((run: any) => run.status === 'awaiting_approval' || run.approval_status === 'pending').length
       const failed = objectiveRuns.filter((run: any) => run.status === 'failed').length
       const active = objectiveRuns.filter((run: any) => ['planning', 'awaiting_approval', 'executing'].includes(run.status)).length
@@ -84,6 +89,7 @@ export async function GET() {
         evaluatedRuns: objectiveEvaluations.length,
         successfulEvaluations: successfulEvaluations.length,
         failedEvaluations: failedEvaluations.length,
+        evidenceConfidence,
         evidenceState: verified.length ? 'verified_evidence_available' : completed ? 'evidence_gap' : 'limited_evidence',
         dependencies: dependencyIds,
         dependencyDetails,
