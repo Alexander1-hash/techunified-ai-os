@@ -136,6 +136,28 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
 
       <section>
         <div className="mb-4 flex items-end justify-between gap-3">
+          <div><h2 className="text-lg font-semibold">Decision package</h2><p className="mt-1 text-sm text-muted-foreground">The current governed recommendation, blockers, evidence basis, capacity, and approval boundary are kept together before AI assessment or controlled execution.</p></div>
+        </div>
+        <Card>
+          {priorities?.highestPriority ? (
+            <div className="space-y-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Recommended direction</p><p className="mt-1 text-sm font-semibold">{String(priorities.highestPriority.priorityReason)}</p></div>
+                <span className="rounded-full border px-3 py-1 text-xs font-medium">{priorities.highestPriority.capacity?.executionPathAvailable ? 'Execution path available' : 'Capacity gap'}</span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Active AI workers</p><p className="mt-1 font-semibold">{priorities.highestPriority.capacity?.activeAgents ?? 0}</p></div>
+                <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Active workflows</p><p className="mt-1 font-semibold">{priorities.highestPriority.capacity?.activeWorkflows ?? 0}</p></div>
+                <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Verified outcomes</p><p className="mt-1 font-semibold">{priorities.highestPriority.verifiedOutcomes ?? 0}</p></div>
+              </div>
+              <p className="text-xs text-muted-foreground">Consequential controlled actions remain behind human approval. Execution is not started by planning or assessment.</p>
+            </div>
+          ) : <p className="text-sm text-muted-foreground">No decision package is available yet.</p>}
+        </Card>
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-3">
           <div><h2 className="text-lg font-semibold">Objective priority</h2><p className="mt-1 text-sm text-muted-foreground">Evidence-based attention signals across company objectives. This is prioritization, not an ROI claim.</p></div>
         </div>
         <Card>
