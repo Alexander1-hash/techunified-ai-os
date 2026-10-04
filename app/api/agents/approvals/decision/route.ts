@@ -30,6 +30,21 @@ export async function POST(request: Request) {
   const proposedAction = approval.proposed_action && typeof approval.proposed_action === 'object'
     ? approval.proposed_action as Record<string, unknown>
     : {}
+
+  const { data: linkedOrchestrationContext } = await supabase
+    .from('business_orchestration_runs')
+    .select('id,objective_id,plan')
+    .eq('organization_id', organizationId)
+    .contains('agent_run_ids', [approval.agent_run_id])
+    .limit(1)
+    .maybeSingle()
+
+  const orchestrationPlan = linkedOrchestrationContext?.plan && typeof linkedOrchestrationContext.plan === 'object'
+    ? linkedOrchestrationContext.plan as Record<string, unknown>
+    : {}
+  const decisionIntelligence = orchestrationPlan.decisionIntelligence && typeof orchestrationPlan.decisionIntelligence === 'object'
+    ? orchestrationPlan.decisionIntelligence as Record<string, unknown>
+    : null
   const workflowId = typeof proposedAction.workflowId === 'string' ? proposedAction.workflowId.trim() : ''
   const actionInput = proposedAction.input && typeof proposedAction.input === 'object' && !Array.isArray(proposedAction.input)
     ? proposedAction.input as Record<string, unknown>
@@ -108,7 +123,7 @@ export async function POST(request: Request) {
         evidence_status: 'explicit',
         source_type: 'human',
         source_id: approval.id,
-          metadata: { approvalId: approval.id, decision, reviewerId: userId, reviewerNote: reviewerNote || null },
+          metadata: { approvalId: approval.id, decision, reviewerId: userId, reviewerNote: reviewerNote || null, decisionIntelligence },
       })
     }
   }
@@ -192,7 +207,7 @@ export async function POST(request: Request) {
       workflow_id: workflow.id,
       status: 'running',
       input: actionInput,
-      evidence: { approvalId, agentRunId: approval.agent_run_id, approvedBy: userId },
+      evidence: { approvalId, agentRunId: approval.agent_run_id, approvedBy: userId, decisionIntelligence },
       started_at: new Date().toISOString(),
     })
     .select('id')
@@ -232,6 +247,7 @@ export async function POST(request: Request) {
         ...failedEvidence,
         controlledActionExecution: 'failed',
         controlledActionRunId: actionRun.id,
+        decisionIntelligence,
         executionId: result.executionId ?? null,
         executionError: result.error ?? 'Automation execution failed.',
         completedAt: failedAt,
@@ -256,6 +272,7 @@ export async function POST(request: Request) {
           executionStatus: 'failed',
           executionError: result.error ?? 'Automation execution failed.',
           approvalId,
+          decisionIntelligence,
         },
         error_message: result.error ?? 'Automation execution failed.',
         completed_at: failedAt,
@@ -298,6 +315,7 @@ export async function POST(request: Request) {
       ...completedEvidence,
       controlledActionExecution: 'completed',
       controlledActionRunId: actionRun.id,
+      decisionIntelligence,
       executionId: result.executionId ?? null,
       linkedOutcomeId: linkedOutcome?.id ?? null,
       linkedOutcomeEvidenceStatus: linkedOutcome?.evidence_status ?? null,
@@ -324,12 +342,14 @@ export async function POST(request: Request) {
         approvalId,
         linkedOutcomeId: linkedOutcome?.id ?? null,
         linkedOutcomeEvidenceStatus: linkedOutcome?.evidence_status ?? null,
+        decisionIntelligence,
       },
       result: {
         execution: 'completed',
         actionRunId: actionRun.id,
         executionId: result.executionId ?? null,
         linkedOutcomeId: linkedOutcome?.id ?? null,
+        decisionIntelligence,
       },
       completed_at: completedAction.completed_at,
       error_message: null,
