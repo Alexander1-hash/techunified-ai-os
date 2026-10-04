@@ -150,6 +150,26 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
         </Card>
       </section>
 
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div><h2 className="text-lg font-semibold">Objective portfolio</h2><p className="mt-1 text-sm text-muted-foreground">A governed portfolio view showing which objectives need attention and why. Scores are operational prioritization signals, not financial valuations.</p></div>
+        </div>
+        <Card>
+          {Array.isArray(priorities?.objectives) && priorities.objectives.length > 0 ? (
+            <div className="space-y-2">
+              {priorities.objectives.map((objective: AnyRecord, index: number) => (
+                <button key={objective.id} onClick={() => setSelectedObjectiveId(String(objective.id))} className="w-full rounded-lg border p-3 text-left transition-colors hover:bg-muted/40">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0"><div className="flex items-center gap-2"><span className="text-xs font-medium text-muted-foreground">#{index + 1}</span><span className="truncate text-sm font-semibold">{String(objective.title)}</span></div><p className="mt-1 text-xs text-muted-foreground">{String(objective.priorityReason)}</p></div>
+                    <div className="flex shrink-0 flex-wrap gap-2 text-[11px] text-muted-foreground"><span className="rounded-full border px-2 py-1">Priority {String(objective.priorityScore)}/100</span><span className="rounded-full border px-2 py-1">Active {String(objective.activeRuns ?? 0)}</span><span className="rounded-full border px-2 py-1">{objective.capacity?.executionPathAvailable ? 'Ready path' : 'Capacity gap'}</span></div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : <p className="text-sm text-muted-foreground">No objective portfolio signals are available yet.</p>}
+        </Card>
+      </section>
+
       <Card>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
