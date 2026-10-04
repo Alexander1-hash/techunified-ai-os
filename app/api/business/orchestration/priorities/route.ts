@@ -84,6 +84,21 @@ export async function GET() {
       }
     }).sort((a: any, b: any) => b.priorityScore - a.priorityScore)
 
+    const dependencyFirstSequence = [...scored].sort((a: any, b: any) => {
+      const aBlocksOthers = scored.filter((candidate: any) => candidate.dependencies.includes(a.id)).length
+      const bBlocksOthers = scored.filter((candidate: any) => candidate.dependencies.includes(b.id)).length
+      if (aBlocksOthers !== bBlocksOthers) return bBlocksOthers - aBlocksOthers
+      return b.priorityScore - a.priorityScore
+    }).map((objective: any, index: number) => ({
+      order: index + 1,
+      objectiveId: objective.id,
+      title: objective.title,
+      priorityScore: objective.priorityScore,
+      blocksObjectives: scored.filter((candidate: any) => candidate.dependencies.includes(objective.id)).length,
+      blocked: objective.blockedDependencies.length > 0,
+      recommended: objective.blockedDependencies.length === 0,
+    }))
+
     const dependencyEdges = scored.flatMap((objective: any) => objective.dependencyDetails.map((dependency: any) => ({
       objectiveId: objective.id,
       objectiveTitle: objective.title,
@@ -92,7 +107,7 @@ export async function GET() {
       status: dependency.status,
     })))
 
-    return NextResponse.json({ ok: true, objectives: scored, dependencyEdges, highestPriority: scored[0] ?? null })
+    return NextResponse.json({ ok: true, objectives: scored, dependencyEdges, dependencyFirstSequence, highestPriority: scored[0] ?? null })
   } catch (error) {
     console.error('[Business Orchestration] priorities failed:', error)
     return NextResponse.json({ error: 'Unable to prioritize objectives.' }, { status: 500 })
