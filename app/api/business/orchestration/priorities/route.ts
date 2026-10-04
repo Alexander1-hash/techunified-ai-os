@@ -232,7 +232,19 @@ export async function GET() {
       })
       .map((item: any, index: number) => ({ ...item, order: index + 1 }))
 
-    return NextResponse.json({ ok: true, objectives: scored, dependencyEdges, dependencyFirstSequence, criticalPath, capacityAwareSequence, workloadIntelligence, workloadSummary, highestPriority: scored[0] ?? null })
+    const nextMove = workloadIntelligence.find((item: any) => item.pendingApproval)
+      ? { action: 'resolve_approval', objectiveId: workloadIntelligence.find((item: any) => item.pendingApproval)?.objectiveId, reason: 'A governed approval is already pending and should be resolved before competing work is created.' }
+      : workloadIntelligence.find((item: any) => item.failedWork)
+        ? { action: 'investigate_failure', objectiveId: workloadIntelligence.find((item: any) => item.failedWork)?.objectiveId, reason: 'Failed governed work requires investigation before new execution is recommended.' }
+        : workloadIntelligence.find((item: any) => item.blockedDependencies > 0)
+          ? { action: 'resolve_dependency', objectiveId: workloadIntelligence.find((item: any) => item.blockedDependencies > 0)?.objectiveId, reason: 'A dependency is blocking objective progress.' }
+          : workloadIntelligence.find((item: any) => item.activeRuns > 0)
+            ? { action: 'continue_active_work', objectiveId: workloadIntelligence.find((item: any) => item.activeRuns > 0)?.objectiveId, reason: 'Governed work is already active; avoid duplicating effort.' }
+            : capacityAwareSequence[0]
+              ? { action: 'start_governed_assessment', objectiveId: capacityAwareSequence[0].objectiveId, reason: 'The highest-ranked unblocked objective is ready for governed assessment.' }
+              : { action: 'review_portfolio', objectiveId: null, reason: 'No objective is currently ready for a governed next step.' }
+
+    return NextResponse.json({ ok: true, objectives: scored, dependencyEdges, dependencyFirstSequence, criticalPath, capacityAwareSequence, workloadIntelligence, workloadSummary, nextMove, highestPriority: scored[0] ?? null })
   } catch (error) {
     console.error('[Business Orchestration] priorities failed:', error)
     return NextResponse.json({ error: 'Unable to prioritize objectives.' }, { status: 500 })
