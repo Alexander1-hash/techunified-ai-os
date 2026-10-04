@@ -78,6 +78,41 @@ export async function POST(request: Request) {
   if (evaluationError || !evaluation) return NextResponse.json({ error: 'Unable to record agent evaluation.' }, { status: 500 })
 
   let learnedMemory = null
+  let explicitMemory = null
+
+  if (body?.humanFeedback?.trim()) {
+    const feedback = body.humanFeedback.trim().slice(0, 4000)
+    const { data: existingFeedback } = await supabase.from('agent_memory')
+      .select('id,memory_type,content,confidence,evidence_status,source_type,source_id')
+      .eq('organization_id', organizationId)
+      .eq('agent_id', run.agent_id)
+      .eq('source_type', 'human')
+      .eq('source_id', run.id)
+      .eq('memory_type', 'lesson')
+      .is('superseded_at', null)
+      .limit(1)
+      .maybeSingle()
+
+    if (existingFeedback) {
+      explicitMemory = existingFeedback
+    } else {
+      const { data: memory } = await supabase.from('agent_memory').insert({
+        organization_id: organizationId,
+        agent_id: run.agent_id,
+        run_id: run.id,
+        memory_type: 'lesson',
+        content: 'Human reviewer feedback for agent run: ' + feedback,
+        importance: 75,
+        confidence: 100,
+        evidence_status: 'explicit',
+        source_type: 'human',
+        source_id: run.id,
+        metadata: { evaluationId: evaluation.id, reviewerId: user.id },
+      }).select('id,memory_type,content,confidence,evidence_status,source_type,source_id').single()
+      explicitMemory = memory ?? null
+    }
+  }
+
   if (linkedOutcome) {
     const content = 'Verified business outcome from agent run: ' + linkedOutcome.title +
       '. Evidence status: ' + linkedOutcome.evidence_status +
@@ -125,7 +160,9 @@ export async function POST(request: Request) {
     ok: true,
     evaluation,
     learning: learnedMemory
-      ? { status: 'promoted', memory: learnedMemory }
-      : { status: 'no_verified_outcome_yet', message: 'Evaluation recorded. Durable learning is promoted only when a measured or attributed business outcome is linked to the agent run.' },
+      ? { status: 'promoted', memory: learnedMemory, reviewerFeedback: explicitMemory }
+      : explicitMemory
+        ? { status: 'reviewer_feedback_recorded', memory: explicitMemory, message: 'Explicit human feedback was recorded. Verified outcome learning has not been promoted yet.' }
+        : { status: 'no_verified_outcome_yet', message: 'Evaluation recorded. Durable learning is promoted only when a measured or attributed business outcome is linked to the agent run.' },
   })
 }
