@@ -165,6 +165,31 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
 
       <section>
         <div className="mb-4 flex items-end justify-between gap-3">
+          <div><h2 className="text-lg font-semibold">Why now</h2><p className="mt-1 text-sm text-muted-foreground">The decision boundary explains why TechUnified recommends the current move, what evidence supports it, what blocks it, and where human approval remains required.</p></div>
+        </div>
+        <Card>
+          {priorities?.highestPriority ? (
+            <div className="space-y-3">
+              <div className="rounded-lg border p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Why this objective now</p>
+                <p className="mt-1 text-sm font-semibold">{String(priorities.highestPriority.priorityReason)}</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Learning</p><p className="mt-1 text-sm font-semibold">{String(priorities.highestPriority.learningSignal ?? 'no learning signal').replace(/_/g, ' ')}</p></div>
+                <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Evaluated runs</p><p className="mt-1 text-sm font-semibold">{String(priorities.highestPriority.evaluatedRuns ?? 0)}</p></div>
+                <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Successful evaluations</p><p className="mt-1 text-sm font-semibold">{String(priorities.highestPriority.successfulEvaluations ?? 0)}</p></div>
+              </div>
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Governance boundary</p>
+                <p className="mt-1 text-sm">Planning and assessment may recommend action, but consequential execution remains behind the existing human approval and dependency re-check controls.</p>
+              </div>
+            </div>
+          ) : <p className="text-sm text-muted-foreground">Decision context is not available yet.</p>}
+        </Card>
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-3">
           <div><h2 className="text-lg font-semibold">Objective priority</h2><p className="mt-1 text-sm text-muted-foreground">Evidence-based attention signals across company objectives. This is prioritization, not an ROI claim.</p></div>
         </div>
         <Card>
