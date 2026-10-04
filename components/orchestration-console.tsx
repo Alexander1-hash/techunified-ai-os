@@ -233,6 +233,32 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
         </Card>
       </section>
 
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div><h2 className="text-lg font-semibold">Capacity-aware next work</h2><p className="mt-1 text-sm text-muted-foreground">Combines dependency readiness, downstream impact, current governed work, approvals, and available execution capacity.</p></div>
+        </div>
+        <Card>
+          {Array.isArray(priorities?.capacityAwareSequence) && priorities.capacityAwareSequence.length > 0 ? (
+            <div className="space-y-2">
+              {priorities.capacityAwareSequence.map((item: AnyRecord) => (
+                <button key={String(item.objectiveId)} onClick={() => setSelectedObjectiveId(String(item.objectiveId))} className="w-full rounded-lg border p-3 text-left hover:bg-muted/40">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold"><span className="mr-2 text-xs text-muted-foreground">#{String(item.order)}</span>{String(item.title)}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{String(item.reason)}</p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-2 text-[11px] text-muted-foreground">
+                      <span className="rounded-full border px-2 py-1">Score {String(item.capacityScore)}/100</span>
+                      <span className="rounded-full border px-2 py-1">{item.executionReady ? 'Execution ready' : 'Capacity limited'}</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : <p className="text-sm text-muted-foreground">No capacity-aware sequence is available yet.</p>}
+        </Card>
+      </section>
+
       <Card>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
