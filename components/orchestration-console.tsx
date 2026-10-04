@@ -120,6 +120,22 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
 
       <section>
         <div className="mb-4 flex items-end justify-between gap-3">
+          <div><h2 className="text-lg font-semibold">Governed next move</h2><p className="mt-1 text-sm text-muted-foreground">A single recommended next step based on approvals, failures, dependencies, active work, and capacity. Recommendation only; execution remains governed.</p></div>
+        </div>
+        <Card>
+          {priorities?.nextMove ? (
+            <button onClick={() => priorities.nextMove.objectiveId && setSelectedObjectiveId(String(priorities.nextMove.objectiveId))} className="w-full rounded-lg border p-4 text-left hover:bg-muted/40">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{String(priorities.nextMove.action).replace(/_/g, ' ')}</p><p className="mt-1 text-sm font-semibold">{String(priorities.nextMove.reason)}</p></div>
+                {priorities.nextMove.objectiveId && <span className="rounded-full border px-3 py-1 text-xs font-medium">Open objective</span>}
+              </div>
+            </button>
+          ) : <p className="text-sm text-muted-foreground">No governed next move is available yet.</p>}
+        </Card>
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-3">
           <div><h2 className="text-lg font-semibold">Objective priority</h2><p className="mt-1 text-sm text-muted-foreground">Evidence-based attention signals across company objectives. This is prioritization, not an ROI claim.</p></div>
         </div>
         <Card>
