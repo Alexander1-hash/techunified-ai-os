@@ -226,6 +226,14 @@ export default async function AgentsPage() {
         <div className="mt-8"><AgentApprovalCenter /></div>
 
         {agentList.some((agent) => agent.status === 'active' || agent.status === 'running') && (
+          <AgentLearningConsole
+            agents={agentList
+              .filter((agent) => agent.status === 'active' || agent.status === 'running')
+              .map((agent) => ({ id: agent.id, name: agent.name }))}
+          />
+        )}
+
+        {agentList.some((agent) => agent.status === 'active' || agent.status === 'running') && (
           <AgentWorkforceConsole
             agents={agentList
               .filter((agent) => agent.status === 'active' || agent.status === 'running')
