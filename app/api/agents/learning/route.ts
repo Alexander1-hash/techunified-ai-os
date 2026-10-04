@@ -82,7 +82,22 @@ export async function POST(request: Request) {
     const content = 'Verified business outcome from agent run: ' + linkedOutcome.title +
       '. Evidence status: ' + linkedOutcome.evidence_status +
       '. This outcome is linked to action run ' + linkedAction!.id + '.'
-    const { data: memory } = await supabase.from('agent_memory').insert({
+
+    const { data: existingMemory } = await supabase.from('agent_memory')
+      .select('id,memory_type,content,confidence,evidence_status,source_type,source_id')
+      .eq('organization_id', organizationId)
+      .eq('agent_id', run.agent_id)
+      .eq('source_type', 'outcome')
+      .eq('source_id', linkedOutcome.id)
+      .eq('memory_type', 'lesson')
+      .is('superseded_at', null)
+      .limit(1)
+      .maybeSingle()
+
+    if (existingMemory) {
+      learnedMemory = existingMemory
+    } else {
+      const { data: memory } = await supabase.from('agent_memory').insert({
       organization_id: organizationId,
       agent_id: run.agent_id,
       run_id: run.id,
@@ -102,7 +117,8 @@ export async function POST(request: Request) {
         currency: linkedOutcome.currency,
       },
     }).select('id,memory_type,content,confidence,evidence_status,source_type,source_id').single()
-    learnedMemory = memory ?? null
+      learnedMemory = memory ?? null
+    }
   }
 
   return NextResponse.json({
