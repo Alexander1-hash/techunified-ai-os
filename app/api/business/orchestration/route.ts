@@ -1,0 +1,248 @@
+import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { getCurrentProfile } from '@/lib/repositories/profile'
+
+const allowedStatuses = [
+  'planning',
+  'awaiting_approval',
+  'executing',
+  'completed',
+  'failed',
+  'cancelled',
+] as const
+
+const allowedApprovalStatuses = [
+  'not_required',
+  'pending',
+  'approved',
+  'rejected',
+] as const
+
+async function getContext() {
+  const supabase = await createClient()
+  const { profile } = await getCurrentProfile(supabase)
+
+  return {
+    supabase,
+    userId: profile?.id ?? null,
+    organizationId: profile?.organization_id ?? null,
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const { supabase, organizationId } = await getContext()
+
+    if (!organizationId) {
+      return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
+    }
+
+    const url = new URL(request.url)
+    const objectiveId = url.searchParams.get('objectiveId')?.trim() || null
+
+    let query = supabase
+      .from('business_orchestration_runs')
+      .select(
+        'id,objective_id,initiated_by,lead_agent_id,status,approval_status,plan,context_snapshot,agent_run_ids,action_run_ids,evidence,result,error_message,started_at,completed_at,created_at,updated_at',
+      )
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: false })
+      .limit(100)
+
+    if (objectiveId) query = query.eq('objective_id', objectiveId)
+
+    const { data, error } = await query
+
+    if (error) throw error
+
+    return NextResponse.json({ ok: true, orchestrationRuns: data ?? [] })
+  } catch (error) {
+    console.error('[Business Orchestration] GET failed:', error)
+    return NextResponse.json({ error: 'Unable to load orchestration runs.' }, { status: 500 })
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const { supabase, userId, organizationId } = await getContext()
+
+    if (!organizationId || !userId) {
+      return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
+    }
+
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null
+    const objectiveId = typeof body?.objectiveId === 'string' ? body.objectiveId.trim() : ''
+
+    if (!objectiveId) {
+      return NextResponse.json({ error: 'objectiveId is required.' }, { status: 400 })
+    }
+
+    const { data: objective, error: objectiveError } = await supabase
+      .from('company_objectives')
+      .select('*')
+      .eq('id', objectiveId)
+      .eq('organization_id', organizationId)
+      .maybeSingle()
+
+    if (objectiveError) throw objectiveError
+
+    if (!objective) {
+      return NextResponse.json({ error: 'Objective not found.' }, { status: 404 })
+    }
+
+    const leadAgentId =
+      typeof body?.leadAgentId === 'string' && body.leadAgentId.trim()
+        ? body.leadAgentId.trim()
+        : null
+
+    if (leadAgentId) {
+      const { data: agent, error: agentError } = await supabase
+        .from('agents')
+        .select('id,name,status,autonomy_level')
+        .eq('id', leadAgentId)
+        .eq('organization_id', organizationId)
+        .maybeSingle()
+
+      if (agentError) throw agentError
+
+      if (!agent) {
+        return NextResponse.json({ error: 'Lead agent not found.' }, { status: 404 })
+      }
+    }
+
+    const { data: recentAgentRuns, error: agentRunsError } = await supabase
+      .from('agent_runs')
+      .select('id,agent_id,task,status,autonomy_mode,approval_status,created_at,completed_at')
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: false })
+      .limit(20)
+
+    if (agentRunsError) throw agentRunsError
+
+    const { data: recentActionRuns, error: actionRunsError } = await supabase
+      .from('business_action_runs')
+      .select('id,decision_id,decision_type,decision_title,workflow_id,status,execution_id,created_at,completed_at')
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: false })
+      .limit(20)
+
+    if (actionRunsError) throw actionRunsError
+
+    const contextSnapshot = {
+      objective,
+      recentAgentRuns: recentAgentRuns ?? [],
+      recentActionRuns: recentActionRuns ?? [],
+      orchestrationRule:
+        'Coordinate existing governed AI workers and controlled actions. Never bypass approval, workflow validation, execution evidence, or learning controls.',
+    }
+
+    const plan =
+      body?.plan && typeof body.plan === 'object' && !Array.isArray(body.plan)
+        ? body.plan
+        : {
+            mode: 'objective_planning',
+            nextStep: 'Assess objective context and propose governed work.',
+            execution: 'not_started',
+          }
+
+    const { data, error } = await supabase
+      .from('business_orchestration_runs')
+      .insert({
+        organization_id: organizationId,
+        objective_id: objectiveId,
+        initiated_by: userId,
+        lead_agent_id: leadAgentId,
+        status: 'planning',
+        approval_status: 'not_required',
+        plan,
+        context_snapshot: contextSnapshot,
+      })
+      .select(
+        'id,objective_id,initiated_by,lead_agent_id,status,approval_status,plan,context_snapshot,agent_run_ids,action_run_ids,evidence,result,error_message,started_at,completed_at,created_at,updated_at',
+      )
+      .single()
+
+    if (error) throw error
+
+    return NextResponse.json(
+      {
+        ok: true,
+        orchestrationRun: data,
+        message:
+          'Objective orchestration record created. No agent, workflow, or external action was executed by this request.',
+      },
+      { status: 201 },
+    )
+  } catch (error) {
+    console.error('[Business Orchestration] POST failed:', error)
+    return NextResponse.json({ error: 'Unable to create orchestration run.' }, { status: 500 })
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const { supabase, organizationId } = await getContext()
+
+    if (!organizationId) {
+      return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
+    }
+
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null
+    const id = typeof body?.id === 'string' ? body.id.trim() : ''
+
+    if (!id) {
+      return NextResponse.json({ error: 'orchestration run id is required.' }, { status: 400 })
+    }
+
+    const updates: Record<string, unknown> = {}
+
+    if (typeof body?.status === 'string') {
+      if (!allowedStatuses.includes(body.status as (typeof allowedStatuses)[number])) {
+        return NextResponse.json({ error: 'Invalid orchestration status.' }, { status: 400 })
+      }
+      updates.status = body.status
+      if (body.status === 'executing' && !body.started_at) updates.started_at = new Date().toISOString()
+      if (['completed', 'failed', 'cancelled'].includes(body.status) && !body.completed_at) {
+        updates.completed_at = new Date().toISOString()
+      }
+    }
+
+    if (typeof body?.approval_status === 'string') {
+      if (!allowedApprovalStatuses.includes(body.approval_status as (typeof allowedApprovalStatuses)[number])) {
+        return NextResponse.json({ error: 'Invalid orchestration approval status.' }, { status: 400 })
+      }
+      updates.approval_status = body.approval_status
+    }
+
+    for (const field of ['plan', 'evidence', 'result', 'agent_run_ids', 'action_run_ids']) {
+      if (body && field in body) {
+        updates[field] = body[field]
+      }
+    }
+
+    if (typeof body?.error_message === 'string') {
+      updates.error_message = body.error_message.trim() || null
+    }
+
+    if (!Object.keys(updates).length) {
+      return NextResponse.json({ error: 'No orchestration changes supplied.' }, { status: 400 })
+    }
+
+    const { data, error } = await supabase
+      .from('business_orchestration_runs')
+      .update(updates)
+      .eq('id', id)
+      .eq('organization_id', organizationId)
+      .select(
+        'id,objective_id,initiated_by,lead_agent_id,status,approval_status,plan,context_snapshot,agent_run_ids,action_run_ids,evidence,result,error_message,started_at,completed_at,created_at,updated_at',
+      )
+      .single()
+
+    if (error) throw error
+
+    return NextResponse.json({ ok: true, orchestrationRun: data })
+  } catch (error) {
+    console.error('[Business Orchestration] PATCH failed:', error)
+    return NextResponse.json({ error: 'Unable to update orchestration run.' }, { status: 500 })
+  }
+}
