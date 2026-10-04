@@ -150,6 +150,91 @@ export async function POST(request: Request) {
 
     if (error) throw error
 
+    // When a verified outcome is attached to a completed action, immediately propagate
+    // that evidence into the originating agent evaluation and durable learning.
+    if (data && actionRunId && ['measured', 'attributed'].includes(String(data.evidence_status))) {
+      const { data: actionRun } = await supabase
+        .from('business_action_runs')
+        .select('id,decision_id,status')
+        .eq('id', actionRunId)
+        .eq('organization_id', organizationId)
+        .maybeSingle()
+
+      const agentRunId = actionRun?.decision_id ?? null
+      if (actionRun?.status === 'completed' && agentRunId) {
+        const { data: agentRun } = await supabase
+          .from('agent_runs')
+          .select('id,agent_id')
+          .eq('id', agentRunId)
+          .eq('organization_id', organizationId)
+          .maybeSingle()
+
+        if (agentRun?.agent_id) {
+          const { data: existingEvaluation } = await supabase
+            .from('agent_evaluations')
+            .select('evidence')
+            .eq('run_id', agentRun.id)
+            .eq('organization_id', organizationId)
+            .maybeSingle()
+
+          const existingEvidence = existingEvaluation?.evidence && typeof existingEvaluation.evidence === 'object'
+            ? existingEvaluation.evidence as Record<string, unknown>
+            : {}
+
+          await supabase.from('agent_evaluations').upsert({
+            organization_id: organizationId,
+            agent_id: agentRun.agent_id,
+            run_id: agentRun.id,
+            execution_success: true,
+            outcome_linked: true,
+            evidence: {
+              ...existingEvidence,
+              controlledActionExecution: 'completed',
+              controlledActionRunId: actionRun.id,
+              linkedOutcomeId: data.id,
+              linkedOutcomeEvidenceStatus: data.evidence_status,
+              linkedAt: new Date().toISOString(),
+            },
+          }, { onConflict: 'run_id' })
+
+          const { data: existingMemory } = await supabase.from('agent_memory')
+            .select('id,memory_type,content,confidence,evidence_status,source_type,source_id')
+            .eq('organization_id', organizationId)
+            .eq('agent_id', agentRun.agent_id)
+            .eq('source_type', 'outcome')
+            .eq('source_id', data.id)
+            .eq('memory_type', 'lesson')
+            .is('superseded_at', null)
+            .limit(1)
+            .maybeSingle()
+
+          if (!existingMemory) {
+            await supabase.from('agent_memory').insert({
+              organization_id: organizationId,
+              agent_id: agentRun.agent_id,
+              run_id: agentRun.id,
+              memory_type: 'lesson',
+              content: 'Verified business outcome from controlled agent action: ' + data.title +
+                '. Evidence status: ' + data.evidence_status + '.',
+              importance: 85,
+              confidence: 90,
+              evidence_status: data.evidence_status === 'measured' ? 'verified' : 'attributed',
+              source_type: 'outcome',
+              source_id: data.id,
+              metadata: {
+                actionRunId: actionRun.id,
+                outcomeId: data.id,
+                hoursSaved: data.hours_saved,
+                costAvoided: data.cost_avoided,
+                revenueImpact: data.revenue_impact,
+                currency: data.currency,
+              },
+            })
+          }
+        }
+      }
+    }
+
     return NextResponse.json({ ok: true, outcome: data }, { status: 201 })
   } catch (error) {
     console.error('[Business Outcomes] POST failed:', error)
