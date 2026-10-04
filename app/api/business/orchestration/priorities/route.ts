@@ -220,8 +220,9 @@ export async function GET() {
         const readinessPenalty = executionReady ? 0 : 25
         const activePenalty = activeWork ? 15 : 0
         const approvalPenalty = hasPendingApproval ? 20 : 0
+        const evidencePenalty = objective.evidenceConfidence === 'low' ? 10 : objective.evidenceConfidence === 'medium' ? 3 : 0
         const capacityScore = Math.max(0, Math.min(100,
-          objective.priorityScore + downstreamObjectives * 10 - readinessPenalty - activePenalty - approvalPenalty,
+          objective.priorityScore + downstreamObjectives * 10 - readinessPenalty - activePenalty - approvalPenalty - evidencePenalty,
         ))
         const reason = !executionReady
           ? 'Execution capacity is currently limited'
@@ -251,6 +252,7 @@ export async function GET() {
       .map((item: any, index: number) => ({ ...item, order: index + 1 }))
 
     const learningReview = scored.find((objective: any) => objective.learningSignal === 'negative_execution_learning' && objective.failedRuns === 0)
+    const evidenceReview = scored.find((objective: any) => objective.evidenceConfidence !== 'high' && (objective.completedRuns > 0 || objective.evaluatedRuns > 0))
     const nextMove = workloadIntelligence.find((item: any) => item.pendingApproval)
       ? { action: 'resolve_approval', objectiveId: workloadIntelligence.find((item: any) => item.pendingApproval)?.objectiveId, reason: 'A governed approval is already pending and should be resolved before competing work is created.' }
       : workloadIntelligence.find((item: any) => item.failedWork)
@@ -261,7 +263,9 @@ export async function GET() {
             ? { action: 'continue_active_work', objectiveId: workloadIntelligence.find((item: any) => item.activeRuns > 0)?.objectiveId, reason: 'Governed work is already active; avoid duplicating effort.' }
             : learningReview
               ? { action: 'review_learning_signal', objectiveId: learningReview.id, reason: 'Prior agent evaluation indicates this objective needs review before another governed assessment is started.' }
-              : capacityAwareSequence[0]
+              : evidenceReview
+                ? { action: 'strengthen_evidence', objectiveId: evidenceReview.id, reason: 'Existing work has limited evidence confidence; record or verify outcome evidence before another governed assessment.' }
+                : capacityAwareSequence[0]
               ? { action: 'start_governed_assessment', objectiveId: capacityAwareSequence[0].objectiveId, reason: 'The highest-ranked unblocked objective is ready for governed assessment.' }
               : { action: 'review_portfolio', objectiveId: null, reason: 'No objective is currently ready for a governed next step.' }
 
