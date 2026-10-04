@@ -135,6 +135,63 @@ export async function GET() {
           : objective.priorityReason,
       }))
 
+    const activeOrchestrationRuns = (runs ?? []).filter((run: any) => ['planning', 'awaiting_approval', 'executing'].includes(String(run.status)))
+    const pendingApprovalObjectives = new Set(
+      (runs ?? []).filter((run: any) => String(run.approval_status) === 'pending').map((run: any) => String(run.objective_id)),
+    )
+    const activeObjectiveIds = new Set(activeOrchestrationRuns.map((run: any) => String(run.objective_id)))
+    const failedObjectiveIds = new Set(
+      (runs ?? []).filter((run: any) => String(run.status) === 'failed').map((run: any) => String(run.objective_id)),
+    )
+
+    const workloadIntelligence = scored.map((objective: any) => {
+      const active = activeOrchestrationRuns.filter((run: any) => String(run.objective_id) === objective.id)
+      const pendingApproval = pendingApprovalObjectives.has(objective.id)
+      const failed = failedObjectiveIds.has(objective.id)
+      const conflict = active.length > 0 || pendingApproval || failed || objective.blockedDependencies.length > 0
+      const workloadState = failed
+        ? 'review_required'
+        : pendingApproval
+          ? 'approval_pending'
+          : active.length > 0
+            ? 'work_in_progress'
+            : objective.blockedDependencies.length > 0
+              ? 'dependency_blocked'
+              : objective.capacity.executionPathAvailable
+                ? 'available'
+                : 'capacity_limited'
+      const recommendation = failed
+        ? 'Investigate failed governed work before starting new work'
+        : pendingApproval
+          ? 'Resolve the pending approval before creating competing work'
+          : active.length > 0
+            ? 'Continue or complete the active governed work before duplicating effort'
+            : objective.blockedDependencies.length > 0
+              ? 'Resolve dependencies before orchestration'
+              : objective.capacity.executionPathAvailable
+                ? 'Available for governed orchestration'
+                : 'Wait for an execution-capable worker and workflow'
+      return {
+        objectiveId: objective.id,
+        title: objective.title,
+        workloadState,
+        conflict,
+        activeRuns: active.length,
+        pendingApproval,
+        failedWork: failed,
+        blockedDependencies: objective.blockedDependencies.length,
+        recommendation,
+      }
+    })
+
+    const workloadSummary = {
+      activeObjectives: activeObjectiveIds.size,
+      pendingApprovalObjectives: pendingApprovalObjectives.size,
+      failedObjectives: failedObjectiveIds.size,
+      conflictedObjectives: workloadIntelligence.filter((item: any) => item.conflict).length,
+      availableObjectives: workloadIntelligence.filter((item: any) => item.workloadState === 'available').length,
+    }
+
     const capacityAwareSequence = [...scored]
       .filter((objective: any) => objective.blockedDependencies.length === 0)
       .map((objective: any) => {
@@ -175,7 +232,7 @@ export async function GET() {
       })
       .map((item: any, index: number) => ({ ...item, order: index + 1 }))
 
-    return NextResponse.json({ ok: true, objectives: scored, dependencyEdges, dependencyFirstSequence, criticalPath, capacityAwareSequence, highestPriority: scored[0] ?? null })
+    return NextResponse.json({ ok: true, objectives: scored, dependencyEdges, dependencyFirstSequence, criticalPath, capacityAwareSequence, workloadIntelligence, workloadSummary, highestPriority: scored[0] ?? null })
   } catch (error) {
     console.error('[Business Orchestration] priorities failed:', error)
     return NextResponse.json({ error: 'Unable to prioritize objectives.' }, { status: 500 })
