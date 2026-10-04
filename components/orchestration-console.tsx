@@ -150,6 +150,7 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
                 <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Active workflows</p><p className="mt-1 font-semibold">{priorities.highestPriority.capacity?.activeWorkflows ?? 0}</p></div>
                 <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Verified outcomes</p><p className="mt-1 font-semibold">{priorities.highestPriority.verifiedOutcomes ?? 0}</p></div>
                 <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Learning signal</p><p className="mt-1 font-semibold">{String(priorities.highestPriority.learningSignal ?? 'none').replace(/_/g, ' ')}</p></div>
+                <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Evidence confidence</p><p className="mt-1 font-semibold capitalize">{String(priorities.highestPriority.evidenceConfidence ?? 'low')}</p></div>
               </div>
               {priorities.highestPriority.learningSignal === 'negative_execution_learning' && (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
