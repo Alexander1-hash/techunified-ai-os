@@ -10,7 +10,7 @@ export async function GET() {
 
     const [{ data: objectives, error: objectiveError }, { data: runs, error: runError }, { data: outcomes, error: outcomeError }, { data: agents, error: agentsError }, { data: workflows, error: workflowsError }, { data: evaluations, error: evaluationsError }] = await Promise.all([
       supabase.from('company_objectives').select('*').eq('organization_id', profile.organization_id).order('created_at', { ascending: false }).limit(50),
-      supabase.from('business_orchestration_runs').select('id,objective_id,status,approval_status,action_run_ids,created_at').eq('organization_id', profile.organization_id).order('created_at', { ascending: false }).limit(200),
+      supabase.from('business_orchestration_runs').select('id,objective_id,status,approval_status,action_run_ids,agent_run_ids,created_at').eq('organization_id', profile.organization_id).order('created_at', { ascending: false }).limit(200),
       supabase.from('business_outcomes').select('id,action_run_id,evidence_status,cost_avoided,revenue_impact,hours_saved,created_at').eq('organization_id', profile.organization_id).order('created_at', { ascending: false }).limit(200),
       supabase.from('agents').select('id,name,status,autonomy_level').eq('organization_id', profile.organization_id).in('status', ['active', 'running']).limit(50),
       supabase.from('workflows').select('id,name,status').eq('organization_id', profile.organization_id).eq('status', 'active').limit(50),
@@ -244,6 +244,7 @@ export async function GET() {
       })
       .map((item: any, index: number) => ({ ...item, order: index + 1 }))
 
+    const learningReview = scored.find((objective: any) => objective.learningSignal === 'negative_execution_learning' && objective.failedRuns === 0)
     const nextMove = workloadIntelligence.find((item: any) => item.pendingApproval)
       ? { action: 'resolve_approval', objectiveId: workloadIntelligence.find((item: any) => item.pendingApproval)?.objectiveId, reason: 'A governed approval is already pending and should be resolved before competing work is created.' }
       : workloadIntelligence.find((item: any) => item.failedWork)
@@ -252,7 +253,9 @@ export async function GET() {
           ? { action: 'resolve_dependency', objectiveId: workloadIntelligence.find((item: any) => item.blockedDependencies > 0)?.objectiveId, reason: 'A dependency is blocking objective progress.' }
           : workloadIntelligence.find((item: any) => item.activeRuns > 0)
             ? { action: 'continue_active_work', objectiveId: workloadIntelligence.find((item: any) => item.activeRuns > 0)?.objectiveId, reason: 'Governed work is already active; avoid duplicating effort.' }
-            : capacityAwareSequence[0]
+            : learningReview
+              ? { action: 'review_learning_signal', objectiveId: learningReview.id, reason: 'Prior agent evaluation indicates this objective needs review before another governed assessment is started.' }
+              : capacityAwareSequence[0]
               ? { action: 'start_governed_assessment', objectiveId: capacityAwareSequence[0].objectiveId, reason: 'The highest-ranked unblocked objective is ready for governed assessment.' }
               : { action: 'review_portfolio', objectiveId: null, reason: 'No objective is currently ready for a governed next step.' }
 
