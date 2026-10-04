@@ -46,11 +46,23 @@ async function loadContext(
       .select('groundedness_score,tool_accuracy_score,execution_success,outcome_linked,human_feedback,reviewer_note,created_at')
       .eq('organization_id', organizationId).eq('agent_id', agentId).order('created_at', { ascending: false }).limit(10),
   ])
+  const evaluationRows = evaluations.data ?? []
+  const scoredGroundedness = evaluationRows.map((row) => row.groundedness_score).filter((value): value is number => typeof value === 'number')
+  const scoredToolAccuracy = evaluationRows.map((row) => row.tool_accuracy_score).filter((value): value is number => typeof value === 'number')
+  const performance = {
+    evaluationCount: evaluationRows.length,
+    averageGroundedness: scoredGroundedness.length ? Math.round(scoredGroundedness.reduce((a, b) => a + b, 0) / scoredGroundedness.length) : null,
+    averageToolAccuracy: scoredToolAccuracy.length ? Math.round(scoredToolAccuracy.reduce((a, b) => a + b, 0) / scoredToolAccuracy.length) : null,
+    successfulExecutions: evaluationRows.filter((row) => row.execution_success === true).length,
+    failedExecutions: evaluationRows.filter((row) => row.execution_success === false).length,
+    outcomeLinkedEvaluations: evaluationRows.filter((row) => row.outcome_linked).length,
+  }
   return {
     recentOutcomes: outcomes.data ?? [],
     recentActionRuns: actionRuns.data ?? [],
     memories: memories.data ?? [],
-    evaluations: evaluations.data ?? [],
+    evaluations: evaluationRows,
+    performance,
   }
 }
 
@@ -240,7 +252,9 @@ export async function runGovernedAgent(agentId: string, task: string, userId: st
         'Read tools may inspect organization data. Proposal tools may prepare an action but never execute it. ' +
         'Never claim a workflow or business action ran unless a completed action result is supplied. ' +
         'Separate observed facts, calculations, assumptions, recommendations, and proposed actions. ' +
-        'If approval is pending, recommendations and proposals must remain non-executing.',
+        'If approval is pending, recommendations and proposals must remain non-executing. ' +
+        'Treat explicit human feedback as authoritative guidance, verified outcomes as evidence, and unverified run memories as hypotheses. ' +
+        'Use the supplied performance summary to improve reasoning quality, but do not fabricate missing scores or outcomes.',
     },
     {
       role: 'user',
