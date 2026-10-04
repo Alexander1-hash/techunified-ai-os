@@ -134,6 +134,17 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
                 <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Pending approval</p><p className="mt-1 font-semibold">{priorities.highestPriority.pendingApprovalRuns}</p></div>
                 <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Verified outcomes</p><p className="mt-1 font-semibold">{priorities.highestPriority.verifiedOutcomes}</p></div>
               </div>
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Execution readiness</p>
+                <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                  <div><p className="text-xs text-muted-foreground">Active AI workers</p><p className="mt-1 font-semibold">{priorities.highestPriority.capacity?.activeAgents ?? 0}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Active workflows</p><p className="mt-1 font-semibold">{priorities.highestPriority.capacity?.activeWorkflows ?? 0}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Execution path</p><p className="mt-1 font-semibold">{priorities.highestPriority.capacity?.executionPathAvailable ? 'Available' : 'Gap detected'}</p></div>
+                </div>
+                {Array.isArray(priorities.highestPriority.blockedDependencies) && priorities.highestPriority.blockedDependencies.length > 0 && (
+                  <p className="mt-3 text-xs text-muted-foreground">Blocked dependencies detected: {priorities.highestPriority.blockedDependencies.length}. TechUnified will keep execution governed rather than inventing a workaround.</p>
+                )}
+              </div>
             </div>
           ) : <p className="text-sm text-muted-foreground">No objective priority signal is available yet.</p>}
         </Card>
