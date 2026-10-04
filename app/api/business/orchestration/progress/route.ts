@@ -46,6 +46,31 @@ export async function GET(request: Request) {
     const completedRuns = (runs ?? []).filter((run) => run.status === 'completed').length
     const failedRuns = (runs ?? []).filter((run) => run.status === 'failed').length
     const activeRuns = (runs ?? []).filter((run) => ['planning', 'awaiting_approval', 'executing'].includes(run.status)).length
+    const awaitingApprovalRuns = (runs ?? []).filter((run) => run.status === 'awaiting_approval' || run.approval_status === 'pending').length
+    const latestFailedRun = (runs ?? []).find((run) => run.status === 'failed') ?? null
+    const latestVerifiedOutcome = verifiedOutcomes[0] ?? null
+
+    let decisionRecommendation = 'Start a governed orchestration assessment for this objective.'
+    let decisionReason = 'No active objective work or verified outcome evidence is currently available.'
+    let decisionEvidence = 'objective_record'
+
+    if (awaitingApprovalRuns > 0) {
+      decisionRecommendation = 'Review the pending human approval before initiating any controlled workflow execution.'
+      decisionReason = 'The objective has governed work waiting at the human approval boundary.'
+      decisionEvidence = 'pending_approval'
+    } else if (failedRuns > 0 && completedRuns === 0) {
+      decisionRecommendation = 'Investigate the latest failed orchestration before starting another execution.'
+      decisionReason = 'Objective orchestration has failed without a completed run.'
+      decisionEvidence = 'failed_orchestration'
+    } else if (latestVerifiedOutcome) {
+      decisionRecommendation = 'Compare the verified outcome with the objective target and choose the next measurable intervention.'
+      decisionReason = 'Verified outcome evidence exists and can now inform the next objective decision.'
+      decisionEvidence = 'verified_outcome'
+    } else if (completedRuns > 0) {
+      decisionRecommendation = 'Record a measured or attributed business outcome for the completed action before treating the objective as proven.'
+      decisionReason = 'Work completed, but verified business-outcome evidence is still missing.'
+      decisionEvidence = 'completed_without_outcome'
+    }
 
     const target = objective.target_value ?? objective.target ?? null
     const current = objective.current_value ?? objective.current ?? null
@@ -73,6 +98,16 @@ export async function GET(request: Request) {
         linkedOutcomes: linkedOutcomes.length,
         verifiedOutcomes: verifiedOutcomes.length,
         remainingGap: progressPercent == null ? null : Math.max(0, 100 - progressPercent),
+        awaitingApprovalRuns,
+      },
+      decisionIntelligence: {
+        recommendation: decisionRecommendation,
+        reason: decisionReason,
+        evidence: decisionEvidence,
+        grounded: true,
+        execution: 'not_started',
+        latestFailedRunId: latestFailedRun?.id ?? null,
+        latestVerifiedOutcomeId: latestVerifiedOutcome?.id ?? null,
       },
       outcomes: linkedOutcomes.slice(0, 20),
       nextRecommendedMove:
