@@ -235,6 +235,31 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
 
       <section>
         <div className="mb-4 flex items-end justify-between gap-3">
+          <div><h2 className="text-lg font-semibold">Objective workload intelligence</h2><p className="mt-1 text-sm text-muted-foreground">Detects competing work, pending approvals, failures, dependency blockers, and available execution capacity before new orchestration begins.</p></div>
+        </div>
+        <Card>
+          <div className="mb-4 grid gap-2 sm:grid-cols-5">
+            {(['activeObjectives','pendingApprovalObjectives','failedObjectives','conflictedObjectives','availableObjectives'] as const).map((key) => (
+              <div key={key} className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">{key.replace(/([A-Z])/g, ' $1')}</p><p className="text-xl font-semibold">{String(priorities?.workloadSummary?.[key] ?? 0)}</p></div>
+            ))}
+          </div>
+          {Array.isArray(priorities?.workloadIntelligence) && priorities.workloadIntelligence.length > 0 ? (
+            <div className="space-y-2">
+              {priorities.workloadIntelligence.map((item: AnyRecord) => (
+                <button key={String(item.objectiveId)} onClick={() => setSelectedObjectiveId(String(item.objectiveId))} className="w-full rounded-lg border p-3 text-left hover:bg-muted/40">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div><p className="text-sm font-semibold">{String(item.title)}</p><p className="mt-1 text-xs text-muted-foreground">{String(item.recommendation)}</p></div>
+                    <span className="rounded-full border px-2 py-1 text-[11px]">{String(item.workloadState).replace(/_/g, ' ')}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : <p className="text-sm text-muted-foreground">No workload intelligence is available yet.</p>}
+        </Card>
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-3">
           <div><h2 className="text-lg font-semibold">Capacity-aware next work</h2><p className="mt-1 text-sm text-muted-foreground">Combines dependency readiness, downstream impact, current governed work, approvals, and available execution capacity.</p></div>
         </div>
         <Card>
