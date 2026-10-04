@@ -53,7 +53,7 @@ export async function POST(request: Request) {
         approval_status: result.approvalStatus === 'pending' ? 'pending' : 'not_required',
         agent_run_ids: agentRunIds,
         evidence: { agentAssessmentRunId: result.runId, assessmentStatus: result.status, approvalStatus: result.approvalStatus },
-        result: { agentAssessment: result.result, execution: 'not_started' },
+        result: { agentAssessment: result.text, execution: 'not_started' },
       })
       .eq('id', orchestrationRunId)
       .eq('organization_id', profile.organization_id)
