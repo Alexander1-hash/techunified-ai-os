@@ -57,6 +57,20 @@ export async function POST(request: Request) {
   const executionSuccess = linkedAction ? linkedAction.status === 'completed' : null
   const outcomeLinked = Boolean(linkedOutcome)
 
+  const { data: linkedOrchestration } = await supabase
+    .from('business_orchestration_runs')
+    .select('id,objective_id,plan,result,evidence')
+    .eq('organization_id', organizationId)
+    .contains('agent_run_ids', [run.id])
+    .limit(1)
+    .maybeSingle()
+  const orchestrationPlan = linkedOrchestration?.plan && typeof linkedOrchestration.plan === 'object'
+    ? linkedOrchestration.plan as Record<string, unknown>
+    : {}
+  const decisionIntelligence = orchestrationPlan.decisionIntelligence && typeof orchestrationPlan.decisionIntelligence === 'object'
+    ? orchestrationPlan.decisionIntelligence as Record<string, unknown>
+    : null
+
   const { data: evaluation, error: evaluationError } = await supabase
     .from('agent_evaluations')
     .upsert({
@@ -70,7 +84,7 @@ export async function POST(request: Request) {
       outcome_linked: outcomeLinked,
       human_feedback: body?.humanFeedback?.trim().slice(0, 4000) || null,
       reviewer_note: body?.reviewerNote?.trim().slice(0, 4000) || null,
-      evidence: { linkedActionRunId: linkedAction?.id ?? null, linkedOutcomeId: linkedOutcome?.id ?? null },
+      evidence: { linkedActionRunId: linkedAction?.id ?? null, linkedOutcomeId: linkedOutcome?.id ?? null, orchestrationRunId: linkedOrchestration?.id ?? null, decisionIntelligence },
     }, { onConflict: 'run_id' })
     .select('id,run_id,groundedness_score,tool_accuracy_score,execution_success,outcome_linked,human_feedback,reviewer_note,evidence,created_at,updated_at')
     .single()
@@ -107,7 +121,7 @@ export async function POST(request: Request) {
         evidence_status: 'explicit',
         source_type: 'human',
         source_id: run.id,
-        metadata: { evaluationId: evaluation.id, reviewerId: user.id },
+        metadata: { evaluationId: evaluation.id, reviewerId: user.id, orchestrationRunId: linkedOrchestration?.id ?? null, decisionIntelligence },
       }).select('id,memory_type,content,confidence,evidence_status,source_type,source_id').single()
       explicitMemory = memory ?? null
     }
@@ -142,7 +156,7 @@ export async function POST(request: Request) {
         evidence_status: 'verified',
         source_type: 'action_run',
         source_id: linkedAction.id,
-        metadata: { actionRunId: linkedAction.id, executionFailure: true, output: linkedAction.output },
+        metadata: { actionRunId: linkedAction.id, executionFailure: true, output: linkedAction.output, orchestrationRunId: linkedOrchestration?.id ?? null, decisionIntelligence },
       }).select('id,memory_type,content,confidence,evidence_status,source_type,source_id').single()
       learnedMemory = memory ?? null
     }
@@ -185,6 +199,8 @@ export async function POST(request: Request) {
         costAvoided: linkedOutcome.cost_avoided,
         revenueImpact: linkedOutcome.revenue_impact,
         currency: linkedOutcome.currency,
+        orchestrationRunId: linkedOrchestration?.id ?? null,
+        decisionIntelligence,
       },
     }).select('id,memory_type,content,confidence,evidence_status,source_type,source_id').single()
       learnedMemory = memory ?? null
