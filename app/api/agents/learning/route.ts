@@ -113,6 +113,41 @@ export async function POST(request: Request) {
     }
   }
 
+  if (linkedAction && linkedAction.status === 'failed') {
+    const content = 'Execution failure from agent run. Action run ' + linkedAction.id +
+      ' failed. Review the execution output before proposing the same action again.'
+
+    const { data: existingFailure } = await supabase.from('agent_memory')
+      .select('id,memory_type,content,confidence,evidence_status,source_type,source_id')
+      .eq('organization_id', organizationId)
+      .eq('agent_id', run.agent_id)
+      .eq('source_type', 'action_run')
+      .eq('source_id', linkedAction.id)
+      .eq('memory_type', 'lesson')
+      .is('superseded_at', null)
+      .limit(1)
+      .maybeSingle()
+
+    if (existingFailure) {
+      learnedMemory = existingFailure
+    } else {
+      const { data: memory } = await supabase.from('agent_memory').insert({
+        organization_id: organizationId,
+        agent_id: run.agent_id,
+        run_id: run.id,
+        memory_type: 'lesson',
+        content,
+        importance: 80,
+        confidence: 95,
+        evidence_status: 'verified',
+        source_type: 'action_run',
+        source_id: linkedAction.id,
+        metadata: { actionRunId: linkedAction.id, executionFailure: true, output: linkedAction.output },
+      }).select('id,memory_type,content,confidence,evidence_status,source_type,source_id').single()
+      learnedMemory = memory ?? null
+    }
+  }
+
   if (linkedOutcome) {
     const content = 'Verified business outcome from agent run: ' + linkedOutcome.title +
       '. Evidence status: ' + linkedOutcome.evidence_status +
