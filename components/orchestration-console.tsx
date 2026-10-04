@@ -170,6 +170,26 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
         </Card>
       </section>
 
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div><h2 className="text-lg font-semibold">Dependency intelligence</h2><p className="mt-1 text-sm text-muted-foreground">Portfolio-level dependencies are visible before TechUnified recommends work. Unresolved or failed dependencies remain explicit blockers.</p></div>
+        </div>
+        <Card>
+          {Array.isArray(priorities?.dependencyEdges) && priorities.dependencyEdges.length > 0 ? (
+            <div className="space-y-2">
+              {priorities.dependencyEdges.map((edge: AnyRecord, index: number) => (
+                <div key={String(edge.objectiveId) + String(edge.dependencyId) + index} className="rounded-lg border p-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div><p className="text-sm font-medium">{String(edge.objectiveTitle)} <span className="text-muted-foreground">depends on</span> {String(edge.dependencyTitle)}</p></div>
+                    <span className="rounded-full border px-2.5 py-1 text-xs text-muted-foreground">{String(edge.status)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-sm text-muted-foreground">No explicit objective dependencies are currently recorded.</p>}
+        </Card>
+      </section>
+
       <Card>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
