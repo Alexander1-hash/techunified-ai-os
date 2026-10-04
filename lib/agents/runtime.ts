@@ -335,6 +335,43 @@ export async function runGovernedAgent(agentId: string, task: string, userId: st
       completed_at: new Date().toISOString(),
     }).eq('id', run.id).eq('organization_id', organizationId)
 
+    const workflowProposal = toolCalls.find((call) => call.name === 'workflow.propose_action' && call.status === 'completed' && call.result && typeof call.result === 'object')
+    const proposalResult = workflowProposal?.result as Record<string, unknown> | undefined
+    const proposal = proposalResult?.proposal && typeof proposalResult.proposal === 'object'
+      ? proposalResult.proposal as Record<string, unknown>
+      : null
+    const proposedWorkflowId = typeof proposal?.workflowId === 'string' ? proposal.workflowId : ''
+    if (requiresApproval && proposedWorkflowId) {
+      const { data: existingApproval } = await supabase.from('agent_approvals')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .eq('agent_run_id', run.id)
+        .eq('status', 'pending')
+        .maybeSingle()
+
+      if (!existingApproval) {
+        await supabase.from('agent_approvals').insert({
+          organization_id: organizationId,
+          agent_run_id: run.id,
+          requested_by: userId,
+          status: 'pending',
+          action_type: 'workflow_execution',
+          title: 'AI-proposed workflow execution',
+          reason: typeof proposal?.reason === 'string' ? proposal.reason.slice(0, 4000) : 'Agent proposed a controlled workflow action.',
+          proposed_action: {
+            workflowId: proposedWorkflowId,
+            input: proposal?.input && typeof proposal.input === 'object' && !Array.isArray(proposal.input) ? proposal.input : {},
+            execution: 'not_executed',
+            approvalRequired: true,
+          },
+          decision_evidence: {
+            agentRunId: run.id,
+            source: 'workflow.propose_action',
+          },
+        })
+      }
+    }
+
     // Record only objective system signals here. Quality scores remain unset until a human evaluates the run.
     await supabase.from('agent_evaluations').upsert({
       organization_id: organizationId,
