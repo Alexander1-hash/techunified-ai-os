@@ -107,6 +107,34 @@ export async function GET() {
       status: dependency.status,
     })))
 
+    const downstreamCount = new Map<string, number>()
+    scored.forEach((objective: any) => {
+      objective.dependencies.forEach((dependencyId: string) => {
+        downstreamCount.set(dependencyId, (downstreamCount.get(dependencyId) ?? 0) + 1)
+      })
+    })
+
+    const criticalPath = [...scored]
+      .filter((objective: any) => objective.blockedDependencies.length === 0)
+      .sort((a: any, b: any) => {
+        const aDownstream = downstreamCount.get(a.id) ?? 0
+        const bDownstream = downstreamCount.get(b.id) ?? 0
+        if (aDownstream !== bDownstream) return bDownstream - aDownstream
+        if (a.priorityScore !== b.priorityScore) return b.priorityScore - a.priorityScore
+        return a.title.localeCompare(b.title)
+      })
+      .map((objective: any, index: number) => ({
+        order: index + 1,
+        objectiveId: objective.id,
+        title: objective.title,
+        priorityScore: objective.priorityScore,
+        downstreamObjectives: downstreamCount.get(objective.id) ?? 0,
+        readiness: objective.capacity.executionPathAvailable ? 'ready' : 'capacity_gap',
+        reason: (downstreamCount.get(objective.id) ?? 0) > 0
+          ? 'Completing this objective can unblock downstream objectives'
+          : objective.priorityReason,
+      }))
+
     return NextResponse.json({ ok: true, objectives: scored, dependencyEdges, dependencyFirstSequence, highestPriority: scored[0] ?? null })
   } catch (error) {
     console.error('[Business Orchestration] priorities failed:', error)
