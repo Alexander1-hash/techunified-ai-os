@@ -192,6 +192,30 @@ export async function POST(request: Request) {
       },
     }).eq('run_id', approval.agent_run_id).eq('organization_id', organizationId)
 
+    const { data: failedOrchestrations } = await supabase
+      .from('business_orchestration_runs')
+      .select('id,objective_id,action_run_ids')
+      .eq('organization_id', organizationId)
+      .contains('agent_run_ids', [approval.agent_run_id])
+
+    for (const orchestration of failedOrchestrations ?? []) {
+      const actionRunIds = Array.isArray(orchestration.action_run_ids) ? orchestration.action_run_ids : []
+      await supabase.from('business_orchestration_runs').update({
+        status: 'failed',
+        approval_status: 'approved',
+        action_run_ids: Array.from(new Set([...actionRunIds, actionRun.id])),
+        evidence: {
+          controlledActionRunId: actionRun.id,
+          executionId: result.executionId ?? null,
+          executionStatus: 'failed',
+          executionError: result.error ?? 'Automation execution failed.',
+          approvalId,
+        },
+        error_message: result.error ?? 'Automation execution failed.',
+        completed_at: failedAt,
+      }).eq('id', orchestration.id).eq('organization_id', organizationId)
+    }
+
     return NextResponse.json({ ok: false, approvalId, agentRunId: approval.agent_run_id, actionRunId: actionRun.id, executionId: result.executionId ?? null, error: result.error ?? 'Automation execution failed.' }, { status: 400 })
   }
 
@@ -234,6 +258,37 @@ export async function POST(request: Request) {
       completedAt: completedAction.completed_at,
     },
   }).eq('run_id', approval.agent_run_id).eq('organization_id', organizationId)
+
+  const { data: linkedOrchestrations } = await supabase
+    .from('business_orchestration_runs')
+    .select('id,objective_id,action_run_ids')
+    .eq('organization_id', organizationId)
+    .contains('agent_run_ids', [approval.agent_run_id])
+
+  for (const orchestration of linkedOrchestrations ?? []) {
+    const actionRunIds = Array.isArray(orchestration.action_run_ids) ? orchestration.action_run_ids : []
+    await supabase.from('business_orchestration_runs').update({
+      status: 'completed',
+      approval_status: 'approved',
+      action_run_ids: Array.from(new Set([...actionRunIds, actionRun.id])),
+      evidence: {
+        controlledActionRunId: actionRun.id,
+        executionId: result.executionId ?? null,
+        executionStatus: 'completed',
+        approvalId,
+        linkedOutcomeId: linkedOutcome?.id ?? null,
+        linkedOutcomeEvidenceStatus: linkedOutcome?.evidence_status ?? null,
+      },
+      result: {
+        execution: 'completed',
+        actionRunId: actionRun.id,
+        executionId: result.executionId ?? null,
+        linkedOutcomeId: linkedOutcome?.id ?? null,
+      },
+      completed_at: completedAction.completed_at,
+      error_message: null,
+    }).eq('id', orchestration.id).eq('organization_id', organizationId)
+  }
 
   return NextResponse.json({ ok: true, approvalId, agentRunId: approval.agent_run_id, status: 'approved', execution: 'completed', actionRun: completedAction, message: 'Approved workflow executed through the controlled Phase 1 action path.' })
 }
