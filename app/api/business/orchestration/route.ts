@@ -161,8 +161,66 @@ export async function POST(request: Request) {
         'Coordinate existing governed AI workers and controlled actions. Never bypass approval, workflow validation, execution evidence, or learning controls.',
     }
 
+    const { data: activeObjectiveRuns, error: activeRunsError } = await supabase
+      .from('business_orchestration_runs')
+      .select('id,status,approval_status,created_at')
+      .eq('organization_id', organizationId)
+      .eq('objective_id', objectiveId)
+      .in('status', ['planning', 'awaiting_approval', 'executing'])
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    if (activeRunsError) throw activeRunsError
+
+    if ((activeObjectiveRuns?.length ?? 0) > 0) {
+      const existing = activeObjectiveRuns[0]
+      return NextResponse.json({
+        error: 'This objective already has active governed orchestration work.',
+        existingOrchestrationRunId: existing.id,
+        existingStatus: existing.status,
+        approvalStatus: existing.approval_status,
+        execution: 'not_started',
+      }, { status: 409 })
+    }
+
+    const dependencyIds = Array.isArray(objective.dependencies)
+      ? objective.dependencies.filter((id: unknown): id is string => typeof id === 'string')
+      : Array.isArray(objective.dependency_ids)
+        ? objective.dependency_ids.filter((id: unknown): id is string => typeof id === 'string')
+        : []
+
+    const dependencyStatuses = dependencyIds.length
+      ? (await supabase.from('company_objectives').select('id,title,status').eq('organization_id', organizationId).in('id', dependencyIds)).data ?? []
+      : []
+
+    const blockedDependencies = dependencyIds
+      .map((id) => dependencyStatuses.find((dependency: any) => String(dependency.id) === id))
+      .filter((dependency): dependency is any => !dependency || String(dependency.status ?? '').toLowerCase() !== 'completed')
+      .map((dependency: any, index: number) => ({
+        id: dependency?.id ?? dependencyIds[index],
+        title: dependency?.title ?? 'Unknown dependency',
+        status: dependency?.status ?? 'not_found',
+      }))
+
     const candidateAgent = agents?.[0] ?? null
     const candidateWorkflow = workflows?.[0] ?? null
+    const executionReady = Boolean(candidateAgent && candidateWorkflow)
+    const decisionPackage = {
+      objective: { id: objectiveId, title: objectiveTitle, target: objectiveTarget, metric: objectiveMetric },
+      workload: 'available',
+      blockedDependencies,
+      executionReady,
+      availableAgentCount: agents?.length ?? 0,
+      availableWorkflowCount: workflows?.length ?? 0,
+      evidenceAvailable: recentOutcomes?.filter((outcome: any) => ['measured', 'attributed'].includes(String(outcome.evidence_status))).length ?? 0,
+      recommendation: blockedDependencies.length > 0
+        ? 'Resolve objective dependencies before assessment or execution.'
+        : candidateAgent
+          ? 'Run the recommended governed AI assessment.'
+          : 'Activate an appropriate AI worker before assessment.',
+      execution: 'not_started',
+      governance: 'human approval remains required for consequential controlled actions',
+    }
     const plan =
       body?.plan && typeof body.plan === 'object' && !Array.isArray(body.plan)
         ? body.plan
@@ -192,6 +250,7 @@ export async function POST(request: Request) {
             risks: ['Insufficient evidence may produce an incomplete plan.', 'Consequential workflow execution requires human approval.', 'No execution is performed during planning.'],
             successEvidence: ['Objective progress against its defined target/metric', 'Completed action evidence where an approved workflow is executed', 'Measured or attributed business outcome linked to the action run'],
             nextStep: candidateAgent ? 'Run the recommended governed agent assessment.' : 'Add or activate an appropriate AI worker before execution planning.',
+            decisionPackage,
           }
 
     const { data, error } = await supabase
