@@ -135,7 +135,7 @@ export async function GET() {
           : objective.priorityReason,
       }))
 
-    return NextResponse.json({ ok: true, objectives: scored, dependencyEdges, dependencyFirstSequence, highestPriority: scored[0] ?? null })
+    return NextResponse.json({ ok: true, objectives: scored, dependencyEdges, dependencyFirstSequence, criticalPath, highestPriority: scored[0] ?? null })
   } catch (error) {
     console.error('[Business Orchestration] priorities failed:', error)
     return NextResponse.json({ error: 'Unable to prioritize objectives.' }, { status: 500 })
