@@ -30,7 +30,7 @@ export async function GET() {
       const target = objective.target_value ?? objective.target ?? null
       const current = objective.current_value ?? objective.current ?? null
       const progress = typeof target === 'number' && typeof current === 'number' && target !== 0 ? Math.max(0, Math.min(100, (current / target) * 100)) : null
-      const explicitDependencies = Array.isArray(objective.dependencies) ? objective.dependencies : []
+      const explicitDependencies = Array.isArray(objective.dependencies) ? objective.dependencies : Array.isArray(objective.dependency_ids) ? objective.dependency_ids : []
       const dependencyIds = explicitDependencies.filter((id: any): id is string => typeof id === 'string')
       const dependencyDetails = dependencyIds.map((dependencyId: string) => {
         const dependencyObjective = objectiveIndex.get(dependencyId)
