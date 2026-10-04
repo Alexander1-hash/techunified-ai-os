@@ -41,6 +41,7 @@ export async function GET(request: Request) {
     const actionRunIds = new Set(
       (runs ?? []).flatMap((run) => Array.isArray(run.action_run_ids) ? run.action_run_ids.filter((id): id is string => typeof id === 'string') : []),
     )
+    const allActionRuns = [...actionRunIds]
     const linkedOutcomes = (outcomes ?? []).filter((outcome) => typeof outcome.action_run_id === 'string' && actionRunIds.has(outcome.action_run_id))
     const verifiedOutcomes = linkedOutcomes.filter((outcome) => ['measured', 'attributed'].includes(String(outcome.evidence_status)))
     const completedRuns = (runs ?? []).filter((run) => run.status === 'completed').length
@@ -99,6 +100,7 @@ export async function GET(request: Request) {
         verifiedOutcomes: verifiedOutcomes.length,
         remainingGap: progressPercent == null ? null : Math.max(0, 100 - progressPercent),
         awaitingApprovalRuns,
+        governedActionRuns: allActionRuns.length,
       },
       decisionIntelligence: {
         recommendation: decisionRecommendation,
@@ -108,6 +110,13 @@ export async function GET(request: Request) {
         execution: 'not_started',
         latestFailedRunId: latestFailedRun?.id ?? null,
         latestVerifiedOutcomeId: latestVerifiedOutcome?.id ?? null,
+        prioritySignals: {
+          activeWork: activeRuns,
+          pendingApproval: awaitingApprovalRuns,
+          failedWork: failedRuns,
+          verifiedOutcomes: verifiedOutcomes.length,
+          evidenceGap: completedRuns > 0 && verifiedOutcomes.length === 0,
+        },
       },
       outcomes: linkedOutcomes.slice(0, 20),
       nextRecommendedMove:
