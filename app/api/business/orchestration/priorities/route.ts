@@ -135,7 +135,47 @@ export async function GET() {
           : objective.priorityReason,
       }))
 
-    return NextResponse.json({ ok: true, objectives: scored, dependencyEdges, dependencyFirstSequence, criticalPath, highestPriority: scored[0] ?? null })
+    const capacityAwareSequence = [...scored]
+      .filter((objective: any) => objective.blockedDependencies.length === 0)
+      .map((objective: any) => {
+        const downstreamObjectives = downstreamCount.get(objective.id) ?? 0
+        const activeWork = objective.activeRuns > 0
+        const hasPendingApproval = objective.pendingApprovalRuns > 0
+        const executionReady = objective.capacity.executionPathAvailable
+        const readinessPenalty = executionReady ? 0 : 25
+        const activePenalty = activeWork ? 15 : 0
+        const approvalPenalty = hasPendingApproval ? 20 : 0
+        const capacityScore = Math.max(0, Math.min(100,
+          objective.priorityScore + downstreamObjectives * 10 - readinessPenalty - activePenalty - approvalPenalty,
+        ))
+        const reason = !executionReady
+          ? 'Execution capacity is currently limited'
+          : hasPendingApproval
+            ? 'Governed approval is already pending'
+            : activeWork
+              ? 'Governed work is already active'
+              : downstreamObjectives > 0
+                ? 'Ready objective with downstream work to unblock'
+                : 'Ready objective with the strongest available evidence signal'
+        return {
+          objectiveId: objective.id,
+          title: objective.title,
+          capacityScore,
+          executionReady,
+          downstreamObjectives,
+          activeWork,
+          pendingApproval: hasPendingApproval,
+          reason,
+        }
+      })
+      .sort((a: any, b: any) => {
+        if (a.executionReady !== b.executionReady) return a.executionReady ? -1 : 1
+        if (a.capacityScore !== b.capacityScore) return b.capacityScore - a.capacityScore
+        return a.title.localeCompare(b.title)
+      })
+      .map((item: any, index: number) => ({ ...item, order: index + 1 }))
+
+    return NextResponse.json({ ok: true, objectives: scored, dependencyEdges, dependencyFirstSequence, criticalPath, capacityAwareSequence, highestPriority: scored[0] ?? null })
   } catch (error) {
     console.error('[Business Orchestration] priorities failed:', error)
     return NextResponse.json({ error: 'Unable to prioritize objectives.' }, { status: 500 })
