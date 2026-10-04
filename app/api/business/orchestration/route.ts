@@ -194,9 +194,9 @@ export async function POST(request: Request) {
       : []
 
     const blockedDependencies = dependencyIds
-      .map((id) => dependencyStatuses.find((dependency: any) => String(dependency.id) === id))
-      .filter((dependency): dependency is any => !dependency || String(dependency.status ?? '').toLowerCase() !== 'completed')
-      .map((dependency: any, index: number) => ({
+      .map((id) => dependencyStatuses.find((dependency) => String(dependency.id) === id))
+      .filter((dependency) => !dependency || String(dependency.status ?? '').toLowerCase() !== 'completed')
+      .map((dependency, index) => ({
         id: dependency?.id ?? dependencyIds[index],
         title: dependency?.title ?? 'Unknown dependency',
         status: dependency?.status ?? 'not_found',
@@ -212,7 +212,7 @@ export async function POST(request: Request) {
       executionReady,
       availableAgentCount: agents?.length ?? 0,
       availableWorkflowCount: workflows?.length ?? 0,
-      evidenceAvailable: recentOutcomes?.filter((outcome: any) => ['measured', 'attributed'].includes(String(outcome.evidence_status))).length ?? 0,
+      evidenceAvailable: recentOutcomes?.filter((outcome) => ['measured', 'attributed'].includes(String(outcome.evidence_status))).length ?? 0,
       recommendation: blockedDependencies.length > 0
         ? 'Resolve objective dependencies before assessment or execution.'
         : candidateAgent
