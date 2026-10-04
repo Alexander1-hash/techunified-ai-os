@@ -24,7 +24,13 @@ type Run = {
   created_at: string
 }
 
-export default function AgentLearningConsole({ agentId }: { agentId: string }) {
+type Agent = {
+  id: string
+  name: string
+}
+
+export default function AgentLearningConsole({ agents }: { agents: Agent[] }) {
+  const [agentId, setAgentId] = useState(agents[0]?.id ?? '')
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [runs, setRuns] = useState<Run[]>([])
   const [selectedRun, setSelectedRun] = useState('')
@@ -45,7 +51,15 @@ export default function AgentLearningConsole({ agentId }: { agentId: string }) {
     setRuns(runJson.runs ?? [])
   }
 
-  useEffect(() => { void load() }, [agentId])
+  useEffect(() => {
+    if (!agents.some((agent) => agent.id === agentId)) {
+      setAgentId(agents[0]?.id ?? '')
+    }
+  }, [agents, agentId])
+
+  useEffect(() => {
+    if (agentId) void load()
+  }, [agentId])
 
   async function evaluate() {
     if (!selectedRun || busy) return
@@ -92,6 +106,17 @@ export default function AgentLearningConsole({ agentId }: { agentId: string }) {
             Evaluate runs and promote durable learning only when evidence supports it.
           </p>
         </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-[280px_1fr_1fr]">
+        <label className="block">
+          <span className="text-xs font-medium text-muted-foreground">Agent</span>
+          <select value={agentId} onChange={(e) => setAgentId(e.target.value)} className="mt-2 h-10 w-full rounded-lg border bg-background px-3 text-sm">
+            {agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
+          </select>
+        </label>
+        <div className="hidden md:block" />
+        <div className="hidden md:block" />
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
