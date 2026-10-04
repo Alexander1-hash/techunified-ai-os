@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { BrainCircuit, Play, ShieldCheck, Target, Workflow } from 'lucide-react'
 import { Card, Status } from '@/components/ui'
 
@@ -24,6 +24,7 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
   const [runs, setRuns] = useState(initialRuns)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
+  const [progress, setProgress] = useState<AnyRecord | null>(null)
 
   const selectedObjective = useMemo(
     () => objectives.find((objective) => String(objective.id) === selectedObjectiveId) ?? null,
@@ -34,6 +35,24 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
     () => runs.filter((run) => String(run.objective_id) === selectedObjectiveId),
     [runs, selectedObjectiveId],
   )
+
+  useEffect(() => {
+    if (!selectedObjectiveId) {
+      setProgress(null)
+      return
+    }
+    let cancelled = false
+    fetch(`/api/business/orchestration/progress?objectiveId=${encodeURIComponent(selectedObjectiveId)}`)
+      .then(async (response) => {
+        const json = await response.json()
+        if (!response.ok) throw new Error(json.error || 'Unable to load objective progress.')
+        if (!cancelled) setProgress(json)
+      })
+      .catch(() => {
+        if (!cancelled) setProgress(null)
+      })
+    return () => { cancelled = true }
+  }, [selectedObjectiveId, runs])
 
   async function createOrchestration() {
     if (!selectedObjectiveId) return
@@ -112,6 +131,36 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
         </div>
         {message && <p className="mt-4 rounded-lg border bg-muted/30 px-3 py-2 text-sm">{message}</p>}
       </Card>
+
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div><h2 className="text-lg font-semibold">Objective progress</h2><p className="mt-1 text-sm text-muted-foreground">Progress is derived from objective fields and verified evidence already recorded in TechUnified.</p></div>
+        </div>
+        <Card>
+          {progress ? (
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div><p className="text-xs text-muted-foreground">Target</p><p className="mt-1 text-lg font-semibold">{progress.objective?.target ?? 'Not defined'}</p></div>
+                <div><p className="text-xs text-muted-foreground">Current</p><p className="mt-1 text-lg font-semibold">{progress.objective?.current ?? 'Not defined'}</p></div>
+                <div><p className="text-xs text-muted-foreground">Verified outcomes</p><p className="mt-1 text-lg font-semibold">{progress.progress?.verifiedOutcomes ?? 0}</p></div>
+                <div><p className="text-xs text-muted-foreground">Completed runs</p><p className="mt-1 text-lg font-semibold">{progress.progress?.completedRuns ?? 0}</p></div>
+              </div>
+              {typeof progress.progress?.percent === 'number' && (
+                <div>
+                  <div className="mb-2 flex justify-between text-xs text-muted-foreground"><span>Target progress</span><span>{Math.round(progress.progress.percent)}%</span></div>
+                  <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${progress.progress.percent}%` }} /></div>
+                </div>
+              )}
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Next recommended move</p>
+                <p className="mt-1 text-sm">{String(progress.nextRecommendedMove ?? '')}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Objective progress is not available yet.</p>
+          )}
+        </Card>
+      </section>
 
       <section>
         <div className="mb-4 flex items-end justify-between gap-3">
