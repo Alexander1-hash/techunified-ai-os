@@ -207,6 +207,32 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
         </Card>
       </section>
 
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div><h2 className="text-lg font-semibold">Critical path intelligence</h2><p className="mt-1 text-sm text-muted-foreground">Highlights unblocked objectives that can unlock downstream work. TechUnified uses this as decision support, not as automatic execution authority.</p></div>
+        </div>
+        <Card>
+          {Array.isArray(priorities?.criticalPath) && priorities.criticalPath.length > 0 ? (
+            <div className="space-y-2">
+              {priorities.criticalPath.map((item: AnyRecord) => (
+                <button key={String(item.objectiveId)} onClick={() => setSelectedObjectiveId(String(item.objectiveId))} className="w-full rounded-lg border p-3 text-left hover:bg-muted/40">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold"><span className="mr-2 text-xs text-muted-foreground">#{String(item.order)}</span>{String(item.title)}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{String(item.reason)}</p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-2 text-[11px] text-muted-foreground">
+                      <span className="rounded-full border px-2 py-1">Unblocks {String(item.downstreamObjectives ?? 0)}</span>
+                      <span className="rounded-full border px-2 py-1">{String(item.readiness) === 'ready' ? 'Ready path' : 'Capacity gap'}</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : <p className="text-sm text-muted-foreground">No unblocked critical-path signal is available yet.</p>}
+        </Card>
+      </section>
+
       <Card>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
