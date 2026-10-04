@@ -71,8 +71,27 @@ export async function POST(request: Request) {
       approvalId: approval?.id ?? null,
       approvalActionType: approval?.action_type ?? null,
     }
+    const decisionIntelligence = {
+      objectiveId: orchestration.objective_id,
+      assessmentRunId: result.runId,
+      whyNow: decisionPackage?.recommendation ?? 'Run a governed assessment using the available company context.',
+      blockers: Array.isArray(decisionPackage?.blockedDependencies) ? decisionPackage.blockedDependencies : [],
+      evidenceBasis: {
+        verifiedOutcomes: decisionPackage?.evidenceAvailable ?? 0,
+        executionReady: decisionPackage?.executionReady ?? false,
+        activeAgents: decisionPackage?.availableAgentCount ?? 0,
+        activeWorkflows: decisionPackage?.availableWorkflowCount ?? 0,
+      },
+      approval: hasPendingApproval ? 'human_approval_required' : 'not_required_yet',
+      execution: 'not_started',
+      nextStep: hasPendingApproval
+        ? 'Human review of the proposed controlled action is required before execution.'
+        : 'Review the assessment and request controlled execution only when the proposed action is sufficiently grounded.',
+    }
+
     const refinedPlan = {
       ...plan,
+      decisionIntelligence,
       decisionPackage: decisionPackage
         ? {
             ...decisionPackage,
