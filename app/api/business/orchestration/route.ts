@@ -110,6 +110,14 @@ export async function POST(request: Request) {
       }
     }
 
+    const [{ data: agents, error: agentsError }, { data: workflows, error: workflowsError }] = await Promise.all([
+      supabase.from('agents').select('id,name,purpose,description,status,autonomy_level,model').eq('organization_id', organizationId).in('status', ['active', 'running']).limit(50),
+      supabase.from('workflows').select('id,name,description,status').eq('organization_id', organizationId).eq('status', 'active').limit(50),
+    ])
+
+    if (agentsError) throw agentsError
+    if (workflowsError) throw workflowsError
+
     const { data: recentAgentRuns, error: agentRunsError } = await supabase
       .from('agent_runs')
       .select('id,agent_id,task,status,autonomy_mode,approval_status,created_at,completed_at')
