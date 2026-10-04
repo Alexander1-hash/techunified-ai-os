@@ -193,14 +193,17 @@ export async function POST(request: Request) {
       ? (await supabase.from('company_objectives').select('id,title,status').eq('organization_id', organizationId).in('id', dependencyIds)).data ?? []
       : []
 
-    const blockedDependencies = dependencyIds
-      .map((id) => dependencyStatuses.find((dependency) => String(dependency.id) === id))
-      .filter((dependency) => !dependency || String(dependency.status ?? '').toLowerCase() !== 'completed')
-      .map((dependency, index) => ({
-        id: dependency?.id ?? dependencyIds[index],
-        title: dependency?.title ?? 'Unknown dependency',
-        status: dependency?.status ?? 'not_found',
-      }))
+    const blockedDependencies: Array<{ id: string; title: string; status: string }> = []
+    for (const dependencyId of dependencyIds) {
+      const dependency = dependencyStatuses.find((item) => String(item.id) === dependencyId)
+      if (!dependency || String(dependency.status ?? '').toLowerCase() !== 'completed') {
+        blockedDependencies.push({
+          id: dependency?.id ?? dependencyId,
+          title: dependency?.title ?? 'Unknown dependency',
+          status: dependency?.status ?? 'not_found',
+        })
+      }
+    }
 
     const candidateAgent = agents?.[0] ?? null
     const candidateWorkflow = workflows?.[0] ?? null
