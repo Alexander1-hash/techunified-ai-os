@@ -39,6 +39,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Approved workflow execution is missing workflowId.' }, { status: 400 })
   }
 
+  if (decision === 'approved' && approval.action_type === 'workflow_execution') {
+    const { data: workflowCheck } = await supabase
+      .from('workflows')
+      .select('id,status')
+      .eq('id', workflowId)
+      .eq('organization_id', organizationId)
+      .maybeSingle()
+
+    if (!workflowCheck || String(workflowCheck.status).toLowerCase() !== 'active') {
+      return NextResponse.json({ error: 'Approved workflow is no longer active.' }, { status: 409 })
+    }
+  }
+
   const { error: updateError } = await supabase
     .from('agent_approvals')
     .update({
@@ -87,15 +100,15 @@ export async function POST(request: Request) {
       await supabase.from('agent_memory').insert({
         organization_id: organizationId,
         agent_id: agentRun.agent_id,
-        run_id: approval.agent_run_id,
-      memory_type: 'lesson',
-      content: approvalLesson,
-      importance: decision === 'rejected' ? 85 : 65,
-      confidence: 100,
-      evidence_status: 'explicit',
-      source_type: 'human',
-      source_id: approval.id,
-        metadata: { approvalId: approval.id, decision, reviewerId: userId, reviewerNote: reviewerNote || null },
+          run_id: approval.agent_run_id,
+        memory_type: 'lesson',
+        content: approvalLesson,
+        importance: decision === 'rejected' ? 85 : 65,
+        confidence: 100,
+        evidence_status: 'explicit',
+        source_type: 'human',
+        source_id: approval.id,
+          metadata: { approvalId: approval.id, decision, reviewerId: userId, reviewerNote: reviewerNote || null },
       })
     }
   }
