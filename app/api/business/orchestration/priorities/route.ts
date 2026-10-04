@@ -17,6 +17,8 @@ export async function GET() {
     ])
     if (objectiveError || runError || outcomeError || agentsError || workflowsError) throw objectiveError || runError || outcomeError || agentsError || workflowsError
 
+    const objectiveIndex = new Map((objectives ?? []).map((objective: any) => [String(objective.id), objective]))
+
     const scored = (objectives ?? []).map((objective: any) => {
       const objectiveRuns = (runs ?? []).filter((run: any) => run.objective_id === objective.id)
       const actionIds = new Set(objectiveRuns.flatMap((run: any) => Array.isArray(run.action_run_ids) ? run.action_run_ids : []).filter((id: any): id is string => typeof id === 'string'))
@@ -30,6 +32,18 @@ export async function GET() {
       const progress = typeof target === 'number' && typeof current === 'number' && target !== 0 ? Math.max(0, Math.min(100, (current / target) * 100)) : null
       const explicitDependencies = Array.isArray(objective.dependencies) ? objective.dependencies : []
       const dependencyIds = explicitDependencies.filter((id: any): id is string => typeof id === 'string')
+      const dependencyDetails = dependencyIds.map((dependencyId: string) => {
+        const dependencyObjective = objectiveIndex.get(dependencyId)
+        const dependencyRuns = (runs ?? []).filter((run: any) => run.objective_id === dependencyId)
+        const failed = dependencyRuns.some((run: any) => run.status === 'failed')
+        const completed = dependencyRuns.some((run: any) => run.status === 'completed')
+        return {
+          id: dependencyId,
+          title: dependencyObjective ? String(dependencyObjective.title ?? dependencyObjective.name ?? dependencyObjective.description ?? 'Objective') : 'Unknown objective',
+          status: failed ? 'failed' : completed ? 'completed' : 'unresolved',
+          exists: Boolean(dependencyObjective),
+        }
+      })
       const blockedDependencies = dependencyIds.filter((dependencyId: string) => {
         const dependencyRuns = (runs ?? []).filter((run: any) => run.objective_id === dependencyId)
         return dependencyRuns.some((run: any) => run.status === 'failed') || !dependencyRuns.some((run: any) => run.status === 'completed')
@@ -60,6 +74,7 @@ export async function GET() {
         verifiedOutcomes: verified.length,
         evidenceState: verified.length ? 'verified_evidence_available' : completed ? 'evidence_gap' : 'limited_evidence',
         dependencies: dependencyIds,
+        dependencyDetails,
         blockedDependencies,
         capacity: {
           activeAgents: agents?.length ?? 0,
@@ -69,7 +84,15 @@ export async function GET() {
       }
     }).sort((a: any, b: any) => b.priorityScore - a.priorityScore)
 
-    return NextResponse.json({ ok: true, objectives: scored, highestPriority: scored[0] ?? null })
+    const dependencyEdges = scored.flatMap((objective: any) => objective.dependencyDetails.map((dependency: any) => ({
+      objectiveId: objective.id,
+      objectiveTitle: objective.title,
+      dependencyId: dependency.id,
+      dependencyTitle: dependency.title,
+      status: dependency.status,
+    })))
+
+    return NextResponse.json({ ok: true, objectives: scored, dependencyEdges, highestPriority: scored[0] ?? null })
   } catch (error) {
     console.error('[Business Orchestration] priorities failed:', error)
     return NextResponse.json({ error: 'Unable to prioritize objectives.' }, { status: 500 })
