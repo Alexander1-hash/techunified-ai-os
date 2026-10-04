@@ -8,14 +8,15 @@ export async function GET() {
     const { profile } = await getCurrentProfile(supabase)
     if (!profile?.organization_id) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
 
-    const [{ data: objectives, error: objectiveError }, { data: runs, error: runError }, { data: outcomes, error: outcomeError }, { data: agents, error: agentsError }, { data: workflows, error: workflowsError }] = await Promise.all([
+    const [{ data: objectives, error: objectiveError }, { data: runs, error: runError }, { data: outcomes, error: outcomeError }, { data: agents, error: agentsError }, { data: workflows, error: workflowsError }, { data: evaluations, error: evaluationsError }] = await Promise.all([
       supabase.from('company_objectives').select('*').eq('organization_id', profile.organization_id).order('created_at', { ascending: false }).limit(50),
       supabase.from('business_orchestration_runs').select('id,objective_id,status,approval_status,action_run_ids,created_at').eq('organization_id', profile.organization_id).order('created_at', { ascending: false }).limit(200),
       supabase.from('business_outcomes').select('id,action_run_id,evidence_status,cost_avoided,revenue_impact,hours_saved,created_at').eq('organization_id', profile.organization_id).order('created_at', { ascending: false }).limit(200),
       supabase.from('agents').select('id,name,status,autonomy_level').eq('organization_id', profile.organization_id).in('status', ['active', 'running']).limit(50),
       supabase.from('workflows').select('id,name,status').eq('organization_id', profile.organization_id).eq('status', 'active').limit(50),
+      supabase.from('agent_evaluations').select('id,run_id,execution_success,outcome_linked,groundedness_score,tool_accuracy_score,updated_at').eq('organization_id', profile.organization_id).order('updated_at', { ascending: false }).limit(200),
     ])
-    if (objectiveError || runError || outcomeError || agentsError || workflowsError) throw objectiveError || runError || outcomeError || agentsError || workflowsError
+    if (objectiveError || runError || outcomeError || agentsError || workflowsError || evaluationsError) throw objectiveError || runError || outcomeError || agentsError || workflowsError || evaluationsError
 
     const objectiveIndex = new Map((objectives ?? []).map((objective: any) => [String(objective.id), objective]))
 
@@ -23,6 +24,11 @@ export async function GET() {
       const objectiveRuns = (runs ?? []).filter((run: any) => run.objective_id === objective.id)
       const actionIds = new Set(objectiveRuns.flatMap((run: any) => Array.isArray(run.action_run_ids) ? run.action_run_ids : []).filter((id: any): id is string => typeof id === 'string'))
       const verified = (outcomes ?? []).filter((outcome: any) => typeof outcome.action_run_id === 'string' && actionIds.has(outcome.action_run_id) && ['measured', 'attributed'].includes(String(outcome.evidence_status)))
+      const objectiveAgentRunIds = new Set(objectiveRuns.flatMap((run: any) => Array.isArray(run.agent_run_ids) ? run.agent_run_ids : []).filter((id: any): id is string => typeof id === 'string'))
+      const objectiveEvaluations = (evaluations ?? []).filter((evaluation: any) => typeof evaluation.run_id === 'string' && objectiveAgentRunIds.has(evaluation.run_id))
+      const successfulEvaluations = objectiveEvaluations.filter((evaluation: any) => evaluation.execution_success === true)
+      const failedEvaluations = objectiveEvaluations.filter((evaluation: any) => evaluation.execution_success === false)
+      const learningSignal = successfulEvaluations.length > 0 && verified.length > 0 ? 'positive_verified_learning' : failedEvaluations.length > 0 ? 'negative_execution_learning' : objectiveEvaluations.length > 0 ? 'evaluated_no_verified_outcome' : 'no_learning_signal'
       const pendingApproval = objectiveRuns.filter((run: any) => run.status === 'awaiting_approval' || run.approval_status === 'pending').length
       const failed = objectiveRuns.filter((run: any) => run.status === 'failed').length
       const active = objectiveRuns.filter((run: any) => ['planning', 'awaiting_approval', 'executing'].includes(run.status)).length
@@ -57,9 +63,11 @@ export async function GET() {
       if (active > 0) priorityScore += 15
       if (completed > 0 && verified.length === 0) priorityScore += 20
       if (verified.length > 0) priorityScore += 5
+      if (learningSignal === 'negative_execution_learning') priorityScore += 10
+      if (learningSignal === 'positive_verified_learning') priorityScore += 3
       if (progress !== null && progress < 50) priorityScore += 15
       priorityScore = Math.min(100, priorityScore)
-      const reason = blockedDependencies.length > 0 ? 'Blocked by an unresolved objective dependency' : !capacityAvailable ? 'No active AI worker and workflow execution capacity is available' : pendingApproval > 0 ? 'Pending governed approval' : failed > 0 ? 'Failed objective work needs review' : completed > 0 && verified.length === 0 ? 'Completed work lacks verified outcome evidence' : progress !== null && progress < 50 ? 'Objective is materially below its target' : active > 0 ? 'Active governed work is underway' : 'Objective has limited current evidence'
+      const reason = blockedDependencies.length > 0 ? 'Blocked by an unresolved objective dependency' : !capacityAvailable ? 'No active AI worker and workflow execution capacity is available' : pendingApproval > 0 ? 'Pending governed approval' : failed > 0 ? 'Failed objective work needs review' : learningSignal === 'negative_execution_learning' ? 'Prior execution evidence indicates this objective needs additional review' : completed > 0 && verified.length === 0 ? 'Completed work lacks verified outcome evidence' : progress !== null && progress < 50 ? 'Objective is materially below its target' : active > 0 ? 'Active governed work is underway' : 'Objective has limited current evidence'
       return {
         id: objective.id,
         title: String(objective.title ?? objective.name ?? objective.description ?? 'Company objective'),
@@ -72,6 +80,10 @@ export async function GET() {
         failedRuns: failed,
         completedRuns: completed,
         verifiedOutcomes: verified.length,
+        learningSignal,
+        evaluatedRuns: objectiveEvaluations.length,
+        successfulEvaluations: successfulEvaluations.length,
+        failedEvaluations: failedEvaluations.length,
         evidenceState: verified.length ? 'verified_evidence_available' : completed ? 'evidence_gap' : 'limited_evidence',
         dependencies: dependencyIds,
         dependencyDetails,
