@@ -128,21 +128,62 @@ export async function POST(request: Request) {
 
     if (actionRunsError) throw actionRunsError
 
+    const { data: recentOutcomes, error: outcomesError } = await supabase
+      .from('business_outcomes')
+      .select('id,title,outcome_type,baseline_value,current_value,unit,hours_saved,cost_avoided,revenue_impact,evidence_status,action_run_id,period_start,period_end,created_at')
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: false })
+      .limit(20)
+
+    if (outcomesError) throw outcomesError
+
+    const objectiveTitle = String(objective.title ?? objective.name ?? objective.description ?? 'Company objective')
+    const objectiveDescription = String(objective.description ?? objective.details ?? '')
+    const objectiveTarget = objective.target_value ?? objective.target ?? null
+    const objectiveMetric = objective.metric ?? objective.metric_name ?? objective.key_result ?? null
+
     const contextSnapshot = {
       objective,
       recentAgentRuns: recentAgentRuns ?? [],
       recentActionRuns: recentActionRuns ?? [],
+      recentOutcomes: recentOutcomes ?? [],
+      availableAgents: agents ?? [],
+      activeWorkflows: workflows ?? [],
       orchestrationRule:
         'Coordinate existing governed AI workers and controlled actions. Never bypass approval, workflow validation, execution evidence, or learning controls.',
     }
 
+    const candidateAgent = agents?.[0] ?? null
+    const candidateWorkflow = workflows?.[0] ?? null
     const plan =
       body?.plan && typeof body.plan === 'object' && !Array.isArray(body.plan)
         ? body.plan
         : {
-            mode: 'objective_planning',
-            nextStep: 'Assess objective context and propose governed work.',
+            mode: 'objective_intelligence',
             execution: 'not_started',
+            grounded: true,
+            objective: { title: objectiveTitle, description: objectiveDescription, target: objectiveTarget, metric: objectiveMetric },
+            facts: [
+              `Objective record: ${objectiveTitle}`,
+              `Available active/running agents: ${agents?.length ?? 0}`,
+              `Available active workflows: ${workflows?.length ?? 0}`,
+              `Recent business outcomes available: ${recentOutcomes?.length ?? 0}`,
+            ],
+            gaps: [
+              ...(agents?.length ? [] : ['No active AI worker is available for objective coordination.']),
+              ...(workflows?.length ? [] : ['No active workflow is available for controlled execution.']),
+              ...(objectiveTarget == null ? ['Objective has no explicit target value in the available record.'] : []),
+            ],
+            recommendedAgentTask: candidateAgent
+              ? { agentId: candidateAgent.id, agentName: candidateAgent.name, task: `Assess the objective “${objectiveTitle}” using available company context and return measurable next steps.` }
+              : null,
+            proposedWorkflowAction: candidateWorkflow
+              ? { workflowId: candidateWorkflow.id, workflowName: candidateWorkflow.name, approvalRequired: true, execution: 'not_started' }
+              : null,
+            dependencies: ['Existing company data/context', ...(candidateAgent ? ['Governed AI worker'] : []), ...(candidateWorkflow ? ['Approved workflow'] : [])],
+            risks: ['Insufficient evidence may produce an incomplete plan.', 'Consequential workflow execution requires human approval.', 'No execution is performed during planning.'],
+            successEvidence: ['Objective progress against its defined target/metric', 'Completed action evidence where an approved workflow is executed', 'Measured or attributed business outcome linked to the action run'],
+            nextStep: candidateAgent ? 'Run the recommended governed agent assessment.' : 'Add or activate an appropriate AI worker before execution planning.',
           }
 
     const { data, error } = await supabase
