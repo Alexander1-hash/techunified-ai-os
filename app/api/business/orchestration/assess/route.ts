@@ -33,6 +33,15 @@ export async function POST(request: Request) {
     if (!objective) return NextResponse.json({ error: 'Objective not found.' }, { status: 404 })
 
     const plan = orchestration.plan && typeof orchestration.plan === 'object' ? orchestration.plan as Record<string, unknown> : {}
+    const decisionPackage = plan.decisionPackage && typeof plan.decisionPackage === 'object' ? plan.decisionPackage as Record<string, unknown> : null
+    const blockedDependencies = decisionPackage?.blockedDependencies
+    if (Array.isArray(blockedDependencies) && blockedDependencies.length > 0) {
+      return NextResponse.json({
+        error: 'Objective dependencies must be resolved before governed assessment.',
+        blockedDependencies,
+        execution: 'not_started',
+      }, { status: 409 })
+    }
     const recommended = plan.recommendedAgentTask && typeof plan.recommendedAgentTask === 'object' ? plan.recommendedAgentTask as Record<string, unknown> : null
     const agentId = typeof recommended?.agentId === 'string' ? recommended.agentId : ''
     if (!agentId) return NextResponse.json({ error: 'The objective plan has no grounded agent recommendation.' }, { status: 409 })
@@ -64,6 +73,15 @@ export async function POST(request: Request) {
     }
     const refinedPlan = {
       ...plan,
+      decisionPackage: decisionPackage
+        ? {
+            ...decisionPackage,
+            assessmentRunId: result.runId,
+            assessmentStatus: result.status,
+            approvalRequired: hasPendingApproval,
+            execution: 'not_started',
+          }
+        : null,
       assessment: {
         runId: result.runId,
         completed: result.status === 'completed',
