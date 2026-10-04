@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     const [{ data: runs, error: runsError }, { data: outcomes, error: outcomesError }] = await Promise.all([
       supabase
         .from('business_orchestration_runs')
-        .select('id,status,approval_status,agent_run_ids,action_run_ids,evidence,result,error_message,created_at,completed_at')
+        .select('id,status,approval_status,agent_run_ids,action_run_ids,evidence,result,plan,error_message,created_at,completed_at')
         .eq('organization_id', profile.organization_id)
         .eq('objective_id', objectiveId)
         .order('created_at', { ascending: false })
@@ -50,6 +50,7 @@ export async function GET(request: Request) {
     const awaitingApprovalRuns = (runs ?? []).filter((run) => run.status === 'awaiting_approval' || run.approval_status === 'pending').length
     const latestFailedRun = (runs ?? []).find((run) => run.status === 'failed') ?? null
     const latestVerifiedOutcome = verifiedOutcomes[0] ?? null
+    const latestDecisionIntelligence = (runs ?? []).find((run) => run.plan?.decisionIntelligence)?.plan?.decisionIntelligence ?? null
 
     let decisionRecommendation = 'Start a governed orchestration assessment for this objective.'
     let decisionReason = 'No active objective work or verified outcome evidence is currently available.'
@@ -103,11 +104,19 @@ export async function GET(request: Request) {
         governedActionRuns: allActionRuns.length,
       },
       decisionIntelligence: {
-        recommendation: decisionRecommendation,
-        reason: decisionReason,
-        evidence: decisionEvidence,
+        recommendation: latestDecisionIntelligence?.whyNow ?? decisionRecommendation,
+        reason: latestDecisionIntelligence
+          ? (Array.isArray(latestDecisionIntelligence.blockers) && latestDecisionIntelligence.blockers.length > 0
+              ? `Persisted governed decision intelligence identifies ${latestDecisionIntelligence.blockers.length} blocker(s).`
+              : 'Persisted governed decision intelligence is available from the latest assessed orchestration.')
+          : decisionReason,
+        evidence: latestDecisionIntelligence?.evidenceBasis
+          ? `verified_outcomes:${String(latestDecisionIntelligence.evidenceBasis.verifiedOutcomes ?? 0)}`
+          : decisionEvidence,
         grounded: true,
-        execution: 'not_started',
+        execution: latestDecisionIntelligence?.execution ?? 'not_started',
+        approval: latestDecisionIntelligence?.approval ?? 'not_required_yet',
+        blockers: Array.isArray(latestDecisionIntelligence?.blockers) ? latestDecisionIntelligence.blockers : [],
         latestFailedRunId: latestFailedRun?.id ?? null,
         latestVerifiedOutcomeId: latestVerifiedOutcome?.id ?? null,
         prioritySignals: {
