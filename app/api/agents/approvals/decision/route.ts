@@ -165,10 +165,33 @@ export async function POST(request: Request) {
   })
 
   if (!result.success) {
+    const failedAt = new Date().toISOString()
     await supabase.from('business_action_runs').update({
       status: 'failed', execution_id: result.executionId ?? null,
-      error_message: result.error ?? 'Automation execution failed.', completed_at: new Date().toISOString(),
+      error_message: result.error ?? 'Automation execution failed.', completed_at: failedAt,
     }).eq('id', actionRun.id).eq('organization_id', organizationId)
+
+    const { data: failedEvaluation } = await supabase.from('agent_evaluations')
+      .select('evidence')
+      .eq('run_id', approval.agent_run_id)
+      .eq('organization_id', organizationId)
+      .maybeSingle()
+    const failedEvidence = failedEvaluation?.evidence && typeof failedEvaluation.evidence === 'object'
+      ? failedEvaluation.evidence as Record<string, unknown>
+      : {}
+    await supabase.from('agent_evaluations').update({
+      execution_success: false,
+      outcome_linked: false,
+      evidence: {
+        ...failedEvidence,
+        controlledActionExecution: 'failed',
+        controlledActionRunId: actionRun.id,
+        executionId: result.executionId ?? null,
+        executionError: result.error ?? 'Automation execution failed.',
+        completedAt: failedAt,
+      },
+    }).eq('run_id', approval.agent_run_id).eq('organization_id', organizationId)
+
     return NextResponse.json({ ok: false, approvalId, agentRunId: approval.agent_run_id, actionRunId: actionRun.id, executionId: result.executionId ?? null, error: result.error ?? 'Automation execution failed.' }, { status: 400 })
   }
 
@@ -181,6 +204,36 @@ export async function POST(request: Request) {
     .single()
 
   if (actionUpdateError) return NextResponse.json({ error: 'Workflow executed, but action evidence could not be finalized.' }, { status: 500 })
+
+  const { data: linkedOutcome } = await supabase.from('business_outcomes')
+    .select('id,evidence_status')
+    .eq('organization_id', organizationId)
+    .eq('action_run_id', actionRun.id)
+    .in('evidence_status', ['measured', 'attributed'])
+    .limit(1)
+    .maybeSingle()
+
+  const { data: completedEvaluation } = await supabase.from('agent_evaluations')
+    .select('evidence')
+    .eq('run_id', approval.agent_run_id)
+    .eq('organization_id', organizationId)
+    .maybeSingle()
+  const completedEvidence = completedEvaluation?.evidence && typeof completedEvaluation.evidence === 'object'
+    ? completedEvaluation.evidence as Record<string, unknown>
+    : {}
+  await supabase.from('agent_evaluations').update({
+    execution_success: true,
+    outcome_linked: Boolean(linkedOutcome),
+    evidence: {
+      ...completedEvidence,
+      controlledActionExecution: 'completed',
+      controlledActionRunId: actionRun.id,
+      executionId: result.executionId ?? null,
+      linkedOutcomeId: linkedOutcome?.id ?? null,
+      linkedOutcomeEvidenceStatus: linkedOutcome?.evidence_status ?? null,
+      completedAt: completedAction.completed_at,
+    },
+  }).eq('run_id', approval.agent_run_id).eq('organization_id', organizationId)
 
   return NextResponse.json({ ok: true, approvalId, agentRunId: approval.agent_run_id, status: 'approved', execution: 'completed', actionRun: completedAction, message: 'Approved workflow executed through the controlled Phase 1 action path.' })
 }
