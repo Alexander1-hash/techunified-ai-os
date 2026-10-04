@@ -135,6 +135,52 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Approved workflow is no longer active.' }, { status: 409 })
   }
 
+  const { data: linkedOrchestrationsForGate } = await supabase
+    .from('business_orchestration_runs')
+    .select('id,objective_id,status')
+    .eq('organization_id', organizationId)
+    .contains('agent_run_ids', [approval.agent_run_id])
+
+  for (const orchestration of linkedOrchestrationsForGate ?? []) {
+    const { data: objectiveForGate } = await supabase
+      .from('company_objectives')
+      .select('id,title,status,dependencies,dependency_ids')
+      .eq('id', orchestration.objective_id)
+      .eq('organization_id', organizationId)
+      .maybeSingle()
+
+    const dependencyIds = Array.isArray(objectiveForGate?.dependencies)
+      ? objectiveForGate.dependencies.filter((id: unknown): id is string => typeof id === 'string')
+      : Array.isArray(objectiveForGate?.dependency_ids)
+        ? objectiveForGate.dependency_ids.filter((id: unknown): id is string => typeof id === 'string')
+        : []
+
+    if (dependencyIds.length > 0) {
+      const { data: dependencyObjectives } = await supabase
+        .from('company_objectives')
+        .select('id,title,status')
+        .eq('organization_id', organizationId)
+        .in('id', dependencyIds)
+
+      const unresolved = dependencyIds
+        .map((dependencyId: string) => dependencyObjectives?.find((item) => String(item.id) === dependencyId))
+        .filter((dependency) => !dependency || String(dependency.status ?? '').toLowerCase() !== 'completed')
+
+      if (unresolved.length > 0) {
+        return NextResponse.json({
+          error: 'Controlled execution blocked because an objective dependency is unresolved.',
+          orchestrationRunId: orchestration.id,
+          blockedDependencies: unresolved.map((dependency, index) => ({
+            id: dependency?.id ?? dependencyIds[index],
+            title: dependency?.title ?? 'Unknown dependency',
+            status: dependency?.status ?? 'not_found',
+          })),
+          execution: 'not_started',
+        }, { status: 409 })
+      }
+    }
+  }
+
   const { data: actionRun, error: actionInsertError } = await supabase
     .from('business_action_runs')
     .insert({
