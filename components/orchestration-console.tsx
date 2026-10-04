@@ -438,6 +438,20 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
                     <p className="mt-3 text-sm font-medium">Run {String(run.id).slice(0, 8)}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{new Date(run.created_at).toLocaleString()}</p>
                     {run.plan?.nextStep && <p className="mt-3 text-sm text-muted-foreground">Next: {String(run.plan.nextStep)}</p>}
+                    {run.plan?.decisionIntelligence && (
+                      <div className="mt-3 rounded-lg border bg-muted/20 p-3">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Persisted decision intelligence</p>
+                        <p className="mt-1 text-sm font-medium">{String(run.plan.decisionIntelligence.whyNow ?? 'No why-now rationale recorded.')}</p>
+                        <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                          <span className="rounded-full border px-2 py-1">Verified outcomes: {String(run.plan.decisionIntelligence.evidenceBasis?.verifiedOutcomes ?? 0)}</span>
+                          <span className="rounded-full border px-2 py-1">Execution: {String(run.plan.decisionIntelligence.execution ?? 'not_started').replace(/_/g, ' ')}</span>
+                          <span className="rounded-full border px-2 py-1">Approval: {String(run.plan.decisionIntelligence.approval ?? 'not_required_yet').replace(/_/g, ' ')}</span>
+                        </div>
+                        {Array.isArray(run.plan.decisionIntelligence.blockers) && run.plan.decisionIntelligence.blockers.length > 0 && (
+                          <p className="mt-2 text-xs text-muted-foreground">Blockers: {run.plan.decisionIntelligence.blockers.length}</p>
+                        )}
+                      </div>
+                    )}
                     {run.result?.agentAssessment && <div className="mt-3 rounded-lg border bg-muted/20 p-3 text-sm whitespace-pre-wrap">{String(run.result.agentAssessment)}</div>}
                   </div>
                   {run.status === 'planning' && (
