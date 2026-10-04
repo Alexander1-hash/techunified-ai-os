@@ -335,6 +335,22 @@ export async function runGovernedAgent(agentId: string, task: string, userId: st
       completed_at: new Date().toISOString(),
     }).eq('id', run.id).eq('organization_id', organizationId)
 
+    // Record only objective system signals here. Quality scores remain unset until a human evaluates the run.
+    await supabase.from('agent_evaluations').upsert({
+      organization_id: organizationId,
+      agent_id: agentId,
+      run_id: run.id,
+      evaluator_id: null,
+      execution_success: true,
+      outcome_linked: false,
+      evidence: {
+        evaluator: 'system',
+        signal: 'agent_run_completed',
+        toolCallCount: toolCalls.length,
+        deniedToolCalls: toolCalls.filter((call) => call.status === 'denied').length,
+      },
+    }, { onConflict: 'run_id' })
+
     await supabase.from('agent_memory').insert({
       organization_id: organizationId,
       agent_id: agentId,
@@ -364,6 +380,22 @@ export async function runGovernedAgent(agentId: string, task: string, userId: st
       error_message: message,
       completed_at: new Date().toISOString(),
     }).eq('id', run.id).eq('organization_id', organizationId)
+
+    await supabase.from('agent_evaluations').upsert({
+      organization_id: organizationId,
+      agent_id: agentId,
+      run_id: run.id,
+      evaluator_id: null,
+      execution_success: false,
+      outcome_linked: false,
+      evidence: {
+        evaluator: 'system',
+        signal: 'agent_run_failed',
+        toolCallCount: toolCalls.length,
+        deniedToolCalls: toolCalls.filter((call) => call.status === 'denied').length,
+        error: message,
+      },
+    }, { onConflict: 'run_id' })
     throw new Error('Agent execution failed.')
   }
 }
