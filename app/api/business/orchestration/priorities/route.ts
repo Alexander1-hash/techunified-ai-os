@@ -30,7 +30,7 @@ export async function GET() {
       const progress = typeof target === 'number' && typeof current === 'number' && target !== 0 ? Math.max(0, Math.min(100, (current / target) * 100)) : null
       const explicitDependencies = Array.isArray(objective.dependencies) ? objective.dependencies : []
       const dependencyIds = explicitDependencies.filter((id: any): id is string => typeof id === 'string')
-      const blockedDependencies = dependencyIds.filter((dependencyId) => {
+      const blockedDependencies = dependencyIds.filter((dependencyId: string) => {
         const dependencyRuns = (runs ?? []).filter((run: any) => run.objective_id === dependencyId)
         return dependencyRuns.some((run: any) => run.status === 'failed') || !dependencyRuns.some((run: any) => run.status === 'completed')
       })
