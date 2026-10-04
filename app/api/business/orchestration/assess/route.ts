@@ -44,16 +44,55 @@ export async function POST(request: Request) {
     const result = await runGovernedAgent(agentId, task, profile.id)
     const existingAgentRunIds = Array.isArray(orchestration.agent_run_ids) ? orchestration.agent_run_ids : []
     const agentRunIds = Array.from(new Set([...existingAgentRunIds, result.runId]))
-    const nextStatus = result.approvalStatus === 'pending' ? 'awaiting_approval' : 'planning'
+
+    const { data: approval } = await supabase
+      .from('agent_approvals')
+      .select('id,status,action_type,proposed_action,requested_at')
+      .eq('organization_id', profile.organization_id)
+      .eq('agent_run_id', result.runId)
+      .eq('status', 'pending')
+      .maybeSingle()
+
+    const hasPendingApproval = result.approvalStatus === 'pending' || Boolean(approval)
+    const nextStatus = hasPendingApproval ? 'awaiting_approval' : 'planning'
+    const assessmentEvidence = {
+      agentAssessmentRunId: result.runId,
+      assessmentStatus: result.status,
+      approvalStatus: hasPendingApproval ? 'pending' : 'not_required',
+      approvalId: approval?.id ?? null,
+      approvalActionType: approval?.action_type ?? null,
+    }
+    const refinedPlan = {
+      ...plan,
+      assessment: {
+        runId: result.runId,
+        completed: result.status === 'completed',
+        text: result.text,
+        capturedAt: new Date().toISOString(),
+      },
+      proposedApproval: approval
+        ? {
+            approvalId: approval.id,
+            actionType: approval.action_type,
+            proposedAction: approval.proposed_action,
+            status: approval.status,
+            requestedAt: approval.requested_at,
+          }
+        : null,
+      nextStep: hasPendingApproval
+        ? 'Review the proposed action in the AI Workforce approval center before controlled execution.'
+        : 'Review the assessment and refine the governed plan before requesting controlled execution.',
+    }
 
     const { data: updated, error: updateError } = await supabase
       .from('business_orchestration_runs')
       .update({
         status: nextStatus,
-        approval_status: result.approvalStatus === 'pending' ? 'pending' : 'not_required',
+        approval_status: hasPendingApproval ? 'pending' : 'not_required',
         agent_run_ids: agentRunIds,
-        evidence: { agentAssessmentRunId: result.runId, assessmentStatus: result.status, approvalStatus: result.approvalStatus },
-        result: { agentAssessment: result.text, execution: 'not_started' },
+        evidence: assessmentEvidence,
+        plan: refinedPlan,
+        result: { agentAssessment: result.text, approvalId: approval?.id ?? null, execution: 'not_started' },
       })
       .eq('id', orchestrationRunId)
       .eq('organization_id', profile.organization_id)
