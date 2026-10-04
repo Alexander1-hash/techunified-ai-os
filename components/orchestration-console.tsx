@@ -25,6 +25,7 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [progress, setProgress] = useState<AnyRecord | null>(null)
+  const [priorities, setPriorities] = useState<AnyRecord | null>(null)
 
   const selectedObjective = useMemo(
     () => objectives.find((objective) => String(objective.id) === selectedObjectiveId) ?? null,
@@ -35,6 +36,20 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
     () => runs.filter((run) => String(run.objective_id) === selectedObjectiveId),
     [runs, selectedObjectiveId],
   )
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/business/orchestration/priorities')
+      .then(async (response) => {
+        const json = await response.json()
+        if (!response.ok) throw new Error(json.error || 'Unable to load objective priorities.')
+        if (!cancelled) setPriorities(json)
+      })
+      .catch(() => {
+        if (!cancelled) setPriorities(null)
+      })
+    return () => { cancelled = true }
+  }, [runs])
 
   useEffect(() => {
     if (!selectedObjectiveId) {
@@ -102,6 +117,27 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
         <Card><div className="flex items-center gap-3"><BrainCircuit className="size-5 text-primary" /><div><p className="text-xs text-muted-foreground">Orchestration runs</p><p className="text-2xl font-semibold">{runs.length}</p></div></div></Card>
         <Card><div className="flex items-center gap-3"><ShieldCheck className="size-5 text-primary" /><div><p className="text-xs text-muted-foreground">Governance</p><p className="text-sm font-medium">Approval controls enforced</p></div></div></Card>
       </div>
+
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div><h2 className="text-lg font-semibold">Objective priority</h2><p className="mt-1 text-sm text-muted-foreground">Evidence-based attention signals across company objectives. This is prioritization, not an ROI claim.</p></div>
+        </div>
+        <Card>
+          {priorities?.highestPriority ? (
+            <div className="space-y-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Highest priority</p><p className="mt-1 text-base font-semibold">{String(priorities.highestPriority.title)}</p><p className="mt-1 text-sm text-muted-foreground">{String(priorities.highestPriority.priorityReason)}</p></div>
+                <span className="rounded-full border px-3 py-1 text-sm font-medium">Priority {String(priorities.highestPriority.priorityScore)}/100</span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Active work</p><p className="mt-1 font-semibold">{priorities.highestPriority.activeRuns}</p></div>
+                <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Pending approval</p><p className="mt-1 font-semibold">{priorities.highestPriority.pendingApprovalRuns}</p></div>
+                <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Verified outcomes</p><p className="mt-1 font-semibold">{priorities.highestPriority.verifiedOutcomes}</p></div>
+              </div>
+            </div>
+          ) : <p className="text-sm text-muted-foreground">No objective priority signal is available yet.</p>}
+        </Card>
+      </section>
 
       <Card>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
