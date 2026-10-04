@@ -190,6 +190,23 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
         </Card>
       </section>
 
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div><h2 className="text-lg font-semibold">Recommended objective sequence</h2><p className="mt-1 text-sm text-muted-foreground">Dependency-aware ordering helps TechUnified work on objectives that unblock other objectives first. This is a planning signal, not automatic execution.</p></div>
+        </div>
+        <Card>
+          {Array.isArray(priorities?.dependencyFirstSequence) && priorities.dependencyFirstSequence.length > 0 ? (
+            <div className="space-y-2">
+              {priorities.dependencyFirstSequence.map((item: AnyRecord) => (
+                <button key={String(item.objectiveId)} onClick={() => setSelectedObjectiveId(String(item.objectiveId))} className="w-full rounded-lg border p-3 text-left hover:bg-muted/40">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold"><span className="mr-2 text-xs text-muted-foreground">#{String(item.order)}</span>{String(item.title)}</p><p className="mt-1 text-xs text-muted-foreground">{item.blocksObjectives > 0 ? ('Unblocks ' + String(item.blocksObjectives) + ' other objective' + (item.blocksObjectives === 1 ? '' : 's')) : 'No downstream objectives detected'}</p></div><span className="rounded-full border px-2.5 py-1 text-xs">{item.blocked ? 'Blocked' : item.recommended ? 'Ready to prioritize' : 'Review'}</span></div>
+                </button>
+              ))}
+            </div>
+          ) : <p className="text-sm text-muted-foreground">No objective sequencing signal is available yet.</p>}
+        </Card>
+      </section>
+
       <Card>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
