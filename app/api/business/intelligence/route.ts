@@ -94,6 +94,15 @@ export async function GET() {
       }
     })
 
+    const { data: previousSnapshot } = await supabase
+      .from('company_intelligence_snapshots')
+      .select('id,state,confidence,evidence,computed_at')
+      .eq('organization_id', organizationId)
+      .eq('snapshot_type', 'company_state')
+      .order('computed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
     const { data: snapshot, error } = await supabase.from('company_intelligence_snapshots').insert({
       organization_id: organizationId,
       snapshot_type: 'company_state',
@@ -110,7 +119,97 @@ export async function GET() {
       evidenceBound: true,
     }
 
-    return NextResponse.json({ ok: true, snapshot, signals, signalConfidence, forecasts, forecastConfidence, objectiveIntelligence, governance })
+    const previousState = previousSnapshot?.state && typeof previousSnapshot.state === 'object' ? previousSnapshot.state as Record<string, any> : null
+    const trackedChanges = [
+      'objectiveCount',
+      'activeOrchestrationRuns',
+      'failedOrchestrationRuns',
+      'pendingApprovals',
+      'verifiedOutcomes',
+      'activeAgents',
+      'activeWorkflows',
+      'successfulVerifiedEvaluations',
+    ].filter((key) => previousState && previousState[key] !== state[key])
+
+    if (previousState && trackedChanges.length > 0) {
+      await supabase.from('company_intelligence_events').insert({
+        organization_id: organizationId,
+        snapshot_id: snapshot.id,
+        event_type: 'state_change',
+        severity: governance.highSeveritySignals > 0 ? 'high' : 'info',
+        title: 'Company intelligence state changed',
+        description: `Meaningful company state changed in: ${trackedChanges.join(', ')}.`,
+        before_state: Object.fromEntries(trackedChanges.map((key) => [key, previousState[key]])),
+        after_state: Object.fromEntries(trackedChanges.map((key) => [key, state[key]])),
+        evidence: evidence,
+      })
+    }
+
+    if (previousState && previousState.pendingApprovals !== state.pendingApprovals) {
+      await supabase.from('company_intelligence_events').insert({
+        organization_id: organizationId,
+        snapshot_id: snapshot.id,
+        event_type: 'governance_change',
+        severity: state.pendingApprovals > 0 ? 'high' : 'info',
+        title: state.pendingApprovals > 0 ? 'Governance attention increased' : 'Governance queue cleared',
+        description: `Pending governed approvals changed from ${previousState.pendingApprovals ?? 0} to ${state.pendingApprovals}.`,
+        before_state: { pendingApprovals: previousState.pendingApprovals ?? 0 },
+        after_state: { pendingApprovals: state.pendingApprovals },
+        evidence: [{ source: 'business_orchestration_runs', count: runs?.length ?? 0 }],
+      })
+    }
+
+    const edgeRows = [
+      ...(objectives ?? []).map((objective: any) => (runs ?? [])
+        .filter((run: any) => run.objective_id === objective.id)
+        .map((run: any) => ({
+          organization_id: organizationId,
+          from_type: 'objective',
+          from_id: String(objective.id),
+          to_type: 'orchestration_run',
+          to_id: String(run.id),
+          relation: 'acts_on',
+          confidence: 'high',
+          evidence: [{ source: 'company_objectives' }, { source: 'business_orchestration_runs' }],
+        }))),
+      ...(forecasts ?? []).map((forecast: any) => ({
+        organization_id: organizationId,
+        from_type: 'objective',
+        from_id: String(forecast.objectiveId),
+        to_type: 'forecast',
+        to_id: `objective:${String(forecast.objectiveId)}`,
+        relation: 'predicts',
+        confidence: forecast.confidence,
+        evidence: [{ source: 'company_objectives' }, { source: 'business_orchestration_runs' }],
+      })),
+    ].flat()
+
+    if (edgeRows.length > 0) {
+      await supabase.from('company_intelligence_edges').upsert(edgeRows, {
+        onConflict: 'organization_id,from_type,from_id,to_type,to_id,relation',
+      })
+    }
+
+    return NextResponse.json({
+      ok: true,
+      snapshot,
+      previousSnapshotId: previousSnapshot?.id ?? null,
+      signals,
+      signalConfidence,
+      forecasts,
+      forecastConfidence,
+      objectiveIntelligence,
+      governance,
+      longitudinal: {
+        changed: trackedChanges.length > 0,
+        changedFields: trackedChanges,
+        recentStateAvailable: Boolean(previousSnapshot),
+      },
+      graph: {
+        activeEdges: edgeRows.length,
+        objectiveRelationships: edgeRows.filter((edge: any) => edge.from_type === 'objective').length,
+      },
+    })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to compute company intelligence.' }, { status: 500 })
   }
