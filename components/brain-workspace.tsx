@@ -297,16 +297,31 @@ export function BrainWorkspace() {
         null,
       );
 
-      if (record) {
-        setDocuments((current) => [
-          record,
-          ...current.filter(
-            (document) => document.id !== record.id,
-          ),
-        ]);
-      } else {
+      setDocuments((current) => [
+        record,
+        ...current.filter(
+          (document) => document.id !== record.id,
+        ),
+      ]);
+
+      const indexResponse = await fetch(
+        `/api/brain/documents/${record.id}/index`,
+        {
+          method: "POST",
+        },
+      );
+
+      const indexResult = await indexResponse.json();
+
+      if (!indexResponse.ok) {
         await loadDocuments();
+        throw new Error(
+          indexResult.error ||
+            "The document was uploaded but could not be indexed.",
+        );
       }
+
+      await loadDocuments();
     } catch (err) {
       setError(
         err instanceof Error
@@ -666,7 +681,7 @@ export function BrainWorkspace() {
                 )}
 
                 {uploading
-                  ? "Uploading…"
+                  ? "Uploading and indexing…"
                   : "Upload knowledge document"}
               </label>
 
