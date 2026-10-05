@@ -463,6 +463,36 @@ export async function GET() {
     const verifiedOutcomeLinks = explicitOutcomeLinks.filter((row) => row.evidence_status === 'verified')
     const verifiedOutcomes = outcomes.filter((outcome) => outcome.evidence_status === 'measured' || outcome.evidence_status === 'attributed')
 
+    const leadCustomersWithLostSales = leadCustomers.filter((item) =>
+      item.sales.some((sale) => sale.status === 'lost'),
+    )
+    const leadConversionRate = leadCustomers.length > 0
+      ? (leadsWithWonSales.length / leadCustomers.length) * 100
+      : null
+    const lostRevenue = lostSales.reduce((total, sale) => total + saleValue(sale), 0)
+
+    const customerServiceMix = customersWithWonSales
+      .map((item) => ({
+        customer: item.customer,
+        services: [...new Set(item.wonSales.map((sale) => sale.service_id).filter(Boolean))]
+          .map((serviceId) => services.find((service) => service.id === serviceId) ?? null)
+          .filter(Boolean),
+        recordedRevenue: item.revenue,
+      }))
+      .filter((item) => item.services.length > 1)
+      .sort((a, b) => b.recordedRevenue - a.recordedRevenue)
+
+    const servicePerformanceEvidence = servicePerformance
+      .filter((item) => item.wonSales.length > 0)
+      .map((item) => ({
+        service: item.service,
+        wonSales: item.wonSales.length,
+        recordedRevenue: item.revenue,
+        unitsSold: item.unitsSold,
+        department: item.service.department_id ? departmentById.get(item.service.department_id) ?? null : null,
+      }))
+      .sort((a, b) => b.recordedRevenue - a.recordedRevenue)
+
 
     // Phase 4 pipeline connection: Business Analyst KPI evidence is also
     // available to the Decision Engine. This keeps decisions connected to
@@ -1042,6 +1072,19 @@ export async function GET() {
 
         multiServiceCustomers:
           repeatServiceCustomers.length,
+        leadLoss: {
+          leadCustomers: leadCustomers.length,
+          convertedLeads: leadsWithWonSales.length,
+          leadCustomersWithLostSales: leadCustomersWithLostSales.length,
+          conversionRate: leadConversionRate,
+          lostSales: lostSales.length,
+          lostRevenue,
+        },
+        customerServiceRelationships: {
+          multiServiceCustomers: customerServiceMix,
+          limitation: 'Only won sales with customer_id and service_id contribute to customer-service relationships.',
+        },
+        servicePerformance: servicePerformanceEvidence,
         relationshipCoverage,
         relationshipTypeCounts,
         departmentRevenue: Object.fromEntries(departmentRevenue),
