@@ -143,7 +143,6 @@ export async function GET() {
   // Deterministic Phase 5 traversal evidence. These edges come from the existing
   // foreign-key-backed business tables; no missing relationship is inferred.
   const customerIdsForTraversal = new Set(customerIds)
-  const serviceRowsForTraversal = serviceRowsForTraversal
   const serviceRowsForTraversal = (await supabase.from('services').select('id,department_id').eq('organization_id', organizationId)).data ?? []
   const departmentIds = new Set<string>()
   const workflowIds = new Set<string>()
