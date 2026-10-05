@@ -127,6 +127,40 @@ export async function GET() {
     }
 
     const previousState = previousSnapshot?.state && typeof previousSnapshot.state === 'object' ? previousSnapshot.state as Record<string, any> : null
+    const previousForecasts = previousState && Array.isArray(previousState.forecasts) ? previousState.forecasts : []
+    const forecastEvaluations = previousForecasts.map((forecast: any) => {
+      const objective = (objectives ?? []).find((item: any) => String(item.id) === String(forecast.objectiveId))
+      const target = objective?.target_value
+      const current = objective?.current_value
+      if (!objective || typeof target !== 'number' || typeof current !== 'number' || target === 0) return null
+      const observedProgress = Math.max(0, Math.min(100, (current / target) * 100))
+      const absoluteError = Math.abs(Number(forecast.progressPercent) - observedProgress)
+      return {
+        objectiveId: String(objective.id),
+        predictedProgress: Number(forecast.progressPercent),
+        observedProgress,
+        absoluteError,
+        accuracyScore: Math.max(0, Math.min(100, 100 - absoluteError)),
+        predictionConfidence: forecast.confidence === 'high' ? 'high' : forecast.confidence === 'medium' ? 'medium' : 'low',
+      }
+    }).filter(Boolean)
+
+    if (forecastEvaluations.length > 0) {
+      await supabase.from('company_intelligence_forecast_evaluations').upsert(
+        forecastEvaluations.map((evaluation: any) => ({
+          organization_id: organizationId,
+          snapshot_id: previousSnapshot.id,
+          objective_id: evaluation.objectiveId,
+          predicted_progress: evaluation.predictedProgress,
+          observed_progress: evaluation.observedProgress,
+          absolute_error: evaluation.absoluteError,
+          accuracy_score: evaluation.accuracyScore,
+          prediction_confidence: evaluation.predictionConfidence,
+        })),
+        { onConflict: 'snapshot_id,objective_id' },
+      )
+    }
+
     const trackedChanges = [
       'objectiveCount',
       'activeOrchestrationRuns',
@@ -215,6 +249,12 @@ export async function GET() {
       graph: {
         activeEdges: edgeRows.length,
         objectiveRelationships: edgeRows.filter((edge: any) => edge.from_type === 'objective').length,
+      },
+      forecastEvaluation: {
+        evaluated: forecastEvaluations.length,
+        averageAccuracy: forecastEvaluations.length
+          ? Math.round(forecastEvaluations.reduce((sum: number, item: any) => sum + item.accuracyScore, 0) / forecastEvaluations.length)
+          : null,
       },
     })
   } catch (error) {
