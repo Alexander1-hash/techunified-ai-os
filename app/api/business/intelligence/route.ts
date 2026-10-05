@@ -46,16 +46,26 @@ export async function GET() {
       { source: 'agent_evaluations', verifiedLearning: successfulEvaluations.length },
     ]
 
+    const signals = [
+      ...(pendingApprovals.length > 0 ? [{ type: 'governance', severity: 'high', title: 'Governed approvals require attention', reason: 'One or more controlled actions are waiting for human approval.' }] : []),
+      ...(failedRuns.length > 0 ? [{ type: 'risk', severity: 'high', title: 'Failed governed work detected', reason: 'Failed orchestration runs require investigation before new execution.' }] : []),
+      ...((runs ?? []).length > 0 && verifiedOutcomes.length === 0 ? [{ type: 'evidence_gap', severity: 'medium', title: 'Evidence gap detected', reason: 'Work exists without measured or attributed outcome evidence.' }] : []),
+      ...(successfulEvaluations.length > 0 ? [{ type: 'opportunity', severity: 'medium', title: 'Verified learning signal available', reason: 'Successful agent evaluations linked to outcomes can inform future prioritization.' }] : []),
+      ...((agents ?? []).length > 0 && (workflows ?? []).length === 0 ? [{ type: 'capacity', severity: 'medium', title: 'Workflow capacity gap', reason: 'AI workers are available but no active workflow execution path is currently available.' }] : []),
+    ]
+
+    const signalConfidence = signals.some((signal) => signal.severity === 'high') ? 'high' : signals.length > 0 ? 'medium' : 'low'
+
     const { data: snapshot, error } = await supabase.from('company_intelligence_snapshots').insert({
       organization_id: organizationId,
       snapshot_type: 'company_state',
-      state,
+      state: { ...state, signalCount: signals.length, signals },
       confidence,
-      evidence,
+      evidence: [...evidence, { source: 'derived_signals', count: signals.length }],
     }).select('id,snapshot_type,state,confidence,evidence,computed_at').single()
 
     if (error) throw error
-    return NextResponse.json({ ok: true, snapshot })
+    return NextResponse.json({ ok: true, snapshot, signals, signalConfidence })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to compute company intelligence.' }, { status: 500 })
   }
