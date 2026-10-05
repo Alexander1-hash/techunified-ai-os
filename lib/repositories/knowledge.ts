@@ -1,9 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import type { KnowledgeDocument } from "@/lib/brain/types";
 
-const tableMissing = (error: { code?: string } | null) =>
-  error?.code === "42P01" || error?.code === "PGRST205";
-
 async function getCurrentOrganizationId(
   supabase: ReturnType<typeof createClient>,
 ) {
@@ -26,7 +23,7 @@ async function getCurrentOrganizationId(
 
   if (profileError) {
     throw new Error(
-      "Unable to resolve your organization.",
+      `Unable to resolve your organization: ${profileError.message}`,
     );
   }
 
@@ -62,10 +59,12 @@ export async function listKnowledgeDocuments(): Promise<{
         ascending: false,
       });
 
-    if (error && !tableMissing(error)) {
+    if (error) {
       return {
         data: [],
-        error: new Error(error.message),
+        error: new Error(
+          `Unable to load knowledge sources: ${error.message}`,
+        ),
       };
     }
 
@@ -176,12 +175,16 @@ export async function uploadKnowledgeDocument(
       );
     }
 
-    if (!tableMissing(record.error)) {
-      throw new Error(
-        `Knowledge document record could not be created: ${record.error.message}`,
-      );
-    }
+    throw new Error(
+      `Knowledge document record could not be created: ${record.error.message}`,
+    );
   }
 
-  return record.data as KnowledgeDocument | null;
+  if (!record.data) {
+    throw new Error(
+      "Knowledge document was uploaded but no database record was returned.",
+    );
+  }
+
+  return record.data as KnowledgeDocument;
 }
