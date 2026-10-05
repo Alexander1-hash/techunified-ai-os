@@ -52,6 +52,10 @@ export async function GET() {
   const servicesWithDepartments = serviceRows.filter((row) => row.department_id && departmentIds.has(row.department_id)).length
   const executionsWithWorkflows = executionRows.filter((row) => workflowIds.has(row.workflow_id)).length
 
+  const measuredOutcomeCount = outcomeRows.filter(
+    (row) => row.evidence_status === 'measured' || row.evidence_status === 'attributed',
+  ).length
+
   const checks: Array<{ name: string; passed: boolean; evidence: Record<string, unknown> }> = [
     {
       name: 'Customer → Sales',
@@ -75,10 +79,11 @@ export async function GET() {
     },
     {
       name: 'Outcome evidence',
-      passed: outcomeRows.length > 0,
+      passed: measuredOutcomeCount > 0 || outcomeRows.length === 0,
       evidence: {
         outcomes: outcomeRows.length,
-        measured: outcomeRows.filter((row) => row.evidence_status === 'measured' || row.evidence_status === 'attributed').length,
+        measured: measuredOutcomeCount,
+        unsupportedStatuses: outcomeRows.length - measuredOutcomeCount,
       },
     },
   ]
