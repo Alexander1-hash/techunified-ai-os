@@ -269,7 +269,17 @@ export async function GET() {
               ? { action: 'start_governed_assessment', objectiveId: capacityAwareSequence[0].objectiveId, reason: 'The highest-ranked unblocked objective is ready for governed assessment.' }
               : { action: 'review_portfolio', objectiveId: null, reason: 'No objective is currently ready for a governed next step.' }
 
-    return NextResponse.json({ ok: true, objectives: scored, dependencyEdges, dependencyFirstSequence, criticalPath, capacityAwareSequence, workloadIntelligence, workloadSummary, nextMove, highestPriority: scored[0] ?? null })
+    const nextMoveObjective = nextMove.objectiveId ? scored.find((objective: any) => objective.id === nextMove.objectiveId) : null
+    const enrichedNextMove = {
+      ...nextMove,
+      evidence: nextMoveObjective?.evidenceConfidence ?? 'low',
+      blockerCount: nextMoveObjective?.blockedDependencies?.length ?? 0,
+      learningSignal: nextMoveObjective?.learningSignal ?? 'no_learning_signal',
+      approval: nextMoveObjective?.pendingApprovalRuns > 0 ? 'human_approval_required' : 'not_required_yet',
+      execution: nextMoveObjective?.capacity?.executionPathAvailable ? 'not_started_ready' : 'not_started_capacity_gap',
+    }
+
+    return NextResponse.json({ ok: true, objectives: scored, dependencyEdges, dependencyFirstSequence, criticalPath, capacityAwareSequence, workloadIntelligence, workloadSummary, nextMove: enrichedNextMove, highestPriority: scored[0] ?? null })
   } catch (error) {
     console.error('[Business Orchestration] priorities failed:', error)
     return NextResponse.json({ error: 'Unable to prioritize objectives.' }, { status: 500 })
