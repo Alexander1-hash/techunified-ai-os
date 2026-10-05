@@ -639,24 +639,22 @@ export function BrainWorkspace() {
 
             <div className="p-4">
               <input
+                id="company-knowledge-upload"
                 ref={fileInputRef}
                 type="file"
-                className="hidden"
+                className="sr-only"
                 accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
-
-                  if (file) {
-                    void upload(file);
-                  }
+                  if (file) void upload(file);
                 }}
+                disabled={uploading}
               />
 
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-sm font-medium text-primary transition hover:bg-primary/10 disabled:cursor-wait disabled:opacity-60"
+              <label
+                htmlFor="company-knowledge-upload"
+                aria-disabled={uploading}
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-sm font-medium text-primary transition hover:bg-primary/10 aria-disabled:cursor-wait aria-disabled:opacity-60"
               >
                 {uploading ? (
                   <Loader2
@@ -670,7 +668,7 @@ export function BrainWorkspace() {
                 {uploading
                   ? "Uploading…"
                   : "Upload knowledge document"}
-              </button>
+              </label>
 
               <div className="mt-4 space-y-2">
                 {loadingDocuments ? (
