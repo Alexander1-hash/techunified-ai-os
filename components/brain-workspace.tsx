@@ -661,6 +661,7 @@ export function BrainWorkspace() {
                 accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
+                  event.currentTarget.value = "";
                   if (file) void upload(file);
                 }}
                 disabled={uploading}
