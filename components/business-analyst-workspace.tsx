@@ -422,20 +422,7 @@ export function BusinessAnalystWorkspace({
       setData({
         ...analysisJson,
         relationshipIntelligence:
-          relationshipResponse.ok
-            ? {
-                coverage:
-                  relationshipJson.graphCoverage ?? {
-                    explicit: 0,
-                    verified: 0,
-                    estimated: 0,
-                    inferred: 0,
-                  },
-                relationships: [],
-                methodology:
-                  relationshipJson.methodology ?? "",
-              }
-            : undefined,
+          analysisJson.relationshipIntelligence,
       });
       setDecisions(
         decisionsResponse.ok
