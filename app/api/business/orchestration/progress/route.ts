@@ -76,7 +76,7 @@ export async function GET(request: Request) {
       if (dependencyError) throw dependencyError
       for (const dependency of dependencyObjectives ?? []) objectiveIndex.set(String(dependency.id), dependency)
     }
-    const dependencyDetails = dependencyIds.map((dependencyId) => {
+    const dependencyDetails: Array<{ id: string; title: string; status: string; exists: boolean; completed: boolean; failed: boolean; runCount: number }> = dependencyIds.map((dependencyId: string) => {
       const dependencyObjective = objectiveIndex.get(dependencyId)
       const dependencyRuns = (runs ?? []).filter((run) => false)
       return {
@@ -106,7 +106,7 @@ export async function GET(request: Request) {
         dependency.status = dependency.failed ? 'failed' : dependency.completed ? 'completed' : dependency.exists ? 'unresolved' : 'missing'
       }
     }
-    const blockedDependencies = dependencyDetails.filter((dependency) => dependency.status !== 'completed')
+    const blockedDependencies = dependencyDetails.filter((dependency: { status: string }) => dependency.status !== 'completed')
 
     const objectiveAgentRunIds = new Set(
       (runs ?? []).flatMap((run) => Array.isArray(run.agent_run_ids) ? run.agent_run_ids.filter((id): id is string => typeof id === 'string') : []),
@@ -207,7 +207,7 @@ export async function GET(request: Request) {
         grounded: true,
         execution: latestDecisionIntelligence?.execution ?? 'not_started',
         approval: latestDecisionIntelligence?.approval ?? 'not_required_yet',
-        blockers: Array.isArray(latestDecisionIntelligence?.blockers) ? latestDecisionIntelligence.blockers : blockedDependencies.map((dependency) => dependency.id),
+        blockers: Array.isArray(latestDecisionIntelligence?.blockers) ? latestDecisionIntelligence.blockers : blockedDependencies.map((dependency: { id: string }) => dependency.id),
         latestFailedRunId: latestFailedRun?.id ?? null,
         latestVerifiedOutcomeId: latestVerifiedOutcome?.id ?? null,
         prioritySignals: {
