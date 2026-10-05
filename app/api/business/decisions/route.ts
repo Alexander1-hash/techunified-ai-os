@@ -23,7 +23,14 @@ type ServiceRow = {
   id: string
   name: string
   status: string | null
+  department_id?: string | null
 }
+
+type DepartmentRow = { id: string; name: string }
+type WorkflowRow = { id: string; name: string }
+type AutomationExecutionRow = { id: string; workflow_id: string | null; status: string | null }
+type OutcomeRow = { id: string; title: string; outcome_type: string | null; revenue_impact: number | string | null; cost_avoided: number | string | null; evidence_status: string | null }
+type RelationshipRow = { id: string; source_type: string; source_id: string; relationship_type: string; target_type: string; target_id: string; evidence_status: string; confidence: number | string | null }
 
 type Decision = {
   id: string
@@ -95,6 +102,11 @@ export async function GET() {
       salesResult,
       customersResult,
       servicesResult,
+      departmentsResult,
+      workflowsResult,
+      executionsResult,
+      outcomesResult,
+      relationshipsResult,
     ] = await Promise.all([
       supabase
         .from('sales')
@@ -114,21 +126,18 @@ export async function GET() {
           organizationId,
         ),
 
-      supabase
-        .from('services')
-        .select(
-          'id,name,status',
-        )
-        .eq(
-          'organization_id',
-          organizationId,
-        ),
+      supabase.from('services').select('id,name,status,department_id').eq('organization_id', organizationId),
+      supabase.from('departments').select('id,name').eq('organization_id', organizationId),
+      supabase.from('workflows').select('id,name').eq('organization_id', organizationId),
+      supabase.from('automation_executions').select('id,workflow_id,status').eq('organization_id', organizationId),
+      supabase.from('business_outcomes').select('id,title,outcome_type,revenue_impact,cost_avoided,evidence_status').eq('organization_id', organizationId),
+      supabase.from('business_relationships').select('id,source_type,source_id,relationship_type,target_type,target_id,evidence_status,confidence').eq('organization_id', organizationId),
     ])
 
     if (
       salesResult.error ||
       customersResult.error ||
-      servicesResult.error
+      servicesResult.error || departmentsResult.error || workflowsResult.error || executionsResult.error || outcomesResult.error || relationshipsResult.error
     ) {
       return NextResponse.json(
         {
@@ -147,9 +156,12 @@ export async function GET() {
       (customersResult.data ??
         []) as CustomerRow[]
 
-    const services =
-      (servicesResult.data ??
-        []) as ServiceRow[]
+    const services = (servicesResult.data ?? []) as ServiceRow[]
+    const departments = (departmentsResult.data ?? []) as DepartmentRow[]
+    const workflows = (workflowsResult.data ?? []) as WorkflowRow[]
+    const executions = (executionsResult.data ?? []) as AutomationExecutionRow[]
+    const outcomes = (outcomesResult.data ?? []) as OutcomeRow[]
+    const relationshipRows = (relationshipsResult.data ?? []) as RelationshipRow[]
 
     const wonSales =
       sales.filter(
@@ -425,6 +437,36 @@ export async function GET() {
 
     const decisions: Decision[] =
       []
+    const relationshipTypeCounts = relationshipRows.reduce<Record<string, number>>((acc, row) => {
+      acc[row.relationship_type] = (acc[row.relationship_type] ?? 0) + 1
+      return acc
+    }, {})
+    const verifiedRelationships = relationshipRows.filter((row) => row.evidence_status === 'verified')
+    const relationshipCoverage = {
+      explicit: relationshipRows.length,
+      verified: verifiedRelationships.length,
+      coveragePercent: relationshipRows.length ? Math.round((verifiedRelationships.length / relationshipRows.length) * 1000) / 10 : 0,
+    }
+    const departmentById = new Map(departments.map((department) => [department.id, department.name]))
+    const departmentRevenue = new Map<string, number>()
+    for (const service of services) {
+      if (!service.department_id) continue
+      const value = revenueFor(serviceSales.get(service.id) ?? [])
+      if (value > 0) departmentRevenue.set(service.department_id, (departmentRevenue.get(service.department_id) ?? 0) + value)
+    }
+    const workflowExecutionStats = workflows.map((workflow) => {
+      const related = executions.filter((execution) => execution.workflow_id === workflow.id)
+      return {
+        workflow,
+        executions: related.length,
+        completed: related.filter((execution) => execution.status === 'completed' || execution.status === 'success').length,
+        failed: related.filter((execution) => execution.status === 'failed' || execution.status === 'error').length,
+      }
+    })
+    const explicitOutcomeLinks = relationshipRows.filter((row) => row.target_type === 'outcome' && (row.source_type === 'workflow' || row.source_type === 'automation_execution'))
+    const verifiedOutcomeLinks = explicitOutcomeLinks.filter((row) => row.evidence_status === 'verified')
+    const verifiedOutcomes = outcomes.filter((outcome) => outcome.evidence_status === 'measured' || outcome.evidence_status === 'attributed')
+
 
     // Phase 4 pipeline connection: Business Analyst KPI evidence is also
     // available to the Decision Engine. This keeps decisions connected to
@@ -478,6 +520,21 @@ export async function GET() {
           },
         })
       }
+    }
+
+    const topDepartment = [...departmentRevenue.entries()].sort((a, b) => b[1] - a[1])[0]
+    if (topDepartment) {
+      decisions.push({ id: 'department-revenue-concentration', type: 'signal', title: 'Revenue is connected to a department', message: (departmentById.get(topDepartment[0]) ?? 'A department') + ' is linked to ' + currency + ' ' + topDepartment[1].toLocaleString() + ' in recorded won-sale revenue through its services.', priority: 'low', action: 'Review the department and service evidence before changing capacity or investment.', evidence: { department: departmentById.get(topDepartment[0]) ?? topDepartment[0], revenue: topDepartment[1] } })
+    }
+    const failedWorkflowStats = workflowExecutionStats.filter((item) => item.failed > 0)
+    if (failedWorkflowStats.length > 0) {
+      decisions.push({ id: 'workflow-failures', type: 'attention', title: 'Workflow execution failures are recorded', message: failedWorkflowStats.length + ' workflow' + (failedWorkflowStats.length === 1 ? '' : 's') + ' have recorded failed or errored executions.', priority: failedWorkflowStats.some((item) => item.failed >= 5) ? 'high' : 'medium', action: 'Inspect failed automation executions and their evidence before changing the workflow.', evidence: { workflowsWithFailures: failedWorkflowStats.length, failedExecutions: failedWorkflowStats.reduce((sum, item) => sum + item.failed, 0) } })
+    }
+    if (verifiedOutcomeLinks.length > 0 && verifiedOutcomes.length > 0) {
+      decisions.push({ id: 'verified-automation-outcomes', type: 'signal', title: 'Automation outcomes have explicit evidence links', message: verifiedOutcomeLinks.length + ' verified workflow or automation-execution relationships point to recorded outcomes with measured or attributed evidence.', priority: 'low', action: 'Review the linked outcomes and verification evidence before treating automation impact as causal.', evidence: { verifiedOutcomeLinks: verifiedOutcomeLinks.length, verifiedOutcomes: verifiedOutcomes.length } })
+    }
+    if (relationshipRows.length > 0 && relationshipCoverage.coveragePercent < 100) {
+      decisions.push({ id: 'relationship-evidence-coverage', type: 'attention', title: 'Relationship evidence is incomplete', message: relationshipCoverage.verified + ' of ' + relationshipCoverage.explicit + ' explicit relationships are verified.', priority: 'medium', action: 'Verify or enrich relationship evidence before relying on graph-derived decisions.', evidence: { explicitRelationships: relationshipCoverage.explicit, verifiedRelationships: relationshipCoverage.verified, coveragePercent: relationshipCoverage.coveragePercent } })
     }
 
     /*
@@ -989,12 +1046,27 @@ export async function GET() {
 
         multiServiceCustomers:
           repeatServiceCustomers.length,
+        relationshipCoverage,
+        relationshipTypeCounts,
+        departmentRevenue: Object.fromEntries(departmentRevenue),
+        workflowExecutionStats: workflowExecutionStats.map((item) => ({ workflow: item.workflow.name, executions: item.executions, completed: item.completed, failed: item.failed })),
+        explicitOutcomeLinks: explicitOutcomeLinks.length,
+      },
+
+      phase5RelationshipIntelligence: {
+        departments: departments.length,
+        workflows: workflows.length,
+        automationExecutions: executions.length,
+        outcomes: outcomes.length,
+        verifiedOutcomeLinks: verifiedOutcomeLinks.length,
+        relationshipCoverage,
+        methodology: 'Department revenue is derived from recorded service.department_id and won sales. Workflow execution signals come from recorded automation_executions. Automation impact is reported only when explicit verified relationships and measured or attributed outcome evidence exist. Profitability and ROI remain unavailable without verified cost evidence.',
       },
 
       decisions,
 
       methodology:
-        'Decisions are derived from organization-scoped operational records plus verified Business Analyst KPI evidence. Relationships are calculated from recorded customer_id and service_id links. No missing business values are invented. Revenue is not converted between currencies.',
+        'Decisions are derived from organization-scoped operational records plus verified Business Analyst KPI evidence. Relationships are calculated from recorded customer_id, service_id, department_id, workflow execution, and explicit relationship links. No missing business values are invented. Revenue is not converted between currencies.',
       kpiEvidence: (kpiEvidence ?? []).map((kpi) => ({
         id: kpi.id,
         name: kpi.name,
