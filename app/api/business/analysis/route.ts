@@ -71,7 +71,7 @@ export async function GET() {
     )
   }
 
-  const [kpis, mappings, sources, outcomes] = await Promise.all([
+  const [kpis, mappings, sources, outcomes, relationshipInsights] = await Promise.all([
     supabase
       .from('business_kpis')
       .select(
@@ -99,9 +99,14 @@ export async function GET() {
       .select('id,title,outcome_type,hours_saved,cost_avoided,revenue_impact,implementation_cost,currency,evidence_status,source,period_start,period_end,action_run_id,created_at')
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: false }),
+
+    supabase
+      .from('business_relationships')
+      .select('source_type,source_id,relationship_type,target_type,target_id,evidence_status,confidence')
+      .eq('organization_id', organizationId),
   ])
 
-  if (kpis.error || mappings.error || sources.error || outcomes.error) {
+  if (kpis.error || mappings.error || sources.error || outcomes.error || relationshipInsights.error) {
     return NextResponse.json(
       { error: 'Unable to load analyst data.' },
       { status: 500 },
@@ -109,6 +114,14 @@ export async function GET() {
   }
 
   const rows = kpis.data ?? []
+  const relationshipRows = relationshipInsights.data ?? []
+
+  const relationshipCoverage = {
+    explicit: relationshipRows.length,
+    verified: relationshipRows.filter((row: any) => row.evidence_status === 'verified').length,
+    estimated: relationshipRows.filter((row: any) => row.evidence_status === 'estimated').length,
+    inferred: relationshipRows.filter((row: any) => row.evidence_status === 'inferred').length,
+  }
 
   const areas = new Set(
     rows.map((k: any) => {
@@ -223,6 +236,12 @@ export async function GET() {
     mappings: mappings.data ?? [],
     sources: sources.data ?? [],
     outcomes: summarizeOutcomes(outcomes.data ?? []),
+    relationshipIntelligence: {
+      coverage: relationshipCoverage,
+      relationships: relationshipRows,
+      source: '/api/business/relationships/insights',
+      methodology: 'Relationship intelligence is included as evidence for Business Analyst review. Unsupported profitability, cost, ROI, or funnel claims remain unavailable until verified evidence exists.',
+    },
     health,
     areas: [...areas],
     quality,
