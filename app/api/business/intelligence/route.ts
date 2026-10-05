@@ -170,7 +170,7 @@ export async function GET() {
       'activeAgents',
       'activeWorkflows',
       'successfulVerifiedEvaluations',
-    ].filter((key) => previousState && previousState[key] !== state[key])
+    ].filter((key) => previousState && previousState[key] !== (state as Record<string, any>)[key])
 
     if (previousState && trackedChanges.length > 0) {
       await supabase.from('company_intelligence_events').insert({
@@ -181,7 +181,7 @@ export async function GET() {
         title: 'Company intelligence state changed',
         description: `Meaningful company state changed in: ${trackedChanges.join(', ')}.`,
         before_state: Object.fromEntries(trackedChanges.map((key) => [key, previousState[key]])),
-        after_state: Object.fromEntries(trackedChanges.map((key) => [key, state[key]])),
+        after_state: Object.fromEntries(trackedChanges.map((key) => [key, (state as Record<string, any>)[key]])),
         evidence: evidence,
       })
     }
