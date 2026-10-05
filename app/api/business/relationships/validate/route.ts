@@ -83,12 +83,24 @@ export async function GET() {
     },
   ]
 
+  const entityIds: Record<string, Set<string>> = {
+    customer: customerIds,
+    sale: new Set(saleRows.map((row) => row.id)),
+    service: serviceIds,
+    department: departmentIds,
+    workflow: workflowIds,
+    automation_execution: new Set(executionRows.map((row) => row.id)),
+    outcome: new Set(outcomeRows.map((row) => row.id)),
+  }
   const relationshipTypes = new Set(relationshipRows.map((row) => row.relationship_type))
   const invalidExplicitRelationships = relationshipRows.filter(
     (row) =>
-      !['customer', 'sale', 'service', 'department', 'workflow', 'automation_execution', 'outcome'].includes(row.source_type) ||
-      !['customer', 'sale', 'service', 'department', 'workflow', 'automation_execution', 'outcome'].includes(row.target_type),
+      !Object.prototype.hasOwnProperty.call(entityIds, row.source_type) ||
+      !Object.prototype.hasOwnProperty.call(entityIds, row.target_type) ||
+      !entityIds[row.source_type].has(row.source_id) ||
+      !entityIds[row.target_type].has(row.target_id),
   ).length
+  const validExplicitRelationships = relationshipRows.length - invalidExplicitRelationships
   const verifiedExplicitRelationships = relationshipRows.filter(
     (row) => row.evidence_status === 'verified',
   ).length
@@ -102,6 +114,7 @@ export async function GET() {
       verified: verifiedExplicitRelationships,
       relationshipTypes: relationshipTypes.size,
       invalid: invalidExplicitRelationships,
+      valid: validExplicitRelationships,
     },
   })
 
