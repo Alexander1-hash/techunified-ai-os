@@ -105,6 +105,29 @@ export async function GET() {
   const convertedLeads = leadCustomers.filter((customer) =>
     won.some((sale) => sale.customer_id === customer.id),
   )
+  const leadCustomersWithLostSales = leadCustomers.filter((customer) =>
+    lost.some((sale) => sale.customer_id === customer.id),
+  )
+  const leadConversionRate = leadCustomers.length > 0
+    ? (convertedLeads.length / leadCustomers.length) * 100
+    : null
+
+  const lostRevenueByService = new Map<string, number>()
+  for (const sale of lost) {
+    if (!sale.service_id) continue
+    lostRevenueByService.set(
+      sale.service_id,
+      (lostRevenueByService.get(sale.service_id) ?? 0) + valueOf(sale),
+    )
+  }
+
+  const lostServicePerformance = [...lostRevenueByService.entries()]
+    .map(([serviceId, revenue]) => ({
+      service: serviceMap.get(serviceId) ?? null,
+      lostSales: lost.filter((sale) => sale.service_id === serviceId).length,
+      recordedLostRevenue: revenue,
+    }))
+    .sort((a, b) => b.recordedLostRevenue - a.recordedLostRevenue)
 
   const servicesWithCostEvidence = explicit.filter(
     (x) =>
@@ -175,10 +198,15 @@ export async function GET() {
           },
 
       leadLossLocation: {
-        answerable: lost.length > 0,
+        answerable: lost.length > 0 || leadCustomers.length > 0,
         lostSales: lost.length,
         convertedLeads: convertedLeads.length,
-        evidence: 'customer status plus won/lost sales',
+        leadCustomers: leadCustomers.length,
+        leadCustomersWithLostSales: leadCustomersWithLostSales.length,
+        conversionRate: leadConversionRate,
+        lostRevenue: lost.reduce((sum, sale) => sum + valueOf(sale), 0),
+        lostRevenueByService: lostServicePerformance,
+        evidence: 'customer status plus recorded won/lost sales',
         limitation: 'The current sales model does not contain a full multi-stage opportunity history, so this identifies recorded loss activity rather than a complete stage-by-stage funnel.',
       },
 
