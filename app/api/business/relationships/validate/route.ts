@@ -106,6 +106,42 @@ export async function GET() {
   ).length
   const relationshipEvidencePassed = invalidExplicitRelationships === 0
 
+  // Validate the complete deterministic business path using foreign-key-backed data.
+  // This does not invent relationships: every edge must already exist in the source tables.
+  const serviceById = new Map(serviceRows.map((row) => [row.id, row]))
+  const workflowById = new Set(workflowRows.map((row) => row.id))
+  const outcomeIds = new Set(outcomeRows.map((row) => row.id))
+  const saleServiceDepartmentPaths = saleRows.filter((sale) => {
+    if (!sale.customer_id || !customerIds.has(sale.customer_id) || !sale.service_id) return false
+    const service = serviceById.get(sale.service_id)
+    return Boolean(service?.department_id && departmentIds.has(service.department_id))
+  }).length
+  const executionWorkflowPaths = executionRows.filter((execution) => workflowById.has(execution.workflow_id)).length
+  const explicitAutomationOutcomePaths = relationshipRows.filter((row) =>
+    row.source_type === 'automation_execution' &&
+    row.target_type === 'outcome' &&
+    entityIds.automation_execution.has(row.source_id) &&
+    outcomeIds.has(row.target_id) &&
+    row.evidence_status === 'verified',
+  ).length
+  const completeCommercialPaths = saleServiceDepartmentPaths
+  const graphTraversalPassed =
+    (saleRows.length === 0 || completeCommercialPaths > 0) &&
+    (executionRows.length === 0 || executionWorkflowPaths > 0) &&
+    invalidExplicitRelationships === 0
+
+  checks.push({
+    name: 'End-to-end graph traversal',
+    passed: graphTraversalPassed,
+    evidence: {
+      customerToSaleToServiceToDepartment: completeCommercialPaths,
+      sales: saleRows.length,
+      automationToWorkflow: executionWorkflowPaths,
+      automationExecutions: executionRows.length,
+      verifiedAutomationOutcomeLinks: explicitAutomationOutcomePaths,
+    },
+  })
+
   checks.push({
     name: 'Explicit relationship evidence',
     passed: relationshipEvidencePassed,
