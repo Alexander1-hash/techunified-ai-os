@@ -69,6 +69,38 @@ export async function GET() {
   const topService = [...serviceRevenue.entries()]
     .sort((a, b) => b[1] - a[1])[0]
 
+  const customerServiceMix = new Map<string, Set<string>>()
+  for (const sale of won) {
+    if (!sale.customer_id || !sale.service_id) continue
+    const servicesForCustomer = customerServiceMix.get(sale.customer_id) ?? new Set<string>()
+    servicesForCustomer.add(sale.service_id)
+    customerServiceMix.set(sale.customer_id, servicesForCustomer)
+  }
+
+  const multiServiceCustomers = [...customerServiceMix.entries()]
+    .filter(([, serviceIds]) => serviceIds.size > 1)
+    .map(([customerId, serviceIds]) => ({
+      customer: customerMap.get(customerId) ?? null,
+      services: [...serviceIds].map((serviceId) => serviceMap.get(serviceId)).filter(Boolean),
+      serviceCount: serviceIds.size,
+      recordedRevenue: customerRevenue.get(customerId) ?? 0,
+    }))
+    .sort((a, b) => b.recordedRevenue - a.recordedRevenue)
+
+  const servicePerformance = [...serviceRevenue.entries()]
+    .map(([serviceId, revenue]) => {
+      const service = serviceMap.get(serviceId)
+      const serviceSales = won.filter((sale) => sale.service_id === serviceId)
+      return {
+        service: service ?? null,
+        wonSales: serviceSales.length,
+        recordedRevenue: revenue,
+        unitsSold: serviceSales.reduce((sum, sale) => sum + num(sale.quantity), 0),
+        department: service?.department_id ? departmentMap.get(service.department_id) ?? null : null,
+      }
+    })
+    .sort((a, b) => b.recordedRevenue - a.recordedRevenue)
+
   const leadCustomers = customers.filter((x) => x.status === 'lead')
   const convertedLeads = leadCustomers.filter((customer) =>
     won.some((sale) => sale.customer_id === customer.id),
@@ -175,6 +207,18 @@ export async function GET() {
         })),
         measuredOutcomes: measuredOutcomes.length,
         limitation: 'Measurable impact requires an explicit workflow/automation-to-outcome relationship and verified outcome evidence.',
+      },
+
+      customerServiceRelationships: {
+        answerable: multiServiceCustomers.length > 0,
+        multiServiceCustomers,
+        limitation: 'Only won sales with both customer_id and service_id contribute to customer-service relationships.',
+      },
+
+      servicePerformance: {
+        answerable: servicePerformance.length > 0,
+        services: servicePerformance,
+        limitation: 'Recorded revenue uses the sales amount field; quantity is treated as an operational unit metric because the schema does not define amount as a unit price.',
       },
 
       departmentRevenue: {
