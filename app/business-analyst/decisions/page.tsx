@@ -34,6 +34,23 @@ type DecisionResponse = {
   }
   decisions?: Decision[]
   methodology?: string[]
+  relationshipIntelligence?: {
+    coverage?: {
+      explicit?: number
+      verified?: number
+      estimated?: number
+      inferred?: number
+    }
+    relationshipTypeCounts?: Record<string, number>
+    departmentRevenue?: Array<{ departmentId: string; revenue: number }>
+    workflowExecutionStats?: {
+      total?: number
+      completed?: number
+      failed?: number
+    }
+    verifiedAutomationOutcomeLinks?: number
+    methodology?: string
+  }
 }
 
 function DecisionIcon({
@@ -262,6 +279,12 @@ export default function DecisionsPage() {
   const methodology =
     data?.methodology ?? []
 
+  const relationshipIntelligence =
+    data?.relationshipIntelligence
+
+  const relationshipCoverage =
+    relationshipIntelligence?.coverage ?? {}
+
   return (
     <main className="min-h-screen bg-background px-5 py-8">
       <div className="mx-auto max-w-7xl">
@@ -322,6 +345,30 @@ export default function DecisionsPage() {
               Signals supported by current
               evidence.
             </p>
+          </Panel>
+        </div>
+
+        <div className="mt-4">
+          <Panel title="Phase 5 relationship intelligence">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-xl border border-border/60 p-3">
+                <p className="text-xs">Explicit</p>
+                <strong className="text-2xl text-foreground">{relationshipCoverage.explicit ?? 0}</strong>
+              </div>
+              <div className="rounded-xl border border-border/60 p-3">
+                <p className="text-xs">Verified</p>
+                <strong className="text-2xl text-foreground">{relationshipCoverage.verified ?? 0}</strong>
+              </div>
+              <div className="rounded-xl border border-border/60 p-3">
+                <p className="text-xs">Workflow executions</p>
+                <strong className="text-2xl text-foreground">{relationshipIntelligence?.workflowExecutionStats?.total ?? 0}</strong>
+              </div>
+              <div className="rounded-xl border border-border/60 p-3">
+                <p className="text-xs">Verified automation outcomes</p>
+                <strong className="text-2xl text-foreground">{relationshipIntelligence?.verifiedAutomationOutcomeLinks ?? 0}</strong>
+              </div>
+            </div>
+            <p className="mt-3">{relationshipIntelligence?.methodology ?? "Relationship intelligence is evidence-backed and organization-scoped. Unsupported profitability, cost, ROI, and funnel claims remain unavailable until verified evidence exists."}</p>
           </Panel>
         </div>
 
