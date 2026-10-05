@@ -380,6 +380,20 @@ export default function DecisionsPage() {
                 <strong className="text-2xl text-foreground">{phase5?.verifiedOutcomeLinks ?? 0}</strong>
               </div>
             </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-border/60 p-3">
+                <p className="text-xs">Relationship coverage</p>
+                <strong className="text-xl text-foreground">{relationshipCoverage.coveragePercent ?? 0}%</strong>
+              </div>
+              <div className="rounded-xl border border-border/60 p-3">
+                <p className="text-xs">Departments</p>
+                <strong className="text-xl text-foreground">{phase5?.departments ?? 0}</strong>
+              </div>
+              <div className="rounded-xl border border-border/60 p-3">
+                <p className="text-xs">Outcomes</p>
+                <strong className="text-xl text-foreground">{phase5?.outcomes ?? 0}</strong>
+              </div>
+            </div>
             <p className="mt-3">{phase5?.methodology ?? "Relationship intelligence is evidence-backed and organization-scoped. Unsupported profitability, cost, ROI, and funnel claims remain unavailable until verified evidence exists."}</p>
           </Panel>
         </div>
