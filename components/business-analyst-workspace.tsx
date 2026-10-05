@@ -63,6 +63,24 @@ type AnalysisData = {
     confidence: number;
   }>;
   nextAction: string;
+  relationshipIntelligence?: {
+    coverage: {
+      explicit: number;
+      verified: number;
+      estimated: number;
+      inferred: number;
+    };
+    relationships: Array<{
+      source_type: string;
+      source_id: string;
+      relationship_type: string;
+      target_type: string;
+      target_id: string;
+      evidence_status: string;
+      confidence: number | null;
+    }>;
+    methodology: string;
+  };
 };
 
 type DecisionsData = {
@@ -355,12 +373,17 @@ export function BusinessAnalystWorkspace({
       const [
         analysisResponse,
         decisionsResponse,
+        relationshipResponse,
       ] = await Promise.all([
         fetch("/api/business/analysis", {
           method: "GET",
           cache: "no-store",
         }),
         fetch("/api/business/decisions", {
+          method: "GET",
+          cache: "no-store",
+        }),
+        fetch("/api/business/relationships/insights", {
           method: "GET",
           cache: "no-store",
         }),
@@ -371,6 +394,9 @@ export function BusinessAnalystWorkspace({
 
       const decisionsJson =
         await decisionsResponse.json();
+
+      const relationshipJson =
+        await relationshipResponse.json();
 
       if (!analysisResponse.ok) {
         throw new Error(
@@ -386,7 +412,31 @@ export function BusinessAnalystWorkspace({
         );
       }
 
-      setData(analysisJson);
+      if (!relationshipResponse.ok) {
+        setError(
+          relationshipJson.error ||
+            "Unable to load relationship intelligence.",
+        );
+      }
+
+      setData({
+        ...analysisJson,
+        relationshipIntelligence:
+          relationshipResponse.ok
+            ? {
+                coverage:
+                  relationshipJson.graphCoverage ?? {
+                    explicit: 0,
+                    verified: 0,
+                    estimated: 0,
+                    inferred: 0,
+                  },
+                relationships: [],
+                methodology:
+                  relationshipJson.methodology ?? "",
+              }
+            : undefined,
+      });
       setDecisions(
         decisionsResponse.ok
           ? decisionsJson
@@ -669,6 +719,50 @@ export function BusinessAnalystWorkspace({
                   )}
                 </div>
               </section>
+            </div>
+
+            <div className="mt-4">
+              <Panel title="Business relationship intelligence">
+                {data.relationshipIntelligence ? (
+                  <div className="space-y-3">
+                    <p>
+                      TechUnified is now exposing the Phase 5 relationship layer inside Business Analyst.
+                      It uses recorded organization relationships and does not invent missing links.
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-xl border border-border/60 bg-background p-3">
+                        <p className="text-xs text-muted-foreground">Explicit relationships</p>
+                        <p className="mt-1 text-xl font-semibold text-foreground">
+                          {data.relationshipIntelligence.coverage.explicit}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-border/60 bg-background p-3">
+                        <p className="text-xs text-muted-foreground">Verified</p>
+                        <p className="mt-1 text-xl font-semibold text-foreground">
+                          {data.relationshipIntelligence.coverage.verified}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-border/60 bg-background p-3">
+                        <p className="text-xs text-muted-foreground">Estimated</p>
+                        <p className="mt-1 text-xl font-semibold text-foreground">
+                          {data.relationshipIntelligence.coverage.estimated}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-border/60 bg-background p-3">
+                        <p className="text-xs text-muted-foreground">Inferred</p>
+                        <p className="mt-1 text-xl font-semibold text-foreground">
+                          {data.relationshipIntelligence.coverage.inferred}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {data.relationshipIntelligence.methodology}
+                    </p>
+                  </div>
+                ) : (
+                  <p>Relationship intelligence is not currently available.</p>
+                )}
+              </Panel>
             </div>
 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
