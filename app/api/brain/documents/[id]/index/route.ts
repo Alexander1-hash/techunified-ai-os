@@ -1,3 +1,4 @@
+import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 
@@ -12,7 +13,74 @@ function extractDelimitedText(text: string) {
   return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
 }
 
-async function extractTextFromBlob(blob: Blob, fileName: string, fileType: string) {
+async function extractPdfText(blob: Blob, fileName: string) {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+
+  if (!apiKey) {
+    throw new Error(
+      "PDF indexing requires the AI provider to be configured.",
+    );
+  }
+
+  const openai = new OpenAI({ apiKey });
+
+  const pdfFile = new File(
+    [await blob.arrayBuffer()],
+    fileName,
+    { type: "application/pdf" },
+  );
+
+  const uploaded = await openai.files.create({
+    file: pdfFile,
+    purpose: "user_data",
+  });
+
+  try {
+    const response = await openai.responses.create({
+      model: process.env.OPENAI_MODEL?.trim() || "gpt-5.6-luna",
+      input: [
+        {
+          role: "developer",
+          content:
+            "Extract the readable text from the supplied PDF faithfully. " +
+            "Return only the document text, preserving headings, bullet points, numbers, " +
+            "and wording as closely as possible. Do not summarize, interpret, invent, or add commentary. " +
+            "If a page contains no readable text, omit it.",
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: "Extract the complete readable text from this PDF.",
+            },
+            {
+              type: "input_file",
+              file_id: uploaded.id,
+            },
+          ],
+        },
+      ],
+    });
+
+    return extractDelimitedText(response.output_text ?? "");
+  } finally {
+    try {
+      await openai.files.delete(uploaded.id);
+    } catch (cleanupError) {
+      console.error(
+        "[Company Brain] Temporary PDF cleanup failed:",
+        cleanupError,
+      );
+    }
+  }
+}
+
+async function extractTextFromBlob(
+  blob: Blob,
+  fileName: string,
+  fileType: string,
+) {
   const lowerName = fileName.toLowerCase();
 
   if (
@@ -36,14 +104,22 @@ async function extractTextFromBlob(blob: Blob, fileName: string, fileType: strin
     return workbook.SheetNames.map((sheetName) => {
       const sheet = workbook.Sheets[sheetName];
       const csv = XLSX.utils.sheet_to_csv(sheet);
-      return `[Sheet: ${sheetName}]\n${csv}`;
+      return `[Sheet: ${sheetName}]\\n${csv}`;
     })
       .join("\n\n")
       .trim();
   }
 
+  if (
+    fileType === "application/pdf" ||
+    lowerName.endsWith(".pdf") ||
+    fileType.includes("pdf")
+  ) {
+    return extractPdfText(blob, fileName);
+  }
+
   throw new Error(
-    "This document type is not indexable yet. Company Brain currently indexes TXT, CSV, XLS, and XLSX files.",
+    "This document type is not indexable yet. Company Brain currently indexes PDF, TXT, CSV, XLS, and XLSX files.",
   );
 }
 
