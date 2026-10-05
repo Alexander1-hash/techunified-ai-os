@@ -19,6 +19,10 @@ function objectiveDescription(objective: AnyRecord) {
   return String(objective.description ?? objective.details ?? objective.key_result ?? '')
 }
 
+function evidenceConfidenceLabel(value: unknown) {
+  return String(value ?? 'low').replace(/_/g, ' ')
+}
+
 export default function OrchestrationConsole({ objectives, initialRuns }: Props) {
   const [selectedObjectiveId, setSelectedObjectiveId] = useState(String(objectives[0]?.id ?? ''))
   const [runs, setRuns] = useState(initialRuns)
@@ -110,6 +114,10 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
     }
   }
 
+  const progressDecision = progress?.decisionIntelligence
+  const evidenceConfidence = progressDecision?.evidenceConfidence ?? progress?.prioritySignals?.evidenceConfidence ?? 'low'
+  const recommendedMove = progress?.nextRecommendedMove ?? progressDecision?.recommendation
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-3">
@@ -120,7 +128,7 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
 
       <section>
         <div className="mb-4 flex items-end justify-between gap-3">
-          <div><h2 className="text-lg font-semibold">Governed next move</h2><p className="mt-1 text-sm text-muted-foreground">A single recommended next step based on approvals, failures, dependencies, active work, and capacity. Recommendation only; execution remains governed.</p></div>
+          <div><h2 className="text-lg font-semibold">Governed next move</h2><p className="mt-1 text-sm text-muted-foreground">A single recommended next step based on approvals, failures, dependencies, active work, evidence quality, and capacity. Recommendation only; execution remains governed.</p></div>
         </div>
         <Card>
           {priorities?.nextMove ? (
@@ -175,10 +183,15 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Why this objective now</p>
                 <p className="mt-1 text-sm font-semibold">{String(priorities.highestPriority.priorityReason)}</p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-4">
                 <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Learning</p><p className="mt-1 text-sm font-semibold">{String(priorities.highestPriority.learningSignal ?? 'no learning signal').replace(/_/g, ' ')}</p></div>
                 <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Evaluated runs</p><p className="mt-1 text-sm font-semibold">{String(priorities.highestPriority.evaluatedRuns ?? 0)}</p></div>
                 <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Successful evaluations</p><p className="mt-1 text-sm font-semibold">{String(priorities.highestPriority.successfulEvaluations ?? 0)}</p></div>
+                <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Evidence confidence</p><p className="mt-1 text-sm font-semibold capitalize">{evidenceConfidenceLabel(priorities.highestPriority.evidenceConfidence)}</p></div>
+              </div>
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Evidence quality</p>
+                <p className="mt-1 text-sm">Confidence is based on verified outcomes, completed work, and evaluated agent runs. Low confidence is a signal to strengthen evidence, not permission to invent certainty.</p>
               </div>
               <div className="rounded-lg border bg-muted/20 p-3">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Governance boundary</p>
@@ -232,7 +245,7 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
                 <button key={objective.id} onClick={() => setSelectedObjectiveId(String(objective.id))} className="w-full rounded-lg border p-3 text-left transition-colors hover:bg-muted/40">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0"><div className="flex items-center gap-2"><span className="text-xs font-medium text-muted-foreground">#{index + 1}</span><span className="truncate text-sm font-semibold">{String(objective.title)}</span></div><p className="mt-1 text-xs text-muted-foreground">{String(objective.priorityReason)}</p></div>
-                    <div className="flex shrink-0 flex-wrap gap-2 text-[11px] text-muted-foreground"><span className="rounded-full border px-2 py-1">Priority {String(objective.priorityScore)}/100</span><span className="rounded-full border px-2 py-1">Active {String(objective.activeRuns ?? 0)}</span><span className="rounded-full border px-2 py-1">{objective.capacity?.executionPathAvailable ? 'Ready path' : 'Capacity gap'}</span></div>
+                    <div className="flex shrink-0 flex-wrap gap-2 text-[11px] text-muted-foreground"><span className="rounded-full border px-2 py-1">Priority {String(objective.priorityScore)}/100</span><span className="rounded-full border px-2 py-1">Active {String(objective.activeRuns ?? 0)}</span><span className="rounded-full border px-2 py-1">Evidence {evidenceConfidenceLabel(objective.evidenceConfidence)}</span><span className="rounded-full border px-2 py-1">{objective.capacity?.executionPathAvailable ? 'Ready path' : 'Capacity gap'}</span></div>
                   </div>
                 </button>
               ))}
@@ -408,10 +421,20 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
                 <p className="mt-1 text-sm font-medium">{String(progress.decisionIntelligence?.recommendation ?? progress.nextRecommendedMove ?? '')}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{String(progress.decisionIntelligence?.reason ?? '')}</p>
                 <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-                  <span className="rounded-full border px-2 py-1">Evidence: {String(progress.decisionIntelligence?.evidence ?? 'objective_record')}</span>
-                  <span className="rounded-full border px-2 py-1">Grounded: {progress.decisionIntelligence?.grounded ? 'Yes' : 'No'}</span>
+                  <span className="rounded-full border px-2 py-1">Evidence: {String(progressDecision?.evidence ?? 'objective_record')}</span>
+                  <span className="rounded-full border px-2 py-1">Confidence: {evidenceConfidenceLabel(evidenceConfidence)}</span>
+                  <span className="rounded-full border px-2 py-1">Grounded: {progressDecision?.grounded ? 'Yes' : 'No'}</span>
                   <span className="rounded-full border px-2 py-1">Execution: not started</span>
                 </div>
+                {recommendedMove && (
+                  <div className="mt-3 rounded-lg border p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Next recommended move</p>
+                    <p className="mt-1 text-sm font-semibold">{String(recommendedMove)}</p>
+                    {evidenceConfidence !== 'high' && (
+                      <p className="mt-1 text-xs text-muted-foreground">Evidence should be strengthened before another governed execution path is started.</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -445,6 +468,7 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
                         <p className="mt-1 text-sm font-medium">{String(run.plan.decisionIntelligence.whyNow ?? 'No why-now rationale recorded.')}</p>
                         <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
                           <span className="rounded-full border px-2 py-1">Verified outcomes: {String(run.plan.decisionIntelligence.evidenceBasis?.verifiedOutcomes ?? 0)}</span>
+                          <span className="rounded-full border px-2 py-1">Evidence confidence: {evidenceConfidenceLabel(run.plan.decisionIntelligence.evidenceConfidence)}</span>
                           <span className="rounded-full border px-2 py-1">Execution: {String(run.plan.decisionIntelligence.execution ?? 'not_started').replace(/_/g, ' ')}</span>
                           <span className="rounded-full border px-2 py-1">Approval: {String(run.plan.decisionIntelligence.approval ?? 'not_required_yet').replace(/_/g, ' ')}</span>
                         </div>
