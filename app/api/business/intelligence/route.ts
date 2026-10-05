@@ -145,7 +145,7 @@ export async function GET() {
       }
     }).filter(Boolean)
 
-    if (forecastEvaluations.length > 0) {
+    if (previousSnapshot && forecastEvaluations.length > 0) {
       await supabase.from('company_intelligence_forecast_evaluations').upsert(
         forecastEvaluations.map((evaluation: any) => ({
           organization_id: organizationId,
