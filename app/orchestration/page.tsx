@@ -1,3 +1,4 @@
+import CompanyIntelligenceConsole from '@/components/company-intelligence-console'
 import { createClient } from '@/lib/supabase/server'
 import { Card, PageHeader, Status } from '@/components/ui'
 import OrchestrationConsole from '@/components/orchestration-console'
@@ -59,7 +60,8 @@ export default async function OrchestrationPage() {
           title="Orchestration"
           subtitle="Turn company objectives into governed, measurable work without bypassing human controls."
         />
-        <div className="mt-8">
+        <div className="mt-8 space-y-10">
+          <CompanyIntelligenceConsole />
           <OrchestrationConsole
             objectives={objectives ?? []}
             initialRuns={runs ?? []}
