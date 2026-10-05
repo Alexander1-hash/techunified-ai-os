@@ -51,6 +51,7 @@ export async function GET(request: Request) {
     const latestFailedRun = (runs ?? []).find((run) => run.status === 'failed') ?? null
     const latestVerifiedOutcome = verifiedOutcomes[0] ?? null
     const latestDecisionIntelligence = (runs ?? []).find((run) => run.plan?.decisionIntelligence)?.plan?.decisionIntelligence ?? null
+    const evidenceConfidence = verifiedOutcomes.length > 0 ? 'high' : runs?.some((run) => run.status === 'completed') ? 'medium' : runs?.some((run) => Array.isArray(run.agent_run_ids) && run.agent_run_ids.length > 0) ? 'medium' : 'low'
 
     let decisionRecommendation = 'Start a governed orchestration assessment for this objective.'
     let decisionReason = 'No active objective work or verified outcome evidence is currently available.'
@@ -72,6 +73,10 @@ export async function GET(request: Request) {
       decisionRecommendation = 'Record a measured or attributed business outcome for the completed action before treating the objective as proven.'
       decisionReason = 'Work completed, but verified business-outcome evidence is still missing.'
       decisionEvidence = 'completed_without_outcome'
+    } else if (evidenceConfidence === 'medium') {
+      decisionRecommendation = 'Strengthen objective evidence before starting another governed execution path.'
+      decisionReason = 'The objective has assessment or completed-work evidence, but no verified business outcome is attached yet.'
+      decisionEvidence = 'medium_confidence_evidence'
     }
 
     const target = objective.target_value ?? objective.target ?? null
@@ -102,6 +107,7 @@ export async function GET(request: Request) {
         remainingGap: progressPercent == null ? null : Math.max(0, 100 - progressPercent),
         awaitingApprovalRuns,
         governedActionRuns: allActionRuns.length,
+        evidenceConfidence,
       },
       decisionIntelligence: {
         recommendation: latestDecisionIntelligence?.whyNow ?? decisionRecommendation,
@@ -125,6 +131,7 @@ export async function GET(request: Request) {
           failedWork: failedRuns,
           verifiedOutcomes: verifiedOutcomes.length,
           evidenceGap: completedRuns > 0 && verifiedOutcomes.length === 0,
+          evidenceConfidence,
         },
       },
       outcomes: linkedOutcomes.slice(0, 20),
@@ -135,7 +142,9 @@ export async function GET(request: Request) {
             ? 'Review verified outcomes against the objective target and determine the next measurable move.'
             : completedRuns > 0
               ? 'Link measured or attributed business outcomes to completed action runs to establish objective evidence.'
-              : 'Start a governed orchestration assessment for this objective.',
+              : evidenceConfidence === 'medium'
+                ? 'Strengthen the objective evidence before starting another governed execution path.'
+                : 'Start a governed orchestration assessment for this objective.',
     })
   } catch (error) {
     console.error('[Business Orchestration] progress failed:', error)
