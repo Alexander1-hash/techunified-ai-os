@@ -118,6 +118,16 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
   const evidenceConfidence = progressDecision?.evidenceConfidence ?? progress?.prioritySignals?.evidenceConfidence ?? 'low'
   const nextMove = progress?.nextMove
   const recommendedMove = nextMove?.reason ?? progress?.nextRecommendedMove ?? progressDecision?.recommendation
+  const phase3Checks = [
+    { label: 'Objective orchestration', ready: objectives.length > 0 && Boolean(priorities) },
+    { label: 'Decision intelligence', ready: Boolean(priorities?.highestPriority && priorities?.nextMove) },
+    { label: 'Dependency governance', ready: Array.isArray(priorities?.objectives) && priorities.objectives.every((objective: AnyRecord) => Array.isArray(objective.dependencies) && Array.isArray(objective.blockedDependencies)) },
+    { label: 'AI learning signal', ready: Array.isArray(priorities?.objectives) && priorities.objectives.every((objective: AnyRecord) => typeof objective.learningSignal === 'string') },
+    { label: 'Evidence confidence', ready: Array.isArray(priorities?.objectives) && priorities.objectives.every((objective: AnyRecord) => typeof objective.evidenceConfidence === 'string') },
+    { label: 'Governed execution boundary', ready: Boolean(progressDecision?.execution === 'not_started' || priorities?.nextMove?.execution) },
+  ]
+  const phase3Ready = phase3Checks.every((check) => check.ready)
+
 
   return (
     <div className="space-y-6">
@@ -126,6 +136,29 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
         <Card><div className="flex items-center gap-3"><BrainCircuit className="size-5 text-primary" /><div><p className="text-xs text-muted-foreground">Orchestration runs</p><p className="text-2xl font-semibold">{runs.length}</p></div></div></Card>
         <Card><div className="flex items-center gap-3"><ShieldCheck className="size-5 text-primary" /><div><p className="text-xs text-muted-foreground">Governance</p><p className="text-sm font-medium">Approval controls enforced</p></div></div></Card>
       </div>
+
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div><h2 className="text-lg font-semibold">Phase 3 control status</h2><p className="mt-1 text-sm text-muted-foreground">Final integration view across orchestration, decision intelligence, dependencies, learning, evidence, and governed execution.</p></div>
+        </div>
+        <Card>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold">{phase3Ready ? 'Phase 3 integrated and governed' : 'Phase 3 integration still requires attention'}</p>
+              <p className="mt-1 text-xs text-muted-foreground">This status summarizes the existing Phase 3 control surfaces; it does not authorize execution.</p>
+            </div>
+            <span className="rounded-full border px-3 py-1 text-xs font-medium">{phase3Checks.filter((check) => check.ready).length}/{phase3Checks.length} controls ready</span>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            {phase3Checks.map((check) => (
+              <div key={check.label} className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">{check.label}</p>
+                <p className="mt-1 text-sm font-medium">{check.ready ? 'Ready' : 'Needs attention'}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </section>
 
       <section>
         <div className="mb-4 flex items-end justify-between gap-3">
