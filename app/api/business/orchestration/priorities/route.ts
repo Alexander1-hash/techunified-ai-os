@@ -304,7 +304,7 @@ export async function GET() {
       blockerCount: nextMoveObjective?.blockedDependencies?.length ?? 0,
       learningSignal: nextMoveObjective?.learningSignal ?? 'no_learning_signal',
       approval: (nextMoveObjective?.pendingApprovalRuns ?? 0) > 0 ? 'human_approval_required' : 'not_required_yet',
-      execution: nextMoveObjective?.capacity?.executionPathAvailable ? 'not_started_ready' : 'not_started_capacity_gap',
+      execution: (nextMoveObjective?.blockedDependencies?.length ?? 0) > 0 ? 'not_started_blocked' : (nextMoveObjective?.pendingApprovalRuns ?? 0) > 0 ? 'awaiting_human_approval' : nextMoveObjective?.capacity?.executionPathAvailable ? 'not_started_ready' : 'not_started_capacity_gap',
     }
 
     return NextResponse.json({ ok: true, adaptiveSummary, objectives: scored, dependencyEdges, dependencyFirstSequence, criticalPath, capacityAwareSequence, workloadIntelligence, workloadSummary, nextMove: enrichedNextMove, highestPriority: scored[0] ?? null })
