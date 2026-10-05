@@ -31,7 +31,7 @@ async function loadContext(
   organizationId: string,
   agentId: string,
 ) {
-  const [outcomes, actionRuns, memories, evaluations] = await Promise.all([
+  const [outcomes, actionRuns, memories, evaluations, intelligenceSnapshots, intelligenceEvents, intelligenceEdges] = await Promise.all([
     supabase.from('business_outcomes')
       .select('id,title,outcome_type,evidence_status,hours_saved,cost_avoided,revenue_impact,currency,action_run_id,created_at')
       .eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(10),
@@ -45,6 +45,16 @@ async function loadContext(
     supabase.from('agent_evaluations')
       .select('groundedness_score,tool_accuracy_score,execution_success,outcome_linked,human_feedback,reviewer_note,created_at')
       .eq('organization_id', organizationId).eq('agent_id', agentId).order('created_at', { ascending: false }).limit(10),
+    supabase.from('company_intelligence_snapshots')
+      .select('id,snapshot_type,state,confidence,evidence,computed_at')
+      .eq('organization_id', organizationId).eq('snapshot_type', 'company_state')
+      .order('computed_at', { ascending: false }).limit(1),
+    supabase.from('company_intelligence_events')
+      .select('event_type,severity,title,description,evidence,detected_at')
+      .eq('organization_id', organizationId).order('detected_at', { ascending: false }).limit(10),
+    supabase.from('company_intelligence_edges')
+      .select('from_type,from_id,to_type,to_id,relation,confidence,evidence')
+      .eq('organization_id', organizationId).is('valid_to', null).order('created_at', { ascending: false }).limit(50),
   ])
   const evaluationRows = evaluations.data ?? []
   const scoredGroundedness = evaluationRows.map((row) => row.groundedness_score).filter((value): value is number => typeof value === 'number')
@@ -63,6 +73,9 @@ async function loadContext(
     memories: memories.data ?? [],
     evaluations: evaluationRows,
     performance,
+    companyIntelligence: intelligenceSnapshots.data?.[0] ?? null,
+    recentIntelligenceEvents: intelligenceEvents.data ?? [],
+    intelligenceGraph: intelligenceEdges.data ?? [],
   }
 }
 
@@ -254,6 +267,10 @@ export async function runGovernedAgent(agentId: string, task: string, userId: st
         'Separate observed facts, calculations, assumptions, recommendations, and proposed actions. ' +
         'If approval is pending, recommendations and proposals must remain non-executing. ' +
         'Treat explicit human feedback as authoritative guidance, verified outcomes as evidence, and unverified run memories as hypotheses. ' +
+        'Use the latest company intelligence snapshot, longitudinal intelligence events, and intelligence graph relationships when supplied. ' +
+        'Adapt recommendations to meaningful company-state changes, but never treat a prediction as a fact. ' +
+        'When intelligence confidence is low, explicitly state the evidence gap and avoid overconfident recommendations. ' +
+        'Respect graph relationships such as blockers, dependencies, governance, and outcome evidence. ' +
         'Use the supplied performance summary to improve reasoning quality, but do not fabricate missing scores or outcomes.',
     },
     {
