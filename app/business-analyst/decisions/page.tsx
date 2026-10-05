@@ -52,6 +52,21 @@ type DecisionResponse = {
       lostSales?: number
       lostRevenue?: number
     }
+    customerServiceRelationships?: {
+      multiServiceCustomers?: Array<{
+        customer: { id: string; name: string }
+        services: Array<{ id: string; name: string }>
+        recordedRevenue: number
+      }>
+      limitation?: string
+    }
+    servicePerformance?: Array<{
+      service: { id: string; name: string }
+      wonSales: number
+      recordedRevenue: number
+      unitsSold: number
+      department?: { id: string; name: string } | null
+    }>
   }
   phase5RelationshipIntelligence?: {
     departments?: number
@@ -67,7 +82,7 @@ type DecisionResponse = {
     methodology?: string
   }
   decisions?: Decision[]
-  methodology?: string[]
+  methodology?: string[] | string
 
 }
 
@@ -294,8 +309,11 @@ export default function DecisionsPage() {
   const decisions =
     data?.decisions ?? []
 
-  const methodology =
-    data?.methodology ?? []
+  const methodology = Array.isArray(data?.methodology)
+    ? data.methodology
+    : data?.methodology
+      ? [data.methodology]
+      : []
 
   const phase5 =
     data?.phase5RelationshipIntelligence
@@ -451,6 +469,55 @@ export default function DecisionsPage() {
             ) : (
               <p>No workflow execution evidence is currently recorded.</p>
             )}
+          </Panel>
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <Panel title="Customer–service relationships">
+            {relationships.customerServiceRelationships?.multiServiceCustomers?.length ? (
+              <div className="space-y-2">
+                {relationships.customerServiceRelationships.multiServiceCustomers.map((item) => (
+                  <div key={item.customer.id} className="rounded-xl border border-border/60 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium text-foreground">{item.customer.name}</span>
+                      <strong className="text-foreground">{item.recordedRevenue.toLocaleString()}</strong>
+                    </div>
+                    <p className="mt-1 text-xs">
+                      {item.services.map((service) => service.name).join(' · ')}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>No multi-service customer relationships are currently recorded.</p>
+            )}
+            {relationships.customerServiceRelationships?.limitation ? (
+              <p className="mt-3 text-xs">{relationships.customerServiceRelationships.limitation}</p>
+            ) : null}
+          </Panel>
+
+          <Panel title="Recorded service performance">
+            {relationships.servicePerformance?.length ? (
+              <div className="space-y-2">
+                {relationships.servicePerformance.map((item) => (
+                  <div key={item.service.id} className="rounded-xl border border-border/60 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium text-foreground">{item.service.name}</span>
+                      <strong className="text-foreground">{item.recordedRevenue.toLocaleString()}</strong>
+                    </div>
+                    <p className="mt-1 text-xs">
+                      {item.wonSales} won sales · {item.unitsSold} units
+                      {item.department ? ` · ${item.department.name}` : ''}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>No won-sale service performance evidence is currently recorded.</p>
+            )}
+            <p className="mt-3 text-xs">
+              Revenue uses the recorded sale amount. Profitability remains unavailable without verified cost evidence.
+            </p>
           </Panel>
         </div>
 
