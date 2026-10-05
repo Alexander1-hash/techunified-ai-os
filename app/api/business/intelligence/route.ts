@@ -103,7 +103,14 @@ export async function GET() {
     }).select('id,snapshot_type,state,confidence,evidence,computed_at').single()
 
     if (error) throw error
-    return NextResponse.json({ ok: true, snapshot, signals, signalConfidence, forecasts, forecastConfidence, objectiveIntelligence })
+    const governance = {
+      requiresHumanOversight: signals.some((signal: any) => signal.type === 'governance' || signal.severity === 'high'),
+      highSeveritySignals: signals.filter((signal: any) => signal.severity === 'high').length,
+      forecastConfidence,
+      evidenceBound: true,
+    }
+
+    return NextResponse.json({ ok: true, snapshot, signals, signalConfidence, forecasts, forecastConfidence, objectiveIntelligence, governance })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to compute company intelligence.' }, { status: 500 })
   }
