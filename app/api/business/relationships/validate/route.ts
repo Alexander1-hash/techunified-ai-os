@@ -52,7 +52,7 @@ export async function GET() {
   const servicesWithDepartments = serviceRows.filter((row) => row.department_id && departmentIds.has(row.department_id)).length
   const executionsWithWorkflows = executionRows.filter((row) => workflowIds.has(row.workflow_id)).length
 
-  const checks = [
+  const checks: Array<{ name: string; passed: boolean; evidence: Record<string, unknown> }> = [
     {
       name: 'Customer → Sales',
       passed: salesWithCustomers > 0 || saleRows.length === 0,
