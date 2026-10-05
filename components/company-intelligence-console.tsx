@@ -12,6 +12,7 @@ type Intelligence = {
   governance?: { requiresHumanOversight: boolean; highSeveritySignals: number; forecastConfidence: string; evidenceBound: boolean }
   longitudinal?: { changed: boolean; changedFields: string[]; recentStateAvailable: boolean }
   graph?: { activeEdges: number; objectiveRelationships: number }
+  forecastEvaluation?: { evaluated: number; averageAccuracy: number | null }
   error?: string
 }
 
@@ -97,7 +98,9 @@ export default function CompanyIntelligenceConsole() {
       </Card>
 
       <Card>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-4">
+          <div><p className="text-xs text-muted-foreground">Forecasts evaluated</p><p className="mt-1 text-sm font-semibold">{data?.forecastEvaluation?.evaluated ?? 0}</p></div>
+          <div><p className="text-xs text-muted-foreground">Average forecast accuracy</p><p className="mt-1 text-sm font-semibold">{data?.forecastEvaluation?.averageAccuracy != null ? data.forecastEvaluation.averageAccuracy + '%' : 'Not enough history'}</p></div>
           <div><p className="text-xs text-muted-foreground">State changed</p><p className="mt-1 text-sm font-semibold">{longitudinal?.changed ? 'Yes' : 'No material change'}</p><p className="mt-1 text-xs text-muted-foreground">{longitudinal?.changedFields?.join(', ') || 'No tracked fields changed.'}</p></div>
           <div><p className="text-xs text-muted-foreground">Intelligence graph edges</p><p className="mt-1 text-sm font-semibold">{graph?.activeEdges ?? 0}</p><p className="mt-1 text-xs text-muted-foreground">{graph?.objectiveRelationships ?? 0} objective relationships</p></div>
           <div><p className="text-xs text-muted-foreground">Latest computation</p><p className="mt-1 text-sm font-semibold">{data?.snapshot?.computed_at ? new Date(data.snapshot.computed_at).toLocaleString() : 'Not available'}</p></div>
