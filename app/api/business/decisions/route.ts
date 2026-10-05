@@ -426,6 +426,60 @@ export async function GET() {
     const decisions: Decision[] =
       []
 
+    // Phase 4 pipeline connection: Business Analyst KPI evidence is also
+    // available to the Decision Engine. This keeps decisions connected to
+    // the same evidence that drives analysis and forecasting.
+    const { data: kpiEvidence } = await supabase
+      .from('business_kpis')
+      .select('id,name,value,previous_value,unit,period,status,source,recorded_at')
+      .eq('organization_id', organizationId)
+      .order('recorded_at', { ascending: false })
+
+    for (const kpi of kpiEvidence ?? []) {
+      const current = Number(kpi.value)
+      const previous = Number(kpi.previous_value)
+
+      if (!Number.isFinite(current) || !Number.isFinite(previous) || previous === 0) {
+        continue
+      }
+
+      const change = ((current - previous) / Math.abs(previous)) * 100
+
+      if (change < -5) {
+        decisions.push({
+          id: `kpi-decline-${kpi.id}`,
+          type: 'attention',
+          title: `${kpi.name} is declining`,
+          message: `${kpi.name} moved from ${previous.toLocaleString()} to ${current.toLocaleString()} (${change.toFixed(1)}%).`,
+          priority: change <= -20 ? 'high' : 'medium',
+          action: `Investigate the connected source evidence behind ${kpi.name} before making an operational change.`,
+          evidence: {
+            kpi: kpi.name,
+            current,
+            previous,
+            changePercent: Math.round(change * 10) / 10,
+          },
+        })
+      }
+
+      if (change > 5) {
+        decisions.push({
+          id: `kpi-growth-${kpi.id}`,
+          type: 'opportunity',
+          title: `${kpi.name} is improving`,
+          message: `${kpi.name} moved from ${previous.toLocaleString()} to ${current.toLocaleString()} (+${change.toFixed(1)}%).`,
+          priority: 'low',
+          action: `Inspect the source evidence and identify what is driving the improvement in ${kpi.name}.`,
+          evidence: {
+            kpi: kpi.name,
+            current,
+            previous,
+            changePercent: Math.round(change * 10) / 10,
+          },
+        })
+      }
+    }
+
     /*
      * 1. Lead pipeline.
      */
@@ -940,7 +994,15 @@ export async function GET() {
       decisions,
 
       methodology:
-        'Decisions are derived only from organization-scoped Customers, Services, and Sales records. Relationships are calculated from recorded customer_id and service_id links. No missing business values are invented. Revenue is not converted between currencies.',
+        'Decisions are derived from organization-scoped operational records plus verified Business Analyst KPI evidence. Relationships are calculated from recorded customer_id and service_id links. No missing business values are invented. Revenue is not converted between currencies.',
+      kpiEvidence: (kpiEvidence ?? []).map((kpi) => ({
+        id: kpi.id,
+        name: kpi.name,
+        value: kpi.value,
+        previousValue: kpi.previous_value,
+        status: kpi.status,
+        source: kpi.source,
+      })),
     })
   } catch {
     return NextResponse.json(
