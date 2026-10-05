@@ -103,6 +103,13 @@ export async function GET() {
       .limit(1)
       .maybeSingle()
 
+    const governance = {
+      requiresHumanOversight: signals.some((signal: any) => signal.type === 'governance' || signal.severity === 'high'),
+      highSeveritySignals: signals.filter((signal: any) => signal.severity === 'high').length,
+      forecastConfidence,
+      evidenceBound: true,
+    }
+
     const { data: snapshot, error } = await supabase.from('company_intelligence_snapshots').insert({
       organization_id: organizationId,
       snapshot_type: 'company_state',
@@ -119,13 +126,6 @@ export async function GET() {
     }).select('id,snapshot_type,state,confidence,evidence,computed_at').single()
 
     if (error) throw error
-    const governance = {
-      requiresHumanOversight: signals.some((signal: any) => signal.type === 'governance' || signal.severity === 'high'),
-      highSeveritySignals: signals.filter((signal: any) => signal.severity === 'high').length,
-      forecastConfidence,
-      evidenceBound: true,
-    }
-
     const previousState = previousSnapshot?.state && typeof previousSnapshot.state === 'object' ? previousSnapshot.state as Record<string, any> : null
     const previousForecasts = previousState && Array.isArray(previousState.forecasts) ? previousState.forecasts : []
     const forecastEvaluations = previousForecasts.map((forecast: any) => {
