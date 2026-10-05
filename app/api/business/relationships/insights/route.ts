@@ -51,7 +51,9 @@ export async function GET() {
   const lost = sales.filter((x) => x.status === 'lost')
 
   const valueOf = (sale: (typeof sales)[number]) =>
-    num(sale.amount) * Math.max(1, num(sale.quantity))
+    // The sales schema does not establish amount as a unit price.
+    // Use the recorded amount for financial totals; quantity remains operational data.
+    num(sale.amount)
 
   const customerRevenue = new Map<string, number>()
   const serviceRevenue = new Map<string, number>()
