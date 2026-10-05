@@ -103,7 +103,9 @@ export async function GET() {
     const revenueByService = new Map<string, number>()
 
     for (const sale of wonSales) {
-      const value = n(sale.amount) * Math.max(1, n(sale.quantity))
+      // The sales schema does not define amount as a unit price.
+      // Treat amount as the recorded monetary amount; quantity remains operational data.
+      const value = n(sale.amount)
 
       if (sale.customer_id) {
         revenueByCustomer.set(
