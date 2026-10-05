@@ -81,6 +81,37 @@ type AnalysisData = {
     }>;
     methodology: string;
   };
+  relationshipQuestions?: {
+    customerServiceRelationships?: {
+      answerable: boolean;
+      multiServiceCustomers?: Array<{
+        customer: { id: string; name: string } | null;
+        services: Array<{ id: string; name: string }>;
+        serviceCount: number;
+        recordedRevenue: number;
+      }>;
+      limitation?: string;
+    };
+    servicePerformance?: {
+      answerable: boolean;
+      services?: Array<{
+        service: { id: string; name: string } | null;
+        wonSales: number;
+        recordedRevenue: number;
+        unitsSold: number;
+        department: { id: string; name: string } | null;
+      }>;
+      limitation?: string;
+    };
+    leadLossLocation?: {
+      leadCustomers: number;
+      convertedLeads: number;
+      leadCustomersWithLostSales: number;
+      conversionRate: number | null;
+      lostRevenue: number;
+      limitation?: string;
+    };
+  };
 };
 
 type DecisionsData = {
@@ -423,6 +454,10 @@ export function BusinessAnalystWorkspace({
         ...analysisJson,
         relationshipIntelligence:
           analysisJson.relationshipIntelligence,
+        relationshipQuestions:
+          relationshipResponse.ok
+            ? relationshipJson.questions
+            : undefined,
       });
       setDecisions(
         decisionsResponse.ok
@@ -751,6 +786,50 @@ export function BusinessAnalystWorkspace({
                 )}
               </Panel>
             </div>
+
+            {data.relationshipQuestions ? (
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <Panel title="Customer–service relationships">
+                  {data.relationshipQuestions.customerServiceRelationships?.multiServiceCustomers?.length ? (
+                    <div className="space-y-2">
+                      {data.relationshipQuestions.customerServiceRelationships.multiServiceCustomers.map((item, index) => (
+                        <div key={item.customer?.id ?? index} className="rounded-xl border border-border/60 bg-background p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="font-medium text-foreground">{item.customer?.name ?? "Unknown customer"}</span>
+                            <strong className="text-foreground">{item.recordedRevenue.toLocaleString()}</strong>
+                          </div>
+                          <p className="mt-1 text-xs">{item.services.map((service) => service.name).join(" · ")}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>No multi-service customer relationships are currently recorded.</p>
+                  )}
+                  <p className="mt-3 text-xs">{data.relationshipQuestions.customerServiceRelationships?.limitation}</p>
+                </Panel>
+
+                <Panel title="Recorded service performance">
+                  {data.relationshipQuestions.servicePerformance?.services?.length ? (
+                    <div className="space-y-2">
+                      {data.relationshipQuestions.servicePerformance.services.map((item, index) => (
+                        <div key={item.service?.id ?? index} className="rounded-xl border border-border/60 bg-background p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="font-medium text-foreground">{item.service?.name ?? "Unknown service"}</span>
+                            <strong className="text-foreground">{item.recordedRevenue.toLocaleString()}</strong>
+                          </div>
+                          <p className="mt-1 text-xs">
+                            {item.wonSales} won sales · {item.unitsSold} units{item.department ? ` · ${item.department.name}` : ""}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>No won-sale service performance evidence is currently recorded.</p>
+                  )}
+                  <p className="mt-3 text-xs">{data.relationshipQuestions.servicePerformance?.limitation}</p>
+                </Panel>
+              </div>
+            ) : null}
 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               <Panel title="Verified KPI overview">
