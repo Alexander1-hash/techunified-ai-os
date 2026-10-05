@@ -116,7 +116,8 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
 
   const progressDecision = progress?.decisionIntelligence
   const evidenceConfidence = progressDecision?.evidenceConfidence ?? progress?.prioritySignals?.evidenceConfidence ?? 'low'
-  const recommendedMove = progress?.nextRecommendedMove ?? progressDecision?.recommendation
+  const nextMove = progress?.nextMove
+  const recommendedMove = nextMove?.reason ?? progress?.nextRecommendedMove ?? progressDecision?.recommendation
 
   return (
     <div className="space-y-6">
@@ -430,6 +431,13 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
                   <div className="mt-3 rounded-lg border p-3">
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Next recommended move</p>
                     <p className="mt-1 text-sm font-semibold">{String(recommendedMove)}</p>
+                    {nextMove?.action && <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                      <span className="rounded-full border px-2 py-1">Action: {String(nextMove.action).replace(/_/g, ' ')}</span>
+                      <span className="rounded-full border px-2 py-1">Blockers: {String(nextMove.blockerCount ?? 0)}</span>
+                      <span className="rounded-full border px-2 py-1">Learning: {String(nextMove.learningSignal ?? 'no_learning_signal').replace(/_/g, ' ')}</span>
+                      <span className="rounded-full border px-2 py-1">Approval: {String(nextMove.approval ?? 'not_required_yet').replace(/_/g, ' ')}</span>
+                      <span className="rounded-full border px-2 py-1">Execution: {String(nextMove.execution ?? 'not_started').replace(/_/g, ' ')}</span>
+                    </div>}
                     {evidenceConfidence !== 'high' && (
                       <p className="mt-1 text-xs text-muted-foreground">Evidence should be strengthened before another governed execution path is started.</p>
                     )}
