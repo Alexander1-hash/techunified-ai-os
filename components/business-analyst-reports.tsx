@@ -58,6 +58,15 @@ type AnalystData = {
     status?: string | null;
     last_synced_at?: string | null;
   }>;
+  relationshipIntelligence?: {
+    coverage: {
+      explicit: number;
+      verified: number;
+      estimated: number;
+      inferred: number;
+    };
+    methodology?: string;
+  };
 };
 
 function Panel({
@@ -302,6 +311,41 @@ export function BusinessAnalystReports() {
           </div>
         ) : (
           <>
+            <div className="mb-4">
+              <Panel title="Business Relationship Intelligence">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <p className="text-xs">Explicit relationships</p>
+                    <strong className="text-xl text-foreground">
+                      {data.relationshipIntelligence?.coverage.explicit ?? 0}
+                    </strong>
+                  </div>
+                  <div>
+                    <p className="text-xs">Verified</p>
+                    <strong className="text-xl text-foreground">
+                      {data.relationshipIntelligence?.coverage.verified ?? 0}
+                    </strong>
+                  </div>
+                  <div>
+                    <p className="text-xs">Estimated</p>
+                    <strong className="text-xl text-foreground">
+                      {data.relationshipIntelligence?.coverage.estimated ?? 0}
+                    </strong>
+                  </div>
+                  <div>
+                    <p className="text-xs">Inferred</p>
+                    <strong className="text-xl text-foreground">
+                      {data.relationshipIntelligence?.coverage.inferred ?? 0}
+                    </strong>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs">
+                  {data.relationshipIntelligence?.methodology ??
+                    "Relationship intelligence is shown only from organization-scoped evidence. Unsupported profitability, cost, ROI, and funnel claims remain unavailable until verified evidence exists."}
+                </p>
+              </Panel>
+            </div>
+
             <div className="mb-4">
               <Panel title="Business Outcomes Evidence">
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
