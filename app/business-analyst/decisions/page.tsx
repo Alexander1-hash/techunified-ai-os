@@ -31,26 +31,36 @@ type DecisionResponse = {
     servicesWithSales?: number
     servicesWithoutSales?: number
     multiServiceCustomers?: number
+    relationshipCoverage?: {
+      explicit?: number
+      verified?: number
+      coveragePercent?: number
+    }
+    departmentRevenue?: Record<string, number>
+    workflowExecutionStats?: Array<{
+      workflow: string
+      executions: number
+      completed: number
+      failed: number
+    }>
+    explicitOutcomeLinks?: number
+  }
+  phase5RelationshipIntelligence?: {
+    departments?: number
+    workflows?: number
+    automationExecutions?: number
+    outcomes?: number
+    verifiedOutcomeLinks?: number
+    relationshipCoverage?: {
+      explicit?: number
+      verified?: number
+      coveragePercent?: number
+    }
+    methodology?: string
   }
   decisions?: Decision[]
   methodology?: string[]
-  relationshipIntelligence?: {
-    coverage?: {
-      explicit?: number
-      verified?: number
-      estimated?: number
-      inferred?: number
-    }
-    relationshipTypeCounts?: Record<string, number>
-    departmentRevenue?: Array<{ departmentId: string; revenue: number }>
-    workflowExecutionStats?: {
-      total?: number
-      completed?: number
-      failed?: number
-    }
-    verifiedAutomationOutcomeLinks?: number
-    methodology?: string
-  }
+
 }
 
 function DecisionIcon({
@@ -279,11 +289,13 @@ export default function DecisionsPage() {
   const methodology =
     data?.methodology ?? []
 
-  const relationshipIntelligence =
-    data?.relationshipIntelligence
+  const phase5 =
+    data?.phase5RelationshipIntelligence
 
   const relationshipCoverage =
-    relationshipIntelligence?.coverage ?? {}
+    phase5?.relationshipCoverage ??
+    relationships.relationshipCoverage ??
+    {}
 
   return (
     <main className="min-h-screen bg-background px-5 py-8">
@@ -361,14 +373,14 @@ export default function DecisionsPage() {
               </div>
               <div className="rounded-xl border border-border/60 p-3">
                 <p className="text-xs">Workflow executions</p>
-                <strong className="text-2xl text-foreground">{relationshipIntelligence?.workflowExecutionStats?.total ?? 0}</strong>
+                <strong className="text-2xl text-foreground">{phase5?.automationExecutions ?? 0}</strong>
               </div>
               <div className="rounded-xl border border-border/60 p-3">
                 <p className="text-xs">Verified automation outcomes</p>
-                <strong className="text-2xl text-foreground">{relationshipIntelligence?.verifiedAutomationOutcomeLinks ?? 0}</strong>
+                <strong className="text-2xl text-foreground">{phase5?.verifiedOutcomeLinks ?? 0}</strong>
               </div>
             </div>
-            <p className="mt-3">{relationshipIntelligence?.methodology ?? "Relationship intelligence is evidence-backed and organization-scoped. Unsupported profitability, cost, ROI, and funnel claims remain unavailable until verified evidence exists."}</p>
+            <p className="mt-3">{phase5?.methodology ?? "Relationship intelligence is evidence-backed and organization-scoped. Unsupported profitability, cost, ROI, and funnel claims remain unavailable until verified evidence exists."}</p>
           </Panel>
         </div>
 
