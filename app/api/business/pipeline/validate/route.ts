@@ -101,9 +101,6 @@ export async function GET() {
   const executions = executionsResult.data ?? []
   const validRelationshipTypes = new Set(['customer', 'sale', 'service', 'department', 'workflow', 'automation_execution', 'outcome'])
 
-  // Deterministic Phase 5 entity validation. An explicit relationship is valid
-  // only when both endpoint types are supported and both endpoint IDs exist
-  // inside this organization.
   const customerRows = (await supabase.from('customers').select('id').eq('organization_id', organizationId)).data ?? []
   const saleRows = (await supabase.from('sales').select('id,customer_id,service_id').eq('organization_id', organizationId)).data ?? []
   const serviceRowsForTraversal = (await supabase.from('services').select('id,department_id').eq('organization_id', organizationId)).data ?? []
@@ -140,8 +137,6 @@ export async function GET() {
     ? Math.round((verifiedRelationships.length / validRelationships.length) * 1000) / 10
     : 0
 
-  // Deterministic Phase 5 traversal evidence. These edges come from the existing
-  // foreign-key-backed business tables; no missing relationship is inferred.
   const customerIdsForTraversal = new Set(customerIds)
   const departmentIds = new Set<string>()
   const workflowIds = new Set<string>()
@@ -173,9 +168,6 @@ export async function GET() {
     services: operationalDecisionEvidence[2].data?.length ?? 0,
   }
 
-  // Reports are a first-class Phase 4 output. When KPI evidence exists,
-  // materialize the current analyst evidence as a persisted report so the
-  // Reports stage is connected to the same pipeline run.
   let reportsForValidation = reports
 
   if (kpis.length && reports.length === 0) {
@@ -216,6 +208,24 @@ export async function GET() {
       reportsForValidation = [generatedReport]
     }
   }
+
+  const relationshipStageStatus: Stage['status'] =
+    relationshipsResult.error
+      ? 'blocked'
+      : invalidRelationshipCount > 0
+        ? 'partial'
+        : validRelationships.length || operationalCounts.sales + operationalCounts.customers + operationalCounts.services > 0
+          ? 'passed'
+          : 'partial'
+
+  const relationshipStageMessage =
+    relationshipsResult.error
+      ? 'The Phase 5 relationship graph could not be queried.'
+      : invalidRelationshipCount > 0
+        ? 'Some explicit relationship records reference unsupported or missing endpoints and must be repaired before the graph can be considered fully valid.'
+        : validRelationships.length
+          ? 'Phase 5 relationship evidence is available for downstream intelligence.'
+          : 'No explicit relationship evidence exists yet; deterministic links remain available from the underlying business tables.'
 
   const stages: Stage[] = [
     stage(
@@ -276,11 +286,7 @@ export async function GET() {
     ),
     stage(
       'Phase 5 Relationship Graph',
-      relationshipsResult.error
-        ? 'blocked'
-        : validRelationships.length || operationalCounts.sales + operationalCounts.customers + operationalCounts.services > 0
-          ? 'passed'
-          : 'partial',
+      relationshipStageStatus,
       {
         relationships: relationships.length,
         validRelationships: validRelationships.length,
@@ -292,11 +298,7 @@ export async function GET() {
         automationExecutions: executions.length,
         completeCommercialPaths,
       },
-      relationshipsResult.error
-        ? 'The Phase 5 relationship graph could not be queried.'
-        : validRelationships.length
-          ? 'Phase 5 relationship evidence is available for downstream intelligence.'
-          : 'No explicit relationship evidence exists yet; deterministic links remain available from the underlying business tables.',
+      relationshipStageMessage,
     ),
     stage(
       'Outcome Measurement',
@@ -319,7 +321,7 @@ export async function GET() {
     records: records.length,
     mappings: mappings.length,
     kpis: kpis.length,
-    reports: reports.length,
+    reports: reportsForValidation.length,
     outcomes: outcomes.length,
     forecastEvaluations: forecasts.length,
     relationships: relationships.length,
