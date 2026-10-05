@@ -116,7 +116,7 @@ export const navGroups: NavigationGroup[] = [
   {
     label: 'Knowledge',
     items: [
-      { label: 'Knowledge Sources', href: '/brain/data-sources', icon: Database },
+      { label: 'Data Sources', href: '/brain/data-sources', icon: Database },
     ],
   },
   {
