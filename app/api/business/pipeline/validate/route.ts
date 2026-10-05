@@ -106,6 +106,28 @@ export async function GET() {
     ? Math.round((verifiedRelationships.length / validRelationships.length) * 1000) / 10
     : 0
 
+  // Deterministic Phase 5 traversal evidence. These edges come from the existing
+  // foreign-key-backed business tables; no missing relationship is inferred.
+  const customerIds = new Set<string>()
+  const serviceRowsForTraversal = (await supabase.from('services').select('id,department_id').eq('organization_id', organizationId)).data ?? []
+  const departmentIds = new Set<string>()
+  const workflowIds = new Set<string>()
+  const traversalSources = await Promise.all([
+    supabase.from('customers').select('id').eq('organization_id', organizationId),
+    supabase.from('departments').select('id').eq('organization_id', organizationId),
+    supabase.from('workflows').select('id').eq('organization_id', organizationId),
+    supabase.from('sales').select('id,customer_id,service_id').eq('organization_id', organizationId),
+  ])
+  traversalSources[0].data?.forEach((row) => customerIds.add(row.id))
+  traversalSources[1].data?.forEach((row) => departmentIds.add(row.id))
+  traversalSources[2].data?.forEach((row) => workflowIds.add(row.id))
+  const traversableSales = traversalSources[3].data ?? []
+  const completeCommercialPaths = traversableSales.filter((sale) => {
+    if (!sale.customer_id || !customerIds.has(sale.customer_id) || !sale.service_id) return false
+    const service = serviceRowsForTraversal.find((row) => row.id === sale.service_id)
+    return Boolean(service?.department_id && departmentIds.has(service.department_id))
+  }).length
+
   const operationalDecisionEvidence = await Promise.all([
     supabase.from('sales').select('id').eq('organization_id', organizationId),
     supabase.from('customers').select('id').eq('organization_id', organizationId),
@@ -234,6 +256,7 @@ export async function GET() {
         departments: departments.length,
         workflows: workflows.length,
         automationExecutions: executions.length,
+        completeCommercialPaths,
       },
       relationshipsResult.error
         ? 'The Phase 5 relationship graph could not be queried.'
@@ -292,6 +315,7 @@ export async function GET() {
           departments: departments.length,
           workflows: workflows.length,
           automationExecutions: executions.length,
+          completeCommercialPaths,
         },
       },
       completed_at: new Date().toISOString(),
