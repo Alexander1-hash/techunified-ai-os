@@ -253,7 +253,7 @@ export async function GET() {
 
     const learningReview = scored.find((objective: any) => objective.learningSignal === 'negative_execution_learning' && objective.failedRuns === 0)
     const evidenceReview = scored.find((objective: any) => objective.evidenceConfidence !== 'high' && (objective.completedRuns > 0 || objective.evaluatedRuns > 0))
-    const nextMove = workloadIntelligence.find((item: any) => item.pendingApproval)
+    const nextMove: { action: string; objectiveId: string | null | undefined; reason: string } = workloadIntelligence.find((item: any) => item.pendingApproval)
       ? { action: 'resolve_approval', objectiveId: workloadIntelligence.find((item: any) => item.pendingApproval)?.objectiveId, reason: 'A governed approval is already pending and should be resolved before competing work is created.' }
       : workloadIntelligence.find((item: any) => item.failedWork)
         ? { action: 'investigate_failure', objectiveId: workloadIntelligence.find((item: any) => item.failedWork)?.objectiveId, reason: 'Failed governed work requires investigation before new execution is recommended.' }
