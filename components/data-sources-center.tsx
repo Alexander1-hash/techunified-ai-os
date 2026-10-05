@@ -340,9 +340,9 @@ export function DataSourcesCenter() {
 
     const mappings = Object.entries(mapping)
       .filter(([, metric]) => metric)
-      .map(([column, metric]) => ({
-        column,
-        metric,
+      .map(([fieldName, metricName]) => ({
+        fieldName,
+        metricName,
       }))
 
     if (!mappings.length) {
