@@ -50,12 +50,10 @@ function toNumber(
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-function quantityFor(sale: SaleRow) {
-  return Math.max(1, toNumber(sale.quantity))
-}
-
 function saleValue(sale: SaleRow) {
-  return toNumber(sale.amount) * quantityFor(sale)
+  // The schema does not define amount as a unit price. Treat it as the
+  // recorded monetary amount and keep quantity as a separate operational metric.
+  return toNumber(sale.amount)
 }
 
 function revenueFor(sales: SaleRow[]) {
@@ -286,9 +284,7 @@ export async function GET() {
           wonServiceSales.reduce(
             (total, sale) =>
               total +
-              quantityFor(
-                sale,
-              ),
+              Math.max(1, toNumber(sale.quantity)),
             0,
           )
 
