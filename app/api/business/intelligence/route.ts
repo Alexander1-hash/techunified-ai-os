@@ -56,6 +56,27 @@ export async function GET() {
 
     const signalConfidence = signals.some((signal) => signal.severity === 'high') ? 'high' : signals.length > 0 ? 'medium' : 'low'
 
+    const forecasts = (objectives ?? []).map((objective: any) => {
+      const target = objective.target_value
+      const current = objective.current_value
+      if (typeof target !== 'number' || typeof current !== 'number' || target === 0) return null
+      const progress = Math.max(0, Math.min(100, (current / target) * 100))
+      const remaining = target - current
+      const relatedRuns = (runs ?? []).filter((run: any) => run.objective_id === objective.id)
+      const recentCompletion = relatedRuns.some((run: any) => run.status === 'completed')
+      const direction = remaining > 0 ? 'below_target' : 'at_or_above_target'
+      return {
+        objectiveId: String(objective.id),
+        progressPercent: Math.round(progress * 10) / 10,
+        remaining,
+        direction,
+        trajectory: recentCompletion ? 'evidence_of_progress' : 'insufficient_evidence',
+        confidence: recentCompletion ? 'medium' : 'low',
+      }
+    }).filter(Boolean)
+
+    const forecastConfidence = forecasts.some((item: any) => item.confidence === 'medium') ? 'medium' : 'low'
+
     const { data: snapshot, error } = await supabase.from('company_intelligence_snapshots').insert({
       organization_id: organizationId,
       snapshot_type: 'company_state',
@@ -65,7 +86,7 @@ export async function GET() {
     }).select('id,snapshot_type,state,confidence,evidence,computed_at').single()
 
     if (error) throw error
-    return NextResponse.json({ ok: true, snapshot, signals, signalConfidence })
+    return NextResponse.json({ ok: true, snapshot, signals, signalConfidence, forecasts, forecastConfidence })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to compute company intelligence.' }, { status: 500 })
   }
