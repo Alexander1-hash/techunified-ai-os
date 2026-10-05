@@ -56,27 +56,33 @@ export async function GET(request: Request) {
     let decisionRecommendation = 'Start a governed orchestration assessment for this objective.'
     let decisionReason = 'No active objective work or verified outcome evidence is currently available.'
     let decisionEvidence = 'objective_record'
+    let nextMoveAction = 'start_governed_assessment'
 
     if (awaitingApprovalRuns > 0) {
       decisionRecommendation = 'Review the pending human approval before initiating any controlled workflow execution.'
       decisionReason = 'The objective has governed work waiting at the human approval boundary.'
       decisionEvidence = 'pending_approval'
+      nextMoveAction = 'resolve_approval'
     } else if (failedRuns > 0 && completedRuns === 0) {
       decisionRecommendation = 'Investigate the latest failed orchestration before starting another execution.'
       decisionReason = 'Objective orchestration has failed without a completed run.'
       decisionEvidence = 'failed_orchestration'
+      nextMoveAction = 'investigate_failure'
     } else if (latestVerifiedOutcome) {
       decisionRecommendation = 'Compare the verified outcome with the objective target and choose the next measurable intervention.'
       decisionReason = 'Verified outcome evidence exists and can now inform the next objective decision.'
       decisionEvidence = 'verified_outcome'
-    } else if (completedRuns > 0) {
-      decisionRecommendation = 'Record a measured or attributed business outcome for the completed action before treating the objective as proven.'
-      decisionReason = 'Work completed, but verified business-outcome evidence is still missing.'
-      decisionEvidence = 'completed_without_outcome'
+      nextMoveAction = 'review_verified_outcome'
+    } else if (activeRuns > 0) {
+      decisionRecommendation = 'Continue the active governed orchestration and resolve any pending approval before duplicating work.'
+      decisionReason = 'Governed work is already active for this objective.'
+      decisionEvidence = 'active_orchestration'
+      nextMoveAction = 'continue_active_work'
     } else if (evidenceConfidence === 'medium') {
       decisionRecommendation = 'Strengthen objective evidence before starting another governed execution path.'
       decisionReason = 'The objective has assessment or completed-work evidence, but no verified business outcome is attached yet.'
       decisionEvidence = 'medium_confidence_evidence'
+      nextMoveAction = 'strengthen_evidence'
     }
 
     const target = objective.target_value ?? objective.target ?? null
@@ -132,19 +138,12 @@ export async function GET(request: Request) {
           verifiedOutcomes: verifiedOutcomes.length,
           evidenceGap: completedRuns > 0 && verifiedOutcomes.length === 0,
           evidenceConfidence,
+          nextMoveAction,
         },
       },
       outcomes: linkedOutcomes.slice(0, 20),
-      nextRecommendedMove:
-        activeRuns > 0
-          ? 'Continue the governed orchestration run and resolve any pending approval.'
-          : verifiedOutcomes.length > 0
-            ? 'Review verified outcomes against the objective target and determine the next measurable move.'
-            : completedRuns > 0
-              ? 'Link measured or attributed business outcomes to completed action runs to establish objective evidence.'
-              : evidenceConfidence === 'medium'
-                ? 'Strengthen the objective evidence before starting another governed execution path.'
-                : 'Start a governed orchestration assessment for this objective.',
+      nextRecommendedMove: decisionRecommendation,
+      nextMoveAction,
     })
   } catch (error) {
     console.error('[Business Orchestration] progress failed:', error)
