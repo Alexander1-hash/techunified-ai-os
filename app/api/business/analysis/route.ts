@@ -292,11 +292,30 @@ export async function POST(request: Request) {
     (record: any) => record.payload,
   )
 
-  const valid = body.mappings.filter(
-    (m: any) =>
-      typeof m.fieldName === 'string' &&
-      METRICS.includes(m.metricName),
-  )
+  const valid = body.mappings
+    .map((m: any) => ({
+      fieldName:
+        typeof m.fieldName === 'string'
+          ? m.fieldName
+          : typeof m.column === 'string'
+            ? m.column
+            : '',
+      metricName:
+        typeof m.metricName === 'string'
+          ? m.metricName
+          : typeof m.metric === 'string'
+            ? m.metric
+            : '',
+      unit:
+        typeof m.unit === 'string'
+          ? m.unit
+          : undefined,
+    }))
+    .filter(
+      (m: any) =>
+        m.fieldName.length > 0 &&
+        METRICS.includes(m.metricName),
+    )
 
   if (!valid.length) {
     return NextResponse.json(
@@ -307,6 +326,8 @@ export async function POST(request: Request) {
       { status: 422 },
     )
   }
+
+  let persistedKpis = 0
 
   for (const mapping of valid) {
     const values = sample
@@ -324,10 +345,23 @@ export async function POST(request: Request) {
       0,
     )
 
+    const { data: existingKpi } =
+      await supabase
+        .from('business_kpis')
+        .select('id,value,previous_value')
+        .eq('organization_id', organizationId)
+        .eq('name', mapping.metricName)
+        .maybeSingle()
+
     const kpiPayload = {
       organization_id: organizationId,
       name: mapping.metricName,
       value,
+      previous_value:
+        existingKpi?.value !== null &&
+        existingKpi?.value !== undefined
+          ? existingKpi.value
+          : existingKpi?.previous_value ?? null,
       unit:
         mapping.unit ||
         units[mapping.metricName] ||
@@ -338,14 +372,6 @@ export async function POST(request: Request) {
       recorded_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
-
-    const { data: existingKpi } =
-      await supabase
-        .from('business_kpis')
-        .select('id')
-        .eq('organization_id', organizationId)
-        .eq('name', mapping.metricName)
-        .maybeSingle()
 
     const { error } = existingKpi?.id
       ? await supabase
@@ -362,6 +388,8 @@ export async function POST(request: Request) {
         { status: 500 },
       )
     }
+
+    persistedKpis += 1
 
     const { error: mappingError } =
       await supabase
@@ -393,5 +421,18 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true })
+  if (persistedKpis === 0) {
+    return NextResponse.json(
+      {
+        error:
+          'The selected KPI columns contain no numeric values that can be analyzed.',
+      },
+      { status: 422 },
+    )
+  }
+
+  return NextResponse.json({
+    ok: true,
+    persistedKpis,
+  })
 }
