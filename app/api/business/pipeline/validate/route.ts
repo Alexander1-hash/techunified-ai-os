@@ -100,7 +100,41 @@ export async function GET() {
   const workflows = workflowsResult.data ?? []
   const executions = executionsResult.data ?? []
   const validRelationshipTypes = new Set(['customer', 'sale', 'service', 'department', 'workflow', 'automation_execution', 'outcome'])
-  const validRelationships = relationships.filter((r) => validRelationshipTypes.has(r.source_type) && validRelationshipTypes.has(r.target_type))
+
+  // Deterministic Phase 5 entity validation. An explicit relationship is valid
+  // only when both endpoint types are supported and both endpoint IDs exist
+  // inside this organization.
+  const customerRows = (await supabase.from('customers').select('id').eq('organization_id', organizationId)).data ?? []
+  const saleRows = (await supabase.from('sales').select('id,customer_id,service_id').eq('organization_id', organizationId)).data ?? []
+  const serviceRowsForTraversal = (await supabase.from('services').select('id,department_id').eq('organization_id', organizationId)).data ?? []
+  const customerIds = new Set(customerRows.map((row) => row.id))
+  const saleIds = new Set(saleRows.map((row) => row.id))
+  const serviceIds = new Set(serviceRowsForTraversal.map((row) => row.id))
+  const departmentIdsForRelationships = new Set(departments.map((row) => row.id))
+  const workflowIdsForRelationships = new Set(workflows.map((row) => row.id))
+  const executionIds = new Set(executions.map((row) => row.id))
+  const outcomeIds = new Set(outcomes.map((row) => row.id))
+  const entityIds: Record<string, Set<string>> = {
+    customer: customerIds,
+    sale: saleIds,
+    service: serviceIds,
+    department: departmentIdsForRelationships,
+    workflow: workflowIdsForRelationships,
+    automation_execution: executionIds,
+    outcome: outcomeIds,
+  }
+  const invalidRelationshipCount = relationships.filter((r) =>
+    !validRelationshipTypes.has(r.source_type) ||
+    !validRelationshipTypes.has(r.target_type) ||
+    !entityIds[r.source_type]?.has(r.source_id) ||
+    !entityIds[r.target_type]?.has(r.target_id)
+  ).length
+  const validRelationships = relationships.filter((r) =>
+    validRelationshipTypes.has(r.source_type) &&
+    validRelationshipTypes.has(r.target_type) &&
+    entityIds[r.source_type]?.has(r.source_id) &&
+    entityIds[r.target_type]?.has(r.target_id)
+  )
   const verifiedRelationships = validRelationships.filter((r) => r.evidence_status === 'verified')
   const relationshipCoverage = validRelationships.length
     ? Math.round((verifiedRelationships.length / validRelationships.length) * 1000) / 10
@@ -108,7 +142,8 @@ export async function GET() {
 
   // Deterministic Phase 5 traversal evidence. These edges come from the existing
   // foreign-key-backed business tables; no missing relationship is inferred.
-  const customerIds = new Set<string>()
+  const customerIdsForTraversal = new Set(customerIds)
+  const serviceRowsForTraversal = serviceRowsForTraversal
   const serviceRowsForTraversal = (await supabase.from('services').select('id,department_id').eq('organization_id', organizationId)).data ?? []
   const departmentIds = new Set<string>()
   const workflowIds = new Set<string>()
@@ -118,12 +153,12 @@ export async function GET() {
     supabase.from('workflows').select('id').eq('organization_id', organizationId),
     supabase.from('sales').select('id,customer_id,service_id').eq('organization_id', organizationId),
   ])
-  traversalSources[0].data?.forEach((row) => customerIds.add(row.id))
+  traversalSources[0].data?.forEach((row) => customerIdsForTraversal.add(row.id))
   traversalSources[1].data?.forEach((row) => departmentIds.add(row.id))
   traversalSources[2].data?.forEach((row) => workflowIds.add(row.id))
   const traversableSales = traversalSources[3].data ?? []
   const completeCommercialPaths = traversableSales.filter((sale) => {
-    if (!sale.customer_id || !customerIds.has(sale.customer_id) || !sale.service_id) return false
+    if (!sale.customer_id || !customerIdsForTraversal.has(sale.customer_id) || !sale.service_id) return false
     const service = serviceRowsForTraversal.find((row) => row.id === sale.service_id)
     return Boolean(service?.department_id && departmentIds.has(service.department_id))
   }).length
@@ -252,6 +287,7 @@ export async function GET() {
         relationships: relationships.length,
         validRelationships: validRelationships.length,
         verifiedRelationships: verifiedRelationships.length,
+        invalidRelationships: invalidRelationshipCount,
         coveragePercent: relationshipCoverage,
         departments: departments.length,
         workflows: workflows.length,
@@ -311,6 +347,7 @@ export async function GET() {
           relationships: relationships.length,
           validRelationships: validRelationships.length,
           verifiedRelationships: verifiedRelationships.length,
+          invalidRelationships: invalidRelationshipCount,
           relationshipCoveragePercent: relationshipCoverage,
           departments: departments.length,
           workflows: workflows.length,
