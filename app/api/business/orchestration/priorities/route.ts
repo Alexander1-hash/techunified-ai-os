@@ -307,9 +307,9 @@ export async function GET() {
       execution: nextMoveObjective?.capacity?.executionPathAvailable ? 'not_started_ready' : 'not_started_capacity_gap',
     }
 
-    return NextResponse.json({ ok: true, objectives: scored, dependencyEdges, dependencyFirstSequence, criticalPath, capacityAwareSequence, workloadIntelligence, workloadSummary, nextMove: enrichedNextMove, highestPriority: scored[0] ?? null })
+    return NextResponse.json({ ok: true, adaptiveSummary, objectives: scored, dependencyEdges, dependencyFirstSequence, criticalPath, capacityAwareSequence, workloadIntelligence, workloadSummary, nextMove: enrichedNextMove, highestPriority: scored[0] ?? null })
   } catch (error) {
     console.error('[Business Orchestration] priorities failed:', error)
-    return NextResponse.json({ adaptiveSummary,  error: 'Unable to prioritize objectives.' }, { status: 500 })
+    return NextResponse.json({ error: 'Unable to prioritize objectives.' }, { status: 500 })
   }
 }
