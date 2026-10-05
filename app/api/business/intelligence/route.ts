@@ -96,10 +96,10 @@ export async function GET() {
 
     const { data: previousSnapshot } = await supabase
       .from('company_intelligence_snapshots')
-      .select('id,state,confidence,evidence,computed_at')
+      .select('id,state,intelligence,captured_at')
       .eq('organization_id', organizationId)
       .eq('snapshot_type', 'company_state')
-      .order('computed_at', { ascending: false })
+      .order('captured_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
@@ -110,20 +110,34 @@ export async function GET() {
       evidenceBound: true,
     }
 
+    const snapshotState = {
+      ...state,
+      signalCount: signals.length,
+      signals,
+      forecasts,
+      objectiveIntelligence,
+      governance,
+    }
+
+    const intelligence = {
+      confidence,
+      evidence: [...evidence, { source: 'derived_signals', count: signals.length }],
+      signalConfidence,
+      governance,
+    }
+
     const { data: snapshot, error } = await supabase.from('company_intelligence_snapshots').insert({
       organization_id: organizationId,
       snapshot_type: 'company_state',
-      state: {
-        ...state,
-        signalCount: signals.length,
-        signals,
-        forecasts,
-        objectiveIntelligence,
-        governance,
+      state: snapshotState,
+      metrics: {
+        objectiveCount: objectiveIds.size,
+        activeOrchestrationRuns: activeRuns.length,
+        verifiedOutcomes: verifiedOutcomes.length,
+        pendingApprovals: pendingApprovals.length,
       },
-      confidence,
-      evidence: [...evidence, { source: 'derived_signals', count: signals.length }],
-    }).select('id,snapshot_type,state,confidence,evidence,computed_at').single()
+      intelligence,
+    }).select('id,snapshot_type,state,metrics,intelligence,captured_at').single()
 
     if (error) throw error
     const previousState = previousSnapshot?.state && typeof previousSnapshot.state === 'object' ? previousSnapshot.state as Record<string, any> : null
@@ -233,7 +247,14 @@ export async function GET() {
 
     return NextResponse.json({
       ok: true,
-      snapshot,
+      snapshot: snapshot
+        ? {
+            ...snapshot,
+            confidence: snapshot.intelligence?.confidence ?? confidence,
+            evidence: snapshot.intelligence?.evidence ?? [],
+            computed_at: snapshot.captured_at,
+          }
+        : snapshot,
       previousSnapshotId: previousSnapshot?.id ?? null,
       signals,
       signalConfidence,
