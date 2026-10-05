@@ -100,6 +100,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const closeMobile = () => setMobile(false)
 
+  useEffect(() => {
+    // Navigation must never inherit an open mobile layer from the previous route.
+    setMobile(false)
+  }, [path])
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) setMobile(false)
+    }
+
+    handleResize()
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+
   const navigation = (
     <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 py-2">
       <div className="space-y-5">
@@ -290,7 +305,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <button
             aria-label="Close navigation"
             onClick={closeMobile}
-            className="fixed inset-0 z-[90] bg-black lg:hidden"
+            className="fixed inset-0 z-[90] bg-black/40 lg:hidden"
           />
 
           <aside
