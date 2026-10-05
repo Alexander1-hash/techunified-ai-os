@@ -135,8 +135,19 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
           {priorities?.nextMove ? (
             <button onClick={() => priorities.nextMove.objectiveId && setSelectedObjectiveId(String(priorities.nextMove.objectiveId))} className="w-full rounded-lg border p-4 text-left hover:bg-muted/40">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{String(priorities.nextMove.action).replace(/_/g, ' ')}</p><p className="mt-1 text-sm font-semibold">{String(priorities.nextMove.reason)}</p></div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{String(priorities.nextMove.action).replace(/_/g, ' ')}</p>
+                  <p className="mt-1 text-sm font-semibold">{String(priorities.nextMove.reason)}</p>
+                  {priorities.nextMove.objectiveTitle && <p className="mt-1 text-xs text-muted-foreground">Objective: {String(priorities.nextMove.objectiveTitle)}</p>}
+                </div>
                 {priorities.nextMove.objectiveId && <span className="rounded-full border px-3 py-1 text-xs font-medium">Open objective</span>}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                <span className="rounded-full border px-2 py-1">Evidence: {String(priorities.nextMove.evidence ?? 'low')}</span>
+                <span className="rounded-full border px-2 py-1">Blockers: {String(priorities.nextMove.blockerCount ?? 0)}</span>
+                <span className="rounded-full border px-2 py-1">Learning: {String(priorities.nextMove.learningSignal ?? 'no_learning_signal').replace(/_/g, ' ')}</span>
+                <span className="rounded-full border px-2 py-1">Approval: {String(priorities.nextMove.approval ?? 'not_required_yet').replace(/_/g, ' ')}</span>
+                <span className="rounded-full border px-2 py-1">Execution: {String(priorities.nextMove.execution ?? 'not_started').replace(/_/g, ' ')}</span>
               </div>
             </button>
           ) : <p className="text-sm text-muted-foreground">No governed next move is available yet.</p>}
