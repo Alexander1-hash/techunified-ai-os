@@ -44,6 +44,14 @@ type DecisionResponse = {
       failed: number
     }>
     explicitOutcomeLinks?: number
+    leadLoss?: {
+      leadCustomers?: number
+      convertedLeads?: number
+      leadCustomersWithLostSales?: number
+      conversionRate?: number | null
+      lostSales?: number
+      lostRevenue?: number
+    }
   }
   phase5RelationshipIntelligence?: {
     departments?: number
@@ -395,6 +403,18 @@ export default function DecisionsPage() {
               </div>
             </div>
             <p className="mt-3">{phase5?.methodology ?? "Relationship intelligence is evidence-backed and organization-scoped. Unsupported profitability, cost, ROI, and funnel claims remain unavailable until verified evidence exists."}</p>
+          </Panel>
+        </div>
+
+        <div className="mt-4">
+          <Panel title="Recorded lead conversion and loss">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-xl border border-border/60 p-3"><p className="text-xs">Lead customers</p><strong className="text-2xl text-foreground">{relationships.leadLoss?.leadCustomers ?? 0}</strong></div>
+              <div className="rounded-xl border border-border/60 p-3"><p className="text-xs">Converted leads</p><strong className="text-2xl text-foreground">{relationships.leadLoss?.convertedLeads ?? 0}</strong></div>
+              <div className="rounded-xl border border-border/60 p-3"><p className="text-xs">Recorded conversion</p><strong className="text-2xl text-foreground">{relationships.leadLoss?.conversionRate != null ? relationships.leadLoss.conversionRate.toFixed(1) + '%' : '—'}</strong></div>
+              <div className="rounded-xl border border-border/60 p-3"><p className="text-xs">Recorded lost revenue</p><strong className="text-2xl text-foreground">{relationships.leadLoss?.lostRevenue?.toLocaleString() ?? 0}</strong></div>
+            </div>
+            <p className="mt-3">This is recorded customer/sales evidence, not a complete stage-by-stage funnel.</p>
           </Panel>
         </div>
 
