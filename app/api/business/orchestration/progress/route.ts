@@ -78,7 +78,6 @@ export async function GET(request: Request) {
     }
     const dependencyDetails: Array<{ id: string; title: string; status: string; exists: boolean; completed: boolean; failed: boolean; runCount: number }> = dependencyIds.map((dependencyId: string) => {
       const dependencyObjective = objectiveIndex.get(dependencyId)
-      const dependencyRuns = (runs ?? []).filter((run) => false)
       return {
         id: dependencyId,
         title: dependencyObjective ? String(dependencyObjective.title ?? dependencyObjective.name ?? dependencyObjective.description ?? 'Objective') : 'Unknown objective',
@@ -227,6 +226,16 @@ export async function GET(request: Request) {
       },
       dependencies: dependencyDetails,
       outcomes: linkedOutcomes.slice(0, 20),
+      nextMove: {
+        action: nextMoveAction,
+        objectiveId: objective.id,
+        reason: decisionReason,
+        evidence: decisionEvidence,
+        blockerCount: blockedDependencies.length,
+        learningSignal,
+        approval: latestDecisionIntelligence?.approval ?? (awaitingApprovalRuns > 0 ? 'human_approval_required' : 'not_required_yet'),
+        execution: latestDecisionIntelligence?.execution ?? 'not_started',
+      },
       nextRecommendedMove: decisionRecommendation,
       nextMoveAction,
     })
