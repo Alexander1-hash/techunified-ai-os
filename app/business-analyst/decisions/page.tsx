@@ -398,6 +398,42 @@ export default function DecisionsPage() {
           </Panel>
         </div>
 
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <Panel title="Department revenue">
+            {Object.entries(relationships.departmentRevenue ?? {}).length ? (
+              <div className="space-y-2">
+                {Object.entries(relationships.departmentRevenue ?? {}).map(([department, revenue]) => (
+                  <div key={department} className="flex items-center justify-between rounded-xl border border-border/60 p-3">
+                    <span>{department}</span>
+                    <strong className="text-foreground">{revenue.toLocaleString()}</strong>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>No department revenue evidence is currently recorded.</p>
+            )}
+          </Panel>
+          <Panel title="Workflow execution evidence">
+            {relationships.workflowExecutionStats?.length ? (
+              <div className="space-y-2">
+                {relationships.workflowExecutionStats.map((item) => (
+                  <div key={item.workflow} className="rounded-xl border border-border/60 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium text-foreground">{item.workflow}</span>
+                      <span>{item.executions} executions</span>
+                    </div>
+                    <p className="mt-1 text-xs">
+                      {item.completed} completed · {item.failed} failed
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>No workflow execution evidence is currently recorded.</p>
+            )}
+          </Panel>
+        </div>
+
         <div className="mt-4">
           <Panel title="Business decisions">
             {decisions.length ? (
