@@ -106,7 +106,14 @@ export async function GET() {
     const { data: snapshot, error } = await supabase.from('company_intelligence_snapshots').insert({
       organization_id: organizationId,
       snapshot_type: 'company_state',
-      state: { ...state, signalCount: signals.length, signals },
+      state: {
+        ...state,
+        signalCount: signals.length,
+        signals,
+        forecasts,
+        objectiveIntelligence,
+        governance,
+      },
       confidence,
       evidence: [...evidence, { source: 'derived_signals', count: signals.length }],
     }).select('id,snapshot_type,state,confidence,evidence,computed_at').single()
