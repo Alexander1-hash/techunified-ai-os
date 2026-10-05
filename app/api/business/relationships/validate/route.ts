@@ -83,6 +83,28 @@ export async function GET() {
     },
   ]
 
+  const relationshipTypes = new Set(relationshipRows.map((row) => row.relationship_type))
+  const invalidExplicitRelationships = relationshipRows.filter(
+    (row) =>
+      !['customer', 'sale', 'service', 'department', 'workflow', 'automation_execution', 'outcome'].includes(row.source_type) ||
+      !['customer', 'sale', 'service', 'department', 'workflow', 'automation_execution', 'outcome'].includes(row.target_type),
+  ).length
+  const verifiedExplicitRelationships = relationshipRows.filter(
+    (row) => row.evidence_status === 'verified',
+  ).length
+  const relationshipEvidencePassed = invalidExplicitRelationships === 0
+
+  checks.push({
+    name: 'Explicit relationship evidence',
+    passed: relationshipEvidencePassed,
+    evidence: {
+      relationships: relationshipRows.length,
+      verified: verifiedExplicitRelationships,
+      relationshipTypes: relationshipTypes.size,
+      invalid: invalidExplicitRelationships,
+    },
+  })
+
   const status = checks.every((check) => check.passed) ? 'passed' : 'partial'
 
   return NextResponse.json({
