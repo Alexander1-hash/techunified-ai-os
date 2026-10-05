@@ -38,6 +38,10 @@ export async function GET() {
     forecastsResult,
     intelligenceResult,
     eventsResult,
+    relationshipsResult,
+    departmentsResult,
+    workflowsResult,
+    executionsResult,
   ] = await Promise.all([
     supabase.from('business_data_sources').select('id,name,provider,status,last_synced_at').eq('organization_id', organizationId),
     supabase.from('business_source_records').select('id,source_id,record_key,recorded_at').eq('organization_id', organizationId),
@@ -49,6 +53,10 @@ export async function GET() {
     supabase.from('company_intelligence_forecast_evaluations').select('id,snapshot_id,objective_id,accuracy_score,evaluated_at').eq('organization_id', organizationId),
     supabase.from('company_intelligence_snapshots').select('id,snapshot_type,captured_at').eq('organization_id', organizationId),
     supabase.from('company_intelligence_events').select('id,event_type,detected_at').eq('organization_id', organizationId),
+    supabase.from('business_relationships').select('id,source_type,source_id,relationship_type,target_type,target_id,evidence_status,confidence').eq('organization_id', organizationId),
+    supabase.from('departments').select('id,name').eq('organization_id', organizationId),
+    supabase.from('workflows').select('id,name').eq('organization_id', organizationId),
+    supabase.from('automation_executions').select('id,workflow_id,status').eq('organization_id', organizationId),
   ])
 
   const errors = [
@@ -62,6 +70,10 @@ export async function GET() {
     forecastsResult.error,
     intelligenceResult.error,
     eventsResult.error,
+    relationshipsResult.error,
+    departmentsResult.error,
+    workflowsResult.error,
+    executionsResult.error,
   ].filter(Boolean)
 
   if (errors.length) {
@@ -83,6 +95,16 @@ export async function GET() {
   const forecasts = forecastsResult.data ?? []
   const snapshots = intelligenceResult.data ?? []
   const events = eventsResult.data ?? []
+  const relationships = relationshipsResult.data ?? []
+  const departments = departmentsResult.data ?? []
+  const workflows = workflowsResult.data ?? []
+  const executions = executionsResult.data ?? []
+  const validRelationshipTypes = new Set(['customer', 'sale', 'service', 'department', 'workflow', 'automation_execution', 'outcome'])
+  const validRelationships = relationships.filter((r) => validRelationshipTypes.has(r.source_type) && validRelationshipTypes.has(r.target_type))
+  const verifiedRelationships = validRelationships.filter((r) => r.evidence_status === 'verified')
+  const relationshipCoverage = validRelationships.length
+    ? Math.round((verifiedRelationships.length / validRelationships.length) * 1000) / 10
+    : 0
 
   const operationalDecisionEvidence = await Promise.all([
     supabase.from('sales').select('id').eq('organization_id', organizationId),
@@ -198,6 +220,28 @@ export async function GET() {
       reportsForValidation.length ? 'Persisted business reports exist.' : kpis.length ? 'Analysis evidence exists but no persisted business report has been recorded yet.' : 'No report evidence exists.',
     ),
     stage(
+      'Phase 5 Relationship Graph',
+      relationshipsResult.error
+        ? 'blocked'
+        : validRelationships.length || operationalCounts.sales + operationalCounts.customers + operationalCounts.services > 0
+          ? 'passed'
+          : 'partial',
+      {
+        relationships: relationships.length,
+        validRelationships: validRelationships.length,
+        verifiedRelationships: verifiedRelationships.length,
+        coveragePercent: relationshipCoverage,
+        departments: departments.length,
+        workflows: workflows.length,
+        automationExecutions: executions.length,
+      },
+      relationshipsResult.error
+        ? 'The Phase 5 relationship graph could not be queried.'
+        : validRelationships.length
+          ? 'Phase 5 relationship evidence is available for downstream intelligence.'
+          : 'No explicit relationship evidence exists yet; deterministic links remain available from the underlying business tables.',
+    ),
+    stage(
       'Outcome Measurement',
       outcomes.length ? 'passed' : 'partial',
       { outcomes: outcomes.length, verified: outcomes.filter((o) => o.evidence_status === 'measured' || o.evidence_status === 'attributed').length, forecastEvaluations: forecasts.length, objectives: objectives.length },
@@ -221,6 +265,9 @@ export async function GET() {
     reports: reports.length,
     outcomes: outcomes.length,
     forecastEvaluations: forecasts.length,
+    relationships: relationships.length,
+    verifiedRelationships: verifiedRelationships.length,
+    relationshipCoveragePercent: relationshipCoverage,
   }
 
   const { data: run, error: runError } = await supabase
@@ -237,6 +284,15 @@ export async function GET() {
         kpiNames: kpis.map((kpi) => kpi.name),
         objectiveCount: objectives.length,
         operationalCounts,
+        phase5: {
+          relationships: relationships.length,
+          validRelationships: validRelationships.length,
+          verifiedRelationships: verifiedRelationships.length,
+          relationshipCoveragePercent: relationshipCoverage,
+          departments: departments.length,
+          workflows: workflows.length,
+          automationExecutions: executions.length,
+        },
       },
       completed_at: new Date().toISOString(),
     })
