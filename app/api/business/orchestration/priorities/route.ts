@@ -275,7 +275,7 @@ export async function GET() {
       evidence: nextMoveObjective?.evidenceConfidence ?? 'low',
       blockerCount: nextMoveObjective?.blockedDependencies?.length ?? 0,
       learningSignal: nextMoveObjective?.learningSignal ?? 'no_learning_signal',
-      approval: nextMoveObjective?.pendingApprovalRuns > 0 ? 'human_approval_required' : 'not_required_yet',
+      approval: (nextMoveObjective?.pendingApprovalRuns ?? 0) > 0 ? 'human_approval_required' : 'not_required_yet',
       execution: nextMoveObjective?.capacity?.executionPathAvailable ? 'not_started_ready' : 'not_started_capacity_gap',
     }
 
