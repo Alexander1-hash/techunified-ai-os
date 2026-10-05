@@ -85,7 +85,7 @@ export async function GET(request: Request) {
         exists: Boolean(dependencyObjective),
         completed: false,
         failed: false,
-        runCount: dependencyRuns.length,
+        runCount: 0,
       }
     })
 
