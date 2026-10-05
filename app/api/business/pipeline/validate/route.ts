@@ -47,7 +47,7 @@ export async function GET() {
     supabase.from('business_reports').select('id,title,report_type,created_at').eq('organization_id', organizationId),
     supabase.from('business_outcomes').select('id,title,evidence_status,action_run_id,created_at').eq('organization_id', organizationId),
     supabase.from('company_intelligence_forecast_evaluations').select('id,snapshot_id,objective_id,accuracy_score,evaluated_at').eq('organization_id', organizationId),
-    supabase.from('company_intelligence_snapshots').select('id,snapshot_type,computed_at').eq('organization_id', organizationId),
+    supabase.from('company_intelligence_snapshots').select('id,snapshot_type,captured_at').eq('organization_id', organizationId),
     supabase.from('company_intelligence_events').select('id,event_type,detected_at').eq('organization_id', organizationId),
   ])
 
@@ -195,7 +195,7 @@ export async function GET() {
       'Reports',
       reportsForValidation.length ? 'passed' : kpis.length ? 'partial' : 'blocked',
       { reports: reportsForValidation.length, kpis: kpis.length },
-      reports.length ? 'Persisted business reports exist.' : kpis.length ? 'Analysis evidence exists but no persisted business report has been recorded yet.' : 'No report evidence exists.',
+      reportsForValidation.length ? 'Persisted business reports exist.' : kpis.length ? 'Analysis evidence exists but no persisted business report has been recorded yet.' : 'No report evidence exists.',
     ),
     stage(
       'Outcome Measurement',
