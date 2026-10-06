@@ -433,6 +433,52 @@ export async function GET() {
 
     const decisions: Decision[] =
       []
+
+    // Evidence-gap signals make missing relationships actionable without
+    // inventing the missing business facts.
+    const customerIds = new Set(customers.map((customer) => customer.id))
+    const serviceIds = new Set(services.map((service) => service.id))
+    const workflowIds = new Set(workflows.map((workflow) => workflow.id))
+    const outcomeIds = new Set(outcomes.map((outcome) => outcome.id))
+    const salesMissingCustomer = sales.filter((sale) => sale.customer_id && !customerIds.has(sale.customer_id)).length
+    const salesMissingService = sales.filter((sale) => sale.service_id && !serviceIds.has(sale.service_id)).length
+    const servicesMissingDepartment = services.filter((service) => !service.department_id).length
+    const executionsMissingWorkflow = executions.filter((execution) => execution.workflow_id && !workflowIds.has(execution.workflow_id)).length
+    const invalidExplicitRelationships = relationshipRows.filter((row) => {
+      const sourceValid = row.source_type === 'customer' ? customerIds.has(row.source_id)
+        : row.source_type === 'sale' ? sales.some((sale) => sale.id === row.source_id)
+        : row.source_type === 'service' ? serviceIds.has(row.source_id)
+        : row.source_type === 'department' ? departments.some((department) => department.id === row.source_id)
+        : row.source_type === 'workflow' ? workflowIds.has(row.source_id)
+        : row.source_type === 'automation_execution' ? executions.some((execution) => execution.id === row.source_id)
+        : row.source_type === 'outcome' ? outcomeIds.has(row.source_id) : false
+      const targetValid = row.target_type === 'customer' ? customerIds.has(row.target_id)
+        : row.target_type === 'sale' ? sales.some((sale) => sale.id === row.target_id)
+        : row.target_type === 'service' ? serviceIds.has(row.target_id)
+        : row.target_type === 'department' ? departments.some((department) => department.id === row.target_id)
+        : row.target_type === 'workflow' ? workflowIds.has(row.target_id)
+        : row.target_type === 'automation_execution' ? executions.some((execution) => execution.id === row.target_id)
+        : row.target_type === 'outcome' ? outcomeIds.has(row.target_id) : false
+      return !sourceValid || !targetValid
+    }).length
+    if (salesMissingCustomer + salesMissingService + servicesMissingDepartment + executionsMissingWorkflow + invalidExplicitRelationships > 0) {
+      decisions.push({
+        id: 'relationship-data-gaps',
+        type: 'attention',
+        title: 'Business relationship evidence has gaps',
+        message: 'Some recorded records cannot be fully connected through the available organization-scoped relationship evidence.',
+        priority: salesMissingCustomer + salesMissingService + invalidExplicitRelationships >= 5 ? 'high' : 'medium',
+        action: 'Review the affected source records and relationship mappings before relying on graph-derived decisions.',
+        evidence: {
+          salesMissingCustomer,
+          salesMissingService,
+          servicesMissingDepartment,
+          executionsMissingWorkflow,
+          invalidExplicitRelationships,
+        },
+      })
+    }
+
     const relationshipTypeCounts = relationshipRows.reduce<Record<string, number>>((acc, row) => {
       acc[row.relationship_type] = (acc[row.relationship_type] ?? 0) + 1
       return acc
