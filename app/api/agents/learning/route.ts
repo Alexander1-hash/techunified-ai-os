@@ -56,6 +56,19 @@ export async function POST(request: Request) {
 
   const executionSuccess = linkedAction ? linkedAction.status === 'completed' : null
   const outcomeLinked = Boolean(linkedOutcome)
+  const { data: relationshipRows, error: relationshipError } = await supabase
+    .from('business_relationships')
+    .select('evidence_status')
+    .eq('organization_id', organizationId)
+    .limit(500)
+  if (relationshipError) return NextResponse.json({ error: 'Unable to load relationship evidence.' }, { status: 500 })
+  const relationshipEvidence = {
+    explicitRelationships: relationshipRows?.length ?? 0,
+    verifiedRelationships: (relationshipRows ?? []).filter((row) => String(row.evidence_status) === 'verified').length,
+  }
+  const verifiedRelationshipCoverage = relationshipEvidence.explicitRelationships > 0
+    ? Math.round((relationshipEvidence.verifiedRelationships / relationshipEvidence.explicitRelationships) * 100)
+    : null
 
   const { data: linkedOrchestration } = await supabase
     .from('business_orchestration_runs')
@@ -121,7 +134,7 @@ export async function POST(request: Request) {
         evidence_status: 'explicit',
         source_type: 'human',
         source_id: run.id,
-        metadata: { evaluationId: evaluation.id, reviewerId: user.id, orchestrationRunId: linkedOrchestration?.id ?? null, decisionIntelligence },
+        metadata: { evaluationId: evaluation.id, reviewerId: user.id, orchestrationRunId: linkedOrchestration?.id ?? null, decisionIntelligence, relationshipEvidence: { ...relationshipEvidence, verifiedCoveragePercent: verifiedRelationshipCoverage } },
       }).select('id,memory_type,content,confidence,evidence_status,source_type,source_id').single()
       explicitMemory = memory ?? null
     }
@@ -156,7 +169,7 @@ export async function POST(request: Request) {
         evidence_status: 'verified',
         source_type: 'action_run',
         source_id: linkedAction.id,
-        metadata: { actionRunId: linkedAction.id, executionFailure: true, output: linkedAction.output, orchestrationRunId: linkedOrchestration?.id ?? null, decisionIntelligence },
+        metadata: { actionRunId: linkedAction.id, executionFailure: true, output: linkedAction.output, orchestrationRunId: linkedOrchestration?.id ?? null, decisionIntelligence, relationshipEvidence: { ...relationshipEvidence, verifiedCoveragePercent: verifiedRelationshipCoverage } },
       }).select('id,memory_type,content,confidence,evidence_status,source_type,source_id').single()
       learnedMemory = memory ?? null
     }
@@ -201,6 +214,7 @@ export async function POST(request: Request) {
         currency: linkedOutcome.currency,
         orchestrationRunId: linkedOrchestration?.id ?? null,
         decisionIntelligence,
+        relationshipEvidence: { ...relationshipEvidence, verifiedCoveragePercent: verifiedRelationshipCoverage },
       },
     }).select('id,memory_type,content,confidence,evidence_status,source_type,source_id').single()
       learnedMemory = memory ?? null
