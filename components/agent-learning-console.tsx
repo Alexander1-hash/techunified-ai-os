@@ -17,6 +17,15 @@ type Evaluation = {
   evidence?: { relationshipEvidence?: { explicitRelationships?: number; verifiedRelationships?: number; verifiedCoveragePercent?: number | null } }
 }
 
+type Memory = {
+  id: string
+  content: string
+  confidence: number | null
+  evidence_status: string
+  source_type: string
+  created_at: string
+}
+
 type Run = {
   id: string
   task: string
@@ -33,6 +42,7 @@ type Agent = {
 export default function AgentLearningConsole({ agents }: { agents: Agent[] }) {
   const [agentId, setAgentId] = useState(agents[0]?.id ?? '')
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
+  const [memories, setMemories] = useState<Memory[]>([])
   const [runs, setRuns] = useState<Run[]>([])
   const [selectedRun, setSelectedRun] = useState('')
   const [groundedness, setGroundedness] = useState('')
@@ -49,6 +59,7 @@ export default function AgentLearningConsole({ agents }: { agents: Agent[] }) {
     const evalJson = await evalResponse.json().catch(() => ({}))
     const runJson = await runResponse.json().catch(() => ({}))
     setEvaluations(evalJson.evaluations ?? [])
+    setMemories(evalJson.memories ?? [])
     setRuns(runJson.runs ?? [])
   }
 
@@ -176,6 +187,28 @@ export default function AgentLearningConsole({ agents }: { agents: Agent[] }) {
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {memories.length > 0 && (
+        <div className="mt-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold">Durable learning</h3>
+              <p className="mt-1 text-xs text-muted-foreground">Active lessons retained from human feedback, failures, and verified outcomes.</p>
+            </div>
+            <span className="text-xs text-muted-foreground">{memories.length} active</span>
+          </div>
+          <div className="mt-3 space-y-2">
+            {memories.slice(0, 8).map((memory) => (
+              <div key={memory.id} className="rounded-xl border p-3">
+                <p className="text-sm">{memory.content}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {memory.source_type} · {memory.evidence_status} · confidence {memory.confidence ?? '—'}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
