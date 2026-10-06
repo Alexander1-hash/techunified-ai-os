@@ -787,6 +787,8 @@ export function BusinessAnalystWorkspace({
               </Panel>
             </div>
 
+            <RelationshipTracePanel />
+
             {data.relationshipQuestions ? (
               <div className="mt-4 grid gap-4 lg:grid-cols-2">
                 <Panel title="Customer–service relationships">
@@ -969,6 +971,72 @@ export function BusinessAnalystWorkspace({
         )}
       </div>
     </main>
+  );
+}
+
+
+function RelationshipTracePanel() {
+  const [type, setType] = useState<"customer" | "service" | "workflow">("customer");
+  const [id, setId] = useState("");
+  const [result, setResult] = useState<{
+    nodes?: Array<{ id: string; type: string; label: string; depth: number }>;
+    edges?: Array<{ source: string; target: string; relationship: string; evidence: string; evidenceStatus?: string }>;
+    evidenceGaps?: Array<{ type: string; message: string }>;
+  } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function trace() {
+    if (!id.trim()) {
+      setError("Enter an entity ID to trace its evidence chain.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(
+        "/api/business/relationships/trace?source_type=" + encodeURIComponent(type) + "&source_id=" + encodeURIComponent(id.trim()),
+        { cache: "no-store" },
+      );
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "Unable to trace this relationship.");
+      setResult(json);
+    } catch (err) {
+      setResult(null);
+      setError(err instanceof Error ? err.message : "Unable to trace this relationship.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="mt-4">
+      <Panel title="Evidence trace">
+        <p>Follow recorded relationships and explicit evidence from a business entity.</p>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <select value={type} onChange={(event) => setType(event.target.value as typeof type)} className="min-h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground">
+            <option value="customer">Customer</option>
+            <option value="service">Service</option>
+            <option value="workflow">Workflow</option>
+          </select>
+          <input value={id} onChange={(event) => setId(event.target.value)} placeholder="Entity ID" className="min-h-10 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground" />
+          <button type="button" onClick={() => void trace()} disabled={loading} className="min-h-10 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60">
+            {loading ? "Tracing…" : "Trace evidence"}
+          </button>
+        </div>
+        {error ? <p className="mt-3 text-xs text-muted-foreground">{error}</p> : null}
+        {result ? (
+          <div className="mt-4 space-y-3">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="rounded-xl border border-border/60 p-3"><p className="text-xs">Trace nodes</p><strong className="text-xl text-foreground">{result.nodes?.length ?? 0}</strong></div>
+              <div className="rounded-xl border border-border/60 p-3"><p className="text-xs">Evidence links</p><strong className="text-xl text-foreground">{result.edges?.length ?? 0}</strong></div>
+            </div>
+            {result.nodes?.length ? <div className="space-y-2">{result.nodes.map((node) => <div key={node.type + node.id} className="rounded-xl border border-border/60 p-3"><div className="flex items-center justify-between gap-3"><span className="font-medium text-foreground">{node.label}</span><span className="text-xs">depth {node.depth}</span></div><p className="mt-1 text-xs">{node.type} · {node.evidence} evidence</p></div>)}</div> : null}
+            {result.evidenceGaps?.length ? <div className="rounded-xl border border-border/60 p-3"><p className="font-medium text-foreground">Evidence gaps</p>{result.evidenceGaps.map((gap) => <p key={gap.type} className="mt-1 text-xs">{gap.message}</p>)}</div> : null}
+          </div>
+        ) : null}
+      </Panel>
+    </div>
   );
 }
 
