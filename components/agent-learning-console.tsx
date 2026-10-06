@@ -137,6 +137,14 @@ export default function AgentLearningConsole({ agents }: { agents: Agent[] }) {
           <p className="mt-2 text-xs text-muted-foreground">Outcome-linked evaluations</p>
           <p className="text-xl font-semibold">{evaluations.filter((e) => e.outcome_linked).length}</p>
         </div>
+        <div className="rounded-xl border p-4">
+          <BrainCircuit size={16} />
+          <p className="mt-2 text-xs text-muted-foreground">Verified relationship coverage</p>
+          <p className="text-xl font-semibold">{relationshipEvidence?.verifiedCoveragePercent ?? '—'}{relationshipEvidence?.verifiedCoveragePercent != null ? '%' : ''}</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {relationshipEvidence?.verifiedRelationships ?? 0} / {relationshipEvidence?.explicitRelationships ?? 0} verified
+          </p>
+        </div>
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-[1fr_140px_140px]">
@@ -160,8 +168,11 @@ export default function AgentLearningConsole({ agents }: { agents: Agent[] }) {
           {evaluations.slice(0, 8).map((evaluation) => (
             <div key={evaluation.id} className="flex items-center justify-between gap-3 rounded-xl border p-3 text-sm">
               <span className="truncate">{evaluation.run_id}</span>
-              <span className="shrink-0 text-muted-foreground">
-                {evaluation.outcome_linked ? 'Verified outcome linked' : 'No verified outcome'}
+              <span className="shrink-0 text-right text-muted-foreground">
+                <span className="block">{evaluation.outcome_linked ? 'Verified outcome linked' : 'No verified outcome'}</span>
+                <span className="block text-xs">
+                  Relationship coverage: {evaluation.evidence?.relationshipEvidence?.verifiedCoveragePercent ?? '—'}%
+                </span>
               </span>
             </div>
           ))}
