@@ -110,13 +110,15 @@ export async function POST(request: Request) {
       }
     }
 
-    const [{ data: agents, error: agentsError }, { data: workflows, error: workflowsError }] = await Promise.all([
+    const [{ data: agents, error: agentsError }, { data: workflows, error: workflowsError }, { data: relationshipRows, error: relationshipError }] = await Promise.all([
       supabase.from('agents').select('id,name,purpose,description,status,autonomy_level,model').eq('organization_id', organizationId).in('status', ['active', 'running']).limit(50),
       supabase.from('workflows').select('id,name,description,status').eq('organization_id', organizationId).eq('status', 'active').limit(50),
+      supabase.from('business_relationships').select('source_type,source_id,relationship_type,target_type,target_id,evidence_status,confidence').eq('organization_id', organizationId).limit(500),
     ])
 
     if (agentsError) throw agentsError
     if (workflowsError) throw workflowsError
+    if (relationshipError) throw relationshipError
 
     const { data: recentAgentRuns, error: agentRunsError } = await supabase
       .from('agent_runs')
@@ -149,12 +151,25 @@ export async function POST(request: Request) {
     const objectiveDescription = String(objective.description ?? objective.details ?? '')
     const objectiveTarget = objective.target_value ?? objective.target ?? null
     const objectiveMetric = objective.metric ?? objective.metric_name ?? objective.key_result ?? null
+    const relationships = relationshipRows ?? []
+    const verifiedRelationships = relationships.filter((row: any) => String(row.evidence_status) === 'verified').length
+    const estimatedRelationships = relationships.filter((row: any) => String(row.evidence_status) === 'estimated').length
+    const inferredRelationships = relationships.filter((row: any) => String(row.evidence_status) === 'inferred').length
+    const relationshipCoverage = relationships.length > 0 ? Math.round((verifiedRelationships / relationships.length) * 100) : null
 
     const contextSnapshot = {
       objective,
       recentAgentRuns: recentAgentRuns ?? [],
       recentActionRuns: recentActionRuns ?? [],
       recentOutcomes: recentOutcomes ?? [],
+      relationshipEvidence: {
+        explicitRelationships: relationships.length,
+        verifiedRelationships,
+        verifiedCoveragePercent: relationshipCoverage,
+        estimatedRelationships,
+        inferredRelationships,
+        methodology: 'Relationship evidence is contextual planning evidence. It does not establish causation, profitability, ROI, or business impact by itself.',
+      },
       availableAgents: agents ?? [],
       activeWorkflows: workflows ?? [],
       orchestrationRule:
@@ -216,6 +231,13 @@ export async function POST(request: Request) {
       availableAgentCount: agents?.length ?? 0,
       availableWorkflowCount: workflows?.length ?? 0,
       evidenceAvailable: recentOutcomes?.filter((outcome) => ['measured', 'attributed'].includes(String(outcome.evidence_status))).length ?? 0,
+      relationshipEvidence: {
+        explicitRelationships: relationships.length,
+        verifiedRelationships,
+        verifiedCoveragePercent: relationshipCoverage,
+        estimatedRelationships,
+        inferredRelationships,
+      },
       recommendation: blockedDependencies.length > 0
         ? 'Resolve objective dependencies before assessment or execution.'
         : candidateAgent
@@ -237,11 +259,13 @@ export async function POST(request: Request) {
               `Available active/running agents: ${agents?.length ?? 0}`,
               `Available active workflows: ${workflows?.length ?? 0}`,
               `Recent business outcomes available: ${recentOutcomes?.length ?? 0}`,
+              `Verified relationship evidence: ${verifiedRelationships} of ${relationships.length} explicit relationships`,
             ],
             gaps: [
               ...(agents?.length ? [] : ['No active AI worker is available for objective coordination.']),
               ...(workflows?.length ? [] : ['No active workflow is available for controlled execution.']),
               ...(objectiveTarget == null ? ['Objective has no explicit target value in the available record.'] : []),
+              ...(relationships.length > 0 && verifiedRelationships < relationships.length ? ['Some relationship evidence is not verified; orchestration should not treat it as established business causation.'] : []),
             ],
             recommendedAgentTask: candidateAgent
               ? { agentId: candidateAgent.id, agentName: candidateAgent.name, task: `Assess the objective “${objectiveTitle}” using available company context and return measurable next steps.` }
