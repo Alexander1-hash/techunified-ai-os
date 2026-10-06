@@ -113,7 +113,7 @@ export async function POST(request: Request) {
       outcome_linked: outcomeLinked,
       human_feedback: body?.humanFeedback?.trim().slice(0, 4000) || null,
       reviewer_note: body?.reviewerNote?.trim().slice(0, 4000) || null,
-      evidence: { linkedActionRunId: linkedAction?.id ?? null, linkedOutcomeId: linkedOutcome?.id ?? null, orchestrationRunId: linkedOrchestration?.id ?? null, decisionIntelligence },
+      evidence: { linkedActionRunId: linkedAction?.id ?? null, linkedOutcomeId: linkedOutcome?.id ?? null, orchestrationRunId: linkedOrchestration?.id ?? null, decisionIntelligence, relationshipEvidence: { ...relationshipEvidence, verifiedCoveragePercent: verifiedRelationshipCoverage } },
     }, { onConflict: 'run_id' })
     .select('id,run_id,groundedness_score,tool_accuracy_score,execution_success,outcome_linked,human_feedback,reviewer_note,evidence,created_at,updated_at')
     .single()
