@@ -979,7 +979,7 @@ function RelationshipTracePanel() {
   const [type, setType] = useState<"customer" | "service" | "workflow">("customer");
   const [id, setId] = useState("");
   const [result, setResult] = useState<{
-    nodes?: Array<{ id: string; type: string; label: string; depth: number }>;
+    nodes?: Array<{ id: string; type: string; label: string; depth: number; evidence: string }>;
     edges?: Array<{ source: string; target: string; relationship: string; evidence: string; evidenceStatus?: string }>;
     evidenceGaps?: Array<{ type: string; message: string }>;
   } | null>(null);
