@@ -227,85 +227,36 @@ export async function GET() {
           ? 'Phase 5 relationship evidence is available for downstream intelligence.'
           : 'No explicit relationship evidence exists yet; deterministic links remain available from the underlying business tables.'
 
+  const measuredOutcomeCount = outcomes.filter(
+    (outcome) => outcome.evidence_status === 'measured' || outcome.evidence_status === 'attributed',
+  ).length
+
+  const outcomeStageStatus: Stage['status'] =
+    outcomes.length === 0
+      ? 'partial'
+      : measuredOutcomeCount > 0
+        ? 'passed'
+        : 'partial'
+
+  const outcomeStageMessage =
+    outcomes.length === 0
+      ? 'No business outcome has been recorded yet.'
+      : measuredOutcomeCount > 0
+        ? 'Measured or attributed outcome evidence exists for business-result evaluation.'
+        : 'Outcome records exist, but none currently carry measured or attributed evidence status.'
+
   const stages: Stage[] = [
-    stage(
-      'Data Source',
-      sources.length ? 'passed' : 'blocked',
-      { sources: sources.length },
-      sources.length ? 'At least one organization-scoped data source exists.' : 'No connected data source exists.',
-    ),
-    stage(
-      'Ingestion',
-      records.length ? 'passed' : 'blocked',
-      { records: records.length },
-      records.length ? 'Normalized source records are present.' : 'No normalized source records exist.',
-    ),
-    stage(
-      'Business Source Records',
-      records.length ? 'passed' : 'blocked',
-      { records: records.length, distinctSources: new Set(records.map((r) => r.source_id)).size },
-      records.length ? 'Source rows are persisted in the normalized record layer.' : 'The normalized record layer is empty.',
-    ),
-    stage(
-      'Company Brain',
-      snapshots.length || events.length || records.length ? 'passed' : 'blocked',
-      { records: records.length, snapshots: snapshots.length, events: events.length },
-      records.length ? 'The Brain has source evidence available for company intelligence.' : 'No source evidence is available to the Brain.',
-    ),
-    stage(
-      'KPI Mapping',
-      mappings.length && records.length ? 'passed' : mappings.length ? 'partial' : 'blocked',
-      { mappings: mappings.length, records: records.length },
-      mappings.length && records.length ? 'Confirmed KPI mappings exist against ingested records.' : mappings.length ? 'Mappings exist but no ingested records are available.' : 'No KPI mappings are confirmed.',
-    ),
-    stage(
-      'Business Analyst',
-      kpis.length ? 'passed' : 'blocked',
-      { kpis: kpis.length, verified: kpis.filter((k) => k.status === 'verified').length },
-      kpis.length ? 'Business Analyst has KPI evidence to analyze.' : 'No KPI evidence is available for analysis.',
-    ),
-    stage(
-      'Decision Engine',
-      kpis.length || operationalCounts.sales + operationalCounts.customers + operationalCounts.services > 0 ? 'passed' : 'blocked',
-      { kpis: kpis.length, ...operationalCounts },
-      kpis.length || operationalCounts.sales + operationalCounts.customers + operationalCounts.services > 0
-        ? 'Decision Engine has organization-scoped business evidence.'
-        : 'No business evidence is available to generate decisions.',
-    ),
-    stage(
-      'Forecast',
-      kpis.length >= 2 ? 'passed' : 'partial',
-      { kpis: kpis.length, evaluations: forecasts.length },
-      kpis.length >= 2 ? 'Forecast has enough KPI evidence to calculate directional projections.' : 'Forecast needs more historical KPI observations for strong confidence.',
-    ),
-    stage(
-      'Reports',
-      reportsForValidation.length ? 'passed' : kpis.length ? 'partial' : 'blocked',
-      { reports: reportsForValidation.length, kpis: kpis.length },
-      reportsForValidation.length ? 'Persisted business reports exist.' : kpis.length ? 'Analysis evidence exists but no persisted business report has been recorded yet.' : 'No report evidence exists.',
-    ),
-    stage(
-      'Phase 5 Relationship Graph',
-      relationshipStageStatus,
-      {
-        relationships: relationships.length,
-        validRelationships: validRelationships.length,
-        verifiedRelationships: verifiedRelationships.length,
-        invalidRelationships: invalidRelationshipCount,
-        coveragePercent: relationshipCoverage,
-        departments: departments.length,
-        workflows: workflows.length,
-        automationExecutions: executions.length,
-        completeCommercialPaths,
-      },
-      relationshipStageMessage,
-    ),
-    stage(
-      'Outcome Measurement',
-      outcomes.length ? 'passed' : 'partial',
-      { outcomes: outcomes.length, verified: outcomes.filter((o) => o.evidence_status === 'measured' || o.evidence_status === 'attributed').length, forecastEvaluations: forecasts.length, objectives: objectives.length },
-      outcomes.length ? 'Outcome evidence exists for measuring business results.' : 'No business outcome has been recorded yet.',
-    ),
+    stage('Data Source', sources.length ? 'passed' : 'blocked', { sources: sources.length }, sources.length ? 'At least one organization-scoped data source exists.' : 'No connected data source exists.'),
+    stage('Ingestion', records.length ? 'passed' : 'blocked', { records: records.length }, records.length ? 'Normalized source records are present.' : 'No normalized source records exist.'),
+    stage('Business Source Records', records.length ? 'passed' : 'blocked', { records: records.length, distinctSources: new Set(records.map((r) => r.source_id)).size }, records.length ? 'Source rows are persisted in the normalized record layer.' : 'The normalized record layer is empty.'),
+    stage('Company Brain', snapshots.length || events.length || records.length ? 'passed' : 'blocked', { records: records.length, snapshots: snapshots.length, events: events.length }, records.length ? 'The Brain has source evidence available for company intelligence.' : 'No source evidence is available to the Brain.'),
+    stage('KPI Mapping', mappings.length && records.length ? 'passed' : mappings.length ? 'partial' : 'blocked', { mappings: mappings.length, records: records.length }, mappings.length && records.length ? 'Confirmed KPI mappings exist against ingested records.' : mappings.length ? 'Mappings exist but no ingested records are available.' : 'No KPI mappings are confirmed.'),
+    stage('Business Analyst', kpis.length ? 'passed' : 'blocked', { kpis: kpis.length, verified: kpis.filter((k) => k.status === 'verified').length }, kpis.length ? 'Business Analyst has KPI evidence to analyze.' : 'No KPI evidence is available for analysis.'),
+    stage('Decision Engine', kpis.length || operationalCounts.sales + operationalCounts.customers + operationalCounts.services > 0 ? 'passed' : 'blocked', { kpis: kpis.length, ...operationalCounts }, kpis.length || operationalCounts.sales + operationalCounts.customers + operationalCounts.services > 0 ? 'Decision Engine has organization-scoped business evidence.' : 'No business evidence is available to generate decisions.'),
+    stage('Forecast', kpis.length >= 2 ? 'passed' : 'partial', { kpis: kpis.length, evaluations: forecasts.length }, kpis.length >= 2 ? 'Forecast has enough KPI evidence to calculate directional projections.' : 'Forecast needs more historical KPI observations for strong confidence.'),
+    stage('Reports', reportsForValidation.length ? 'passed' : kpis.length ? 'partial' : 'blocked', { reports: reportsForValidation.length, kpis: kpis.length }, reportsForValidation.length ? 'Persisted business reports exist.' : kpis.length ? 'Analysis evidence exists but no persisted business report has been recorded yet.' : 'No report evidence exists.'),
+    stage('Phase 5 Relationship Graph', relationshipStageStatus, { relationships: relationships.length, validRelationships: validRelationships.length, verifiedRelationships: verifiedRelationships.length, invalidRelationships: invalidRelationshipCount, coveragePercent: relationshipCoverage, departments: departments.length, workflows: workflows.length, automationExecutions: executions.length, completeCommercialPaths }, relationshipStageMessage),
+    stage('Outcome Measurement', outcomeStageStatus, { outcomes: outcomes.length, measuredOrAttributed: measuredOutcomeCount, forecastEvaluations: forecasts.length, objectives: objectives.length }, outcomeStageMessage),
   ]
 
   const blocked = stages.filter((item) => item.status === 'blocked').length
@@ -323,6 +274,7 @@ export async function GET() {
     kpis: kpis.length,
     reports: reportsForValidation.length,
     outcomes: outcomes.length,
+    measuredOrAttributedOutcomes: measuredOutcomeCount,
     forecastEvaluations: forecasts.length,
     relationships: relationships.length,
     verifiedRelationships: verifiedRelationships.length,
@@ -353,6 +305,10 @@ export async function GET() {
           workflows: workflows.length,
           automationExecutions: executions.length,
           completeCommercialPaths,
+        },
+        outcomeMeasurement: {
+          outcomes: outcomes.length,
+          measuredOrAttributed: measuredOutcomeCount,
         },
       },
       completed_at: new Date().toISOString(),
