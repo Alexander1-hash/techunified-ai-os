@@ -14,6 +14,7 @@ type Evaluation = {
   human_feedback: string | null
   reviewer_note: string | null
   created_at: string
+  evidence?: { relationshipEvidence?: { explicitRelationships?: number; verifiedRelationships?: number; verifiedCoveragePercent?: number | null } }
 }
 
 type Run = {
@@ -89,6 +90,7 @@ export default function AgentLearningConsole({ agents }: { agents: Agent[] }) {
     setBusy(false)
   }
 
+  const relationshipEvidence = evaluations[0]?.evidence?.relationshipEvidence
   const avg = (key: 'groundedness_score' | 'tool_accuracy_score') => {
     const values = evaluations.map((e) => e[key]).filter((v): v is number => typeof v === 'number')
     return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null
@@ -119,7 +121,7 @@ export default function AgentLearningConsole({ agents }: { agents: Agent[] }) {
         <div className="hidden md:block" />
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+      <div className="mt-5 grid gap-3 sm:grid-cols-4">
         <div className="rounded-xl border p-4">
           <Gauge size={16} />
           <p className="mt-2 text-xs text-muted-foreground">Avg groundedness</p>
