@@ -467,6 +467,9 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
                 <p className="mt-1 text-xs text-muted-foreground">{String(progress.decisionIntelligence?.reason ?? '')}</p>
                 <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
                   <span className="rounded-full border px-2 py-1">Evidence: {String(progressDecision?.evidence ?? 'objective_record')}</span>
+                  <span className="rounded-full border px-2 py-1">Relationships: {String(progress.progress?.relationshipEvidence?.explicitRelationships ?? 0)}</span>
+                  <span className="rounded-full border px-2 py-1">Verified relationships: {String(progress.progress?.relationshipEvidence?.verifiedRelationships ?? 0)}</span>
+                  <span className="rounded-full border px-2 py-1">Relationship coverage: {progress.progress?.relationshipEvidence?.verifiedCoveragePercent == null ? 'N/A' : `${String(progress.progress.relationshipEvidence.verifiedCoveragePercent)}%`}</span>
                   <span className="rounded-full border px-2 py-1">Confidence: {evidenceConfidenceLabel(evidenceConfidence)}</span>
                   <span className="rounded-full border px-2 py-1">Grounded: {progressDecision?.grounded ? 'Yes' : 'No'}</span>
                   <span className="rounded-full border px-2 py-1">Execution: not started</span>
