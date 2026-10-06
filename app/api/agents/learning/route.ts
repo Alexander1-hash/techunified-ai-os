@@ -1,3 +1,6 @@
+import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+
 export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -5,17 +8,20 @@ export async function GET(request: Request) {
   const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user.id).maybeSingle()
   if (!profile?.organization_id) return NextResponse.json({ error: 'Organization required.' }, { status: 400 })
   const agentId = new URL(request.url).searchParams.get('agentId')?.trim()
-  if (!agentId) return NextResponse.json({ evaluations: [] })
+  if (!agentId) return NextResponse.json({ evaluations: [], memories: [] })
   const { data, error } = await supabase.from('agent_evaluations')
     .select('id,run_id,agent_id,groundedness_score,tool_accuracy_score,execution_success,outcome_linked,human_feedback,reviewer_note,evidence,created_at,updated_at')
     .eq('organization_id', profile.organization_id).eq('agent_id', agentId)
     .order('created_at', { ascending: false }).limit(50)
   if (error) return NextResponse.json({ error: 'Unable to load evaluations.' }, { status: 500 })
-  return NextResponse.json({ evaluations: data ?? [] })
+  const { data: memories, error: memoryError } = await supabase.from('agent_memory')
+    .select('id,memory_type,content,confidence,evidence_status,source_type,source_id,metadata,created_at,updated_at')
+    .eq('organization_id', profile.organization_id).eq('agent_id', agentId)
+    .is('superseded_at', null)
+    .order('created_at', { ascending: false }).limit(50)
+  if (memoryError) return NextResponse.json({ error: 'Unable to load agent learning memory.' }, { status: 500 })
+  return NextResponse.json({ evaluations: data ?? [], memories: memories ?? [] })
 }
-
-import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
