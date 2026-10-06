@@ -14,20 +14,38 @@ export async function GET() {
     )
   }
 
-  const { data: rows, error } = await supabase
-    .from('business_kpis')
-    .select(
-      'id,name,value,previous_value,unit,period,trend,status,source,recorded_at,updated_at'
-    )
-    .eq('organization_id', organizationId)
-    .order('recorded_at', { ascending: false })
+  const [kpiResult, relationshipsResult] = await Promise.all([
+    supabase
+      .from('business_kpis')
+      .select(
+        'id,name,value,previous_value,unit,period,trend,status,source,recorded_at,updated_at'
+      )
+      .eq('organization_id', organizationId)
+      .order('recorded_at', { ascending: false }),
+    supabase
+      .from('business_relationships')
+      .select('source_type,source_id,target_type,target_id,evidence_status')
+      .eq('organization_id', organizationId),
+  ])
 
-  if (error) {
+  if (kpiResult.error || relationshipsResult.error) {
     return NextResponse.json(
       { error: 'Unable to load forecast data.' },
       { status: 500 }
     )
   }
+
+  const rows = kpiResult.data ?? []
+  const relationshipRows = relationshipsResult.data ?? []
+  const verifiedRelationships = relationshipRows.filter(
+    (row) => row.evidence_status === 'verified',
+  ).length
+  const relationshipCoverage = relationshipRows.length
+    ? Math.round((verifiedRelationships / relationshipRows.length) * 100)
+    : 0
+  const evidenceGaps = relationshipRows.filter(
+    (row) => row.evidence_status !== 'verified',
+  ).length
 
   const grouped = new Map<string, any[]>()
 
@@ -103,5 +121,13 @@ export async function GET() {
       forecasts.length > 0
         ? 'Forecasts are based on verified organization KPI records.'
         : 'More verified historical KPI data is required before TechUnified can produce a forecast.',
+    relationshipEvidence: {
+      explicitRelationships: relationshipRows.length,
+      verifiedRelationships,
+      coveragePercent: relationshipCoverage,
+      nonVerifiedRelationships: evidenceGaps,
+      methodology:
+        'Relationship evidence is contextual forecast quality information. It does not change KPI projections or imply causation, profitability, or ROI.',
+    },
   })
 }
