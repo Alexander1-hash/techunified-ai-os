@@ -46,6 +46,17 @@ export async function POST(request: Request) {
     const agentId = typeof recommended?.agentId === 'string' ? recommended.agentId : ''
     if (!agentId) return NextResponse.json({ error: 'The objective plan has no grounded agent recommendation.' }, { status: 409 })
 
+    const { data: relationshipRows, error: relationshipError } = await supabase
+      .from('business_relationships')
+      .select('source_type,source_id,relationship_type,target_type,target_id,evidence_status,confidence')
+      .eq('organization_id', profile.organization_id)
+      .limit(500)
+    if (relationshipError) throw relationshipError
+
+    const relationships = relationshipRows ?? []
+    const verifiedRelationships = relationships.filter((row) => String(row.evidence_status) === 'verified').length
+    const relationshipCoverage = relationships.length > 0 ? Math.round((verifiedRelationships / relationships.length) * 100) : null
+
     const task = typeof recommended?.task === 'string' && recommended.task.trim()
       ? recommended.task.trim()
       : `Assess the company objective using available governed company context and identify measurable next steps. Objective: ${String(objective.title ?? objective.name ?? objective.description ?? 'Company objective')}`
@@ -81,6 +92,12 @@ export async function POST(request: Request) {
         executionReady: decisionPackage?.executionReady ?? false,
         activeAgents: decisionPackage?.availableAgentCount ?? 0,
         activeWorkflows: decisionPackage?.availableWorkflowCount ?? 0,
+        relationshipEvidence: {
+          explicitRelationships: relationships.length,
+          verifiedRelationships,
+          verifiedCoveragePercent: relationshipCoverage,
+          methodology: 'Relationship evidence is contextual assessment evidence. It does not establish causation, profitability, ROI, or business impact by itself.',
+        },
       },
       approval: hasPendingApproval ? 'human_approval_required' : 'not_required_yet',
       execution: 'not_started',
@@ -96,6 +113,11 @@ export async function POST(request: Request) {
         ? {
             ...decisionPackage,
             assessmentRunId: result.runId,
+            relationshipEvidence: {
+              explicitRelationships: relationships.length,
+              verifiedRelationships,
+              verifiedCoveragePercent: relationshipCoverage,
+            },
             assessmentStatus: result.status,
             approvalRequired: hasPendingApproval,
             execution: 'not_started',
