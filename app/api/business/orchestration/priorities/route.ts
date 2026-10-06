@@ -8,15 +8,16 @@ export async function GET() {
     const { profile } = await getCurrentProfile(supabase)
     if (!profile?.organization_id) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
 
-    const [{ data: objectives, error: objectiveError }, { data: runs, error: runError }, { data: outcomes, error: outcomeError }, { data: agents, error: agentsError }, { data: workflows, error: workflowsError }, { data: evaluations, error: evaluationsError }, { data: intelligenceSnapshot, error: intelligenceError }] = await Promise.all([
+    const [{ data: objectives, error: objectiveError }, { data: runs, error: runError }, { data: outcomes, error: outcomeError }, { data: agents, error: agentsError }, { data: workflows, error: workflowsError }, { data: evaluations, error: evaluationsError }, { data: intelligenceSnapshot, error: intelligenceError }, { data: relationshipRows, error: relationshipError }] = await Promise.all([
       supabase.from('company_objectives').select('*').eq('organization_id', profile.organization_id).order('created_at', { ascending: false }).limit(50),
       supabase.from('business_orchestration_runs').select('id,objective_id,status,approval_status,action_run_ids,agent_run_ids,created_at').eq('organization_id', profile.organization_id).order('created_at', { ascending: false }).limit(200),
       supabase.from('business_outcomes').select('id,action_run_id,evidence_status,cost_avoided,revenue_impact,hours_saved,created_at').eq('organization_id', profile.organization_id).order('created_at', { ascending: false }).limit(200),
       supabase.from('agents').select('id,name,status,autonomy_level').eq('organization_id', profile.organization_id).in('status', ['active', 'running']).limit(50),
       supabase.from('workflows').select('id,name,status').eq('organization_id', profile.organization_id).eq('status', 'active').limit(50),
       supabase.from('agent_evaluations').select('id,run_id,execution_success,outcome_linked,groundedness_score,tool_accuracy_score,updated_at').eq('organization_id', profile.organization_id).order('updated_at', { ascending: false }).limit(200),      supabase.from('company_intelligence_snapshots').select('state,confidence,computed_at').eq('organization_id', profile.organization_id).eq('snapshot_type', 'company_state').order('computed_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('business_relationships').select('source_type,source_id,relationship_type,target_type,target_id,evidence_status,confidence').eq('organization_id', profile.organization_id).limit(500),
     ])
-    if (objectiveError || runError || outcomeError || agentsError || workflowsError || evaluationsError || intelligenceError) throw objectiveError || runError || outcomeError || agentsError || workflowsError || evaluationsError || intelligenceError
+    if (objectiveError || runError || outcomeError || agentsError || workflowsError || evaluationsError || intelligenceError || relationshipError) throw objectiveError || runError || outcomeError || agentsError || workflowsError || evaluationsError || intelligenceError || relationshipError
 
     const intelligenceState = intelligenceSnapshot?.state && typeof intelligenceSnapshot.state === 'object' ? intelligenceSnapshot.state as Record<string, any> : {}
     const intelligenceSignals = Array.isArray(intelligenceState.signals) ? intelligenceState.signals : []
@@ -24,6 +25,11 @@ export async function GET() {
     const intelligenceByObjective = new Map(objectiveIntelligence.map((item: any) => [String(item.objectiveId), item]))
 
     const objectiveIndex = new Map((objectives ?? []).map((objective: any) => [String(objective.id), objective]))
+    const relationships = relationshipRows ?? []
+    const verifiedRelationships = relationships.filter((row: any) => String(row.evidence_status) === 'verified').length
+    const estimatedRelationships = relationships.filter((row: any) => String(row.evidence_status) === 'estimated').length
+    const inferredRelationships = relationships.filter((row: any) => String(row.evidence_status) === 'inferred').length
+    const explicitRelationshipCoverage = relationships.length > 0 ? Math.round((verifiedRelationships / relationships.length) * 100) : null
 
     const scored = (objectives ?? []).map((objective: any) => {
       const objectiveRuns = (runs ?? []).filter((run: any) => run.objective_id === objective.id)
@@ -90,6 +96,15 @@ export async function GET() {
       const reason = blockedDependencies.length > 0 ? 'Blocked by an unresolved objective dependency' : !capacityAvailable ? 'No active AI worker and workflow execution capacity is available' : pendingApproval > 0 ? 'Pending governed approval' : failed > 0 ? 'Failed objective work needs review' : learningSignal === 'negative_execution_learning' ? 'Prior execution evidence indicates this objective needs additional review' : completed > 0 && verified.length === 0 ? 'Completed work lacks verified outcome evidence' : progress !== null && progress < 50 ? 'Objective is materially below its target' : active > 0 ? 'Active governed work is underway' : 'Objective has limited current evidence'
       return {
         id: objective.id,
+        relationshipEvidence: {
+          explicitRelationships: relationships.length,
+          verifiedRelationships,
+          verifiedCoveragePercent: explicitRelationshipCoverage,
+          estimatedRelationships,
+          inferredRelationships,
+          available: relationships.length > 0,
+          methodology: 'Relationship evidence is contextual orchestration quality information. It does not establish objective causation, profitability, ROI, or business impact by itself.',
+        },
         title: String(objective.title ?? objective.name ?? objective.description ?? 'Company objective'),
         description: String(objective.description ?? objective.details ?? ''),
         priorityScore,
@@ -123,6 +138,14 @@ export async function GET() {
       computedAt: intelligenceSnapshot?.computed_at ?? null,
       signalCount: intelligenceSignals.length,
       highSeveritySignals: intelligenceSignals.filter((signal: any) => signal.severity === 'high').length,
+      relationshipEvidence: {
+        explicitRelationships: relationships.length,
+        verifiedRelationships,
+        verifiedCoveragePercent: explicitRelationshipCoverage,
+        estimatedRelationships,
+        inferredRelationships,
+        available: relationships.length > 0,
+      },
       companyState: {
         failedRuns: intelligenceState.failedOrchestrationRuns ?? 0,
         pendingApprovals: intelligenceState.pendingApprovals ?? 0,
@@ -307,7 +330,7 @@ export async function GET() {
       execution: (nextMoveObjective?.blockedDependencies?.length ?? 0) > 0 ? 'not_started_blocked' : (nextMoveObjective?.pendingApprovalRuns ?? 0) > 0 ? 'awaiting_human_approval' : nextMoveObjective?.capacity?.executionPathAvailable ? 'not_started_ready' : 'not_started_capacity_gap',
     }
 
-    return NextResponse.json({ ok: true, adaptiveSummary, objectives: scored, dependencyEdges, dependencyFirstSequence, criticalPath, capacityAwareSequence, workloadIntelligence, workloadSummary, nextMove: enrichedNextMove, highestPriority: scored[0] ?? null })
+    return NextResponse.json({ ok: true, adaptiveSummary, relationshipEvidence: adaptiveSummary.relationshipEvidence, objectives: scored, dependencyEdges, dependencyFirstSequence, criticalPath, capacityAwareSequence, workloadIntelligence, workloadSummary, nextMove: enrichedNextMove, highestPriority: scored[0] ?? null })
   } catch (error) {
     console.error('[Business Orchestration] priorities failed:', error)
     return NextResponse.json({ error: 'Unable to prioritize objectives.' }, { status: 500 })
