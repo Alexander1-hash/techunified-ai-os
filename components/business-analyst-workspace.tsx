@@ -160,6 +160,13 @@ type ForecastData = {
   }>;
   hasEnoughData: boolean;
   message: string;
+  relationshipEvidence?: {
+    explicitRelationships: number;
+    verifiedRelationships: number;
+    coveragePercent: number;
+    nonVerifiedRelationships: number;
+    methodology: string;
+  };
 };
 
 function Panel({
@@ -1124,6 +1131,20 @@ function ForecastWorkspace({
             </button>
           </div>
         </header>
+
+        {data.relationshipEvidence ? (
+          <Panel title="Relationship evidence context" className="mb-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div><p className="text-xs">Explicit relationships</p><strong className="text-xl text-foreground">{data.relationshipEvidence.explicitRelationships}</strong></div>
+              <div><p className="text-xs">Verified</p><strong className="text-xl text-foreground">{data.relationshipEvidence.verifiedRelationships}</strong></div>
+              <div><p className="text-xs">Verified coverage</p><strong className="text-xl text-foreground">{data.relationshipEvidence.coveragePercent}%</strong></div>
+            </div>
+            {data.relationshipEvidence.nonVerifiedRelationships > 0 ? (
+              <p className="mt-3 text-xs">Some relationship evidence is not verified. Forecast projections remain based only on KPI history and are not adjusted using unverified relationships.</p>
+            ) : null}
+            <p className="mt-2 text-xs">{data.relationshipEvidence.methodology}</p>
+          </Panel>
+        ) : null}
 
         {!forecasts.length ? (
           <div className="grid gap-4 md:grid-cols-2">
