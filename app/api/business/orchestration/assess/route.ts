@@ -83,6 +83,30 @@ export async function POST(request: Request) {
       methodology: 'Durable learning is limited to explicit human feedback or verified/attributed evidence; unverified memory remains contextual.',
     }
 
+    const { data: intelligenceSnapshot, error: intelligenceError } = await supabase
+      .from('company_intelligence_snapshots')
+      .select('state,intelligence,captured_at')
+      .eq('organization_id', profile.organization_id)
+      .eq('snapshot_type', 'company_state')
+      .order('captured_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (intelligenceError) throw intelligenceError
+
+    const intelligenceCore =
+      intelligenceSnapshot?.state &&
+      typeof intelligenceSnapshot.state === 'object' &&
+      intelligenceSnapshot.state.intelligenceCore &&
+      typeof intelligenceSnapshot.state.intelligenceCore === 'object'
+        ? intelligenceSnapshot.state.intelligenceCore
+        : intelligenceSnapshot?.intelligence &&
+            typeof intelligenceSnapshot.intelligence === 'object' &&
+            intelligenceSnapshot.intelligence.intelligenceCore &&
+            typeof intelligenceSnapshot.intelligence.intelligenceCore === 'object'
+          ? intelligenceSnapshot.intelligence.intelligenceCore
+          : null
+
     const task = typeof recommended?.task === 'string' && recommended.task.trim()
       ? recommended.task.trim()
       : `Assess the company objective using available governed company context and identify measurable next steps. Objective: ${String(objective.title ?? objective.name ?? objective.description ?? 'Company objective')}`
@@ -119,6 +143,7 @@ export async function POST(request: Request) {
         activeAgents: decisionPackage?.availableAgentCount ?? 0,
         activeWorkflows: decisionPackage?.availableWorkflowCount ?? 0,
         agentLearning: learningEvidence,
+        intelligenceCore: intelligenceCore ?? { available: false },
         relationshipEvidence: {
           explicitRelationships: relationships.length,
           verifiedRelationships,
