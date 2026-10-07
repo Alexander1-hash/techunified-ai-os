@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     if (objectiveError) throw objectiveError
     if (!objective) return NextResponse.json({ error: 'Objective not found.' }, { status: 404 })
 
-    const [{ data: runs, error: runsError }, { data: outcomes, error: outcomesError }, { data: evaluations, error: evaluationsError }] = await Promise.all([
+    const [{ data: runs, error: runsError }, { data: outcomes, error: outcomesError }, { data: evaluations, error: evaluationsError }, { data: intelligenceSnapshot, error: intelligenceError }] = await Promise.all([
       supabase
         .from('business_orchestration_runs')
         .select('id,status,approval_status,agent_run_ids,action_run_ids,evidence,result,plan,error_message,created_at,completed_at')
@@ -40,10 +40,26 @@ export async function GET(request: Request) {
         .eq('organization_id', profile.organization_id)
         .order('updated_at', { ascending: false })
         .limit(200),
+      supabase
+        .from('company_intelligence_snapshots')
+        .select('state,intelligence,captured_at')
+        .eq('organization_id', profile.organization_id)
+        .eq('snapshot_type', 'company_state')
+        .order('captured_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ])
     if (runsError) throw runsError
     if (outcomesError) throw outcomesError
     if (evaluationsError) throw evaluationsError
+    if (intelligenceError) throw intelligenceError
+
+    const intelligenceCore =
+      intelligenceSnapshot?.state && typeof intelligenceSnapshot.state === 'object' && intelligenceSnapshot.state.intelligenceCore && typeof intelligenceSnapshot.state.intelligenceCore === 'object'
+        ? intelligenceSnapshot.state.intelligenceCore
+        : intelligenceSnapshot?.intelligence && typeof intelligenceSnapshot.intelligence === 'object' && intelligenceSnapshot.intelligence.intelligenceCore && typeof intelligenceSnapshot.intelligence.intelligenceCore === 'object'
+          ? intelligenceSnapshot.intelligence.intelligenceCore
+          : null
 
     const actionRunIds = new Set(
       (runs ?? []).flatMap((run) => Array.isArray(run.action_run_ids) ? run.action_run_ids.filter((id): id is string => typeof id === 'string') : []),
@@ -198,6 +214,7 @@ export async function GET(request: Request) {
         governedActionRuns: allActionRuns.length,
         evidenceConfidence,
         relationshipEvidence,
+        intelligenceCore: intelligenceCore ?? { available: false },
       },
       decisionIntelligence: {
         recommendation: latestDecisionIntelligence?.whyNow ?? decisionRecommendation,
@@ -215,6 +232,7 @@ export async function GET(request: Request) {
         blockers: Array.isArray(latestDecisionIntelligence?.blockers) ? latestDecisionIntelligence.blockers : blockedDependencies.map((dependency: { id: string }) => dependency.id),
         latestFailedRunId: latestFailedRun?.id ?? null,
         latestVerifiedOutcomeId: latestVerifiedOutcome?.id ?? null,
+        intelligenceCore: intelligenceCore ?? { available: false },
         prioritySignals: {
           activeWork: activeRuns,
           pendingApproval: awaitingApprovalRuns,
