@@ -70,6 +70,15 @@ async function loadContext(
     failedExecutions: evaluationRows.filter((row) => row.execution_success === false).length,
     outcomeLinkedEvaluations: evaluationRows.filter((row) => row.outcome_linked).length,
   }
+  const latestIntelligence = intelligenceSnapshots.data?.[0] ?? null
+  const intelligenceCore =
+    latestIntelligence?.state &&
+    typeof latestIntelligence.state === 'object' &&
+    latestIntelligence.state.intelligenceCore &&
+    typeof latestIntelligence.state.intelligenceCore === 'object'
+      ? latestIntelligence.state.intelligenceCore
+      : null
+
   return {
     recentOutcomes: outcomes.data ?? [],
     recentActionRuns: actionRuns.data ?? [],
@@ -78,7 +87,8 @@ async function loadContext(
     workingMemory: workingMemories,
     evaluations: evaluationRows,
     performance,
-    companyIntelligence: intelligenceSnapshots.data?.[0] ?? null,
+    companyIntelligence: latestIntelligence,
+    intelligenceCore,
     recentIntelligenceEvents: intelligenceEvents.data ?? [],
     intelligenceGraph: intelligenceEdges.data ?? [],
   }
