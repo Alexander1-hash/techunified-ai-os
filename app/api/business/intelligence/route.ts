@@ -94,6 +94,87 @@ export async function GET() {
       }
     })
 
+    // Adaptive Intelligence Core: transform observed company state into
+    // evidence-bounded hypotheses, scenarios, decisions, and learning signals.
+    const observations = [
+      { type: 'objective_state', count: objectiveIds.size, evidence: 'observed' },
+      { type: 'active_work', count: activeRuns.length, evidence: 'observed' },
+      { type: 'verified_outcomes', count: verifiedOutcomes.length, evidence: 'measured_or_attributed' },
+      { type: 'failed_work', count: failedRuns.length, evidence: 'observed' },
+      { type: 'pending_governance', count: pendingApprovals.length, evidence: 'observed' },
+      { type: 'agent_learning', count: successfulEvaluations.length, evidence: 'evaluated_and_outcome_linked' },
+    ]
+
+    const hypotheses = signals.map((signal: any) => ({
+      id: `signal:${signal.type}:${signal.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60)}`,
+      statement: signal.reason,
+      sourceSignal: signal.type,
+      status: 'working_hypothesis',
+      confidence: signal.severity === 'high' ? 'medium' : 'low',
+      evidenceRequired: signal.type === 'evidence_gap'
+        ? 'Measured or attributed outcome evidence'
+        : 'Additional verified evidence before causal or ROI claims',
+    }))
+
+    const contradictions = [
+      ...(verifiedOutcomes.length === 0 && successfulEvaluations.length > 0
+        ? [{ type: 'learning_without_outcome', severity: 'medium', description: 'Agent evaluations exist, but no measured or attributed business outcome is available to validate impact.' }]
+        : []),
+      ...(activeRuns.length > 0 && pendingApprovals.length === 0 && (workflows ?? []).length === 0
+        ? [{ type: 'execution_capacity', severity: 'medium', description: 'Governed work is active but no active workflow capacity is available.' }]
+        : []),
+      ...(failedRuns.length > 0 && verifiedOutcomes.length > 0
+        ? [{ type: 'mixed_execution_evidence', severity: 'medium', description: 'The company has both verified outcomes and failed governed work; success should not be generalized across all execution paths.' }]
+        : []),
+    ]
+
+    const scenarioBase = objectives.map((objective: any) => {
+      const target = typeof objective.target_value === 'number' ? objective.target_value : null
+      const current = typeof objective.current_value === 'number' ? objective.current_value : null
+      const progress = target && current !== null ? Math.max(0, Math.min(100, (current / target) * 100)) : null
+      return { objectiveId: String(objective.id), progressPercent: progress }
+    })
+    const scenarios = [
+      { name: 'continue', assumption: 'Current trajectory and governance constraints persist.', objectiveState: scenarioBase },
+      { name: 'evidence_first', assumption: 'Prioritize measurement, verification, and learning before expanding execution.', objectiveState: scenarioBase },
+      { name: 'controlled_acceleration', assumption: 'Use available governed capacity while retaining approval and evidence gates.', objectiveState: scenarioBase },
+    ]
+
+    const decisionOptions = [
+      ...(pendingApprovals.length > 0 ? [{ priority: 'high', action: 'review_pending_approvals', rationale: 'Human governance is currently blocking controlled execution.' }] : []),
+      ...(failedRuns.length > 0 ? [{ priority: 'high', action: 'investigate_failed_work', rationale: 'Recent execution failures require diagnosis before scaling the same path.' }] : []),
+      ...(verifiedOutcomes.length === 0 && (runs ?? []).length > 0 ? [{ priority: 'high', action: 'close_evidence_gap', rationale: 'Existing work lacks measured or attributed outcome evidence.' }] : []),
+      ...((agents ?? []).length > 0 && (workflows ?? []).length > 0 ? [{ priority: 'medium', action: 'prioritize_best_governed_path', rationale: 'Both agent and workflow capacity are available for controlled orchestration.' }] : []),
+    ]
+
+    const intelligenceCore = {
+      version: 'adaptive-core-v1',
+      stages: ['observe', 'understand', 'hypothesize', 'reason', 'simulate', 'decide', 'govern', 'measure', 'evaluate', 'learn'],
+      observations,
+      understanding: {
+        companyStateConfidence: confidence,
+        signalConfidence,
+        evidenceBound: true,
+        verifiedOutcomeCount: verifiedOutcomes.length,
+        activeWorkCount: activeRuns.length,
+      },
+      hypotheses,
+      contradictions,
+      scenarios,
+      decisions: decisionOptions,
+      learning: {
+        verifiedLearningSignals: successfulEvaluations.length,
+        outcomeEvidenceRequired: true,
+        promotionRule: 'Only measured/attributed outcomes, verified execution evidence, or explicit human feedback may become durable learning.',
+      },
+      governance: {
+        humanOversightRequired: true,
+        autonomousExternalExecution: false,
+        causalClaimsAllowed: false,
+        roiClaimsAllowedWithoutPilotEvidence: false,
+      },
+    }
+
     const { data: previousSnapshot } = await supabase
       .from('company_intelligence_snapshots')
       .select('id,state,intelligence,captured_at')
@@ -267,7 +348,7 @@ export async function GET() {
         changedFields: trackedChanges,
         recentStateAvailable: Boolean(previousSnapshot),
       },
-      graph: {
+      intelligenceCore,\n      graph: {
         activeEdges: edgeRows.length,
         objectiveRelationships: edgeRows.filter((edge: any) => edge.from_type === 'objective').length,
       },
