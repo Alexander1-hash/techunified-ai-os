@@ -59,6 +59,11 @@ export async function GET(request: Request) {
     const latestVerifiedOutcome = verifiedOutcomes[0] ?? null
     const latestDecisionIntelligence = (runs ?? []).find((run) => run.plan?.decisionIntelligence)?.plan?.decisionIntelligence ?? null
     const evidenceConfidence = verifiedOutcomes.length > 0 ? 'high' : runs?.some((run) => run.status === 'completed') ? 'medium' : runs?.some((run) => Array.isArray(run.agent_run_ids) && run.agent_run_ids.length > 0) ? 'medium' : 'low'
+    const relationshipRows = (runs ?? []).flatMap((run) => {
+      const relationshipEvidence = run.plan?.relationshipEvidence
+      return relationshipEvidence && typeof relationshipEvidence === 'object' ? [relationshipEvidence] : []
+    })
+    const relationshipEvidence = relationshipRows[0] ?? null
 
     const objectiveIndex = new Map<string, any>()
     const explicitDependencies = Array.isArray(objective.dependencies)
@@ -192,6 +197,7 @@ export async function GET(request: Request) {
         awaitingApprovalRuns,
         governedActionRuns: allActionRuns.length,
         evidenceConfidence,
+        relationshipEvidence,
       },
       decisionIntelligence: {
         recommendation: latestDecisionIntelligence?.whyNow ?? decisionRecommendation,
