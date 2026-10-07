@@ -287,7 +287,10 @@ export async function runGovernedAgent(agentId: string, task: string, userId: st
         'Adapt recommendations to meaningful company-state changes, but never treat a prediction as a fact. ' +
         'When intelligence confidence is low, explicitly state the evidence gap and avoid overconfident recommendations. ' +
         'Respect graph relationships such as blockers, dependencies, governance, and outcome evidence. ' +
-        'Use the supplied performance summary to improve reasoning quality, but do not fabricate missing scores or outcomes.',
+        'Use the supplied performance summary to improve reasoning quality, but do not fabricate missing scores or outcomes. ' +
+        'Treat the Intelligence Core as the organization-level reasoning layer: use its observations, hypotheses, contradictions, scenarios, decisions, learning signals, and governance boundary to prioritize your work. ' +
+        'Do not convert Intelligence Core hypotheses or scenarios into facts; preserve their evidence requirements and uncertainty. ' +
+        'When a Core decision conflicts with verified evidence or explicit human direction, surface the conflict instead of silently overriding it.',
     },
     {
       role: 'user',
