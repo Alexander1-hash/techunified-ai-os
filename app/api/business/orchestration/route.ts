@@ -147,6 +147,30 @@ export async function POST(request: Request) {
 
     if (outcomesError) throw outcomesError
 
+    const { data: latestIntelligenceSnapshot, error: intelligenceError } = await supabase
+      .from('company_intelligence_snapshots')
+      .select('id,captured_at,state,intelligence')
+      .eq('organization_id', organizationId)
+      .eq('snapshot_type', 'company_state')
+      .order('captured_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (intelligenceError) throw intelligenceError
+
+    const intelligenceCore =
+      latestIntelligenceSnapshot?.state &&
+      typeof latestIntelligenceSnapshot.state === 'object' &&
+      latestIntelligenceSnapshot.state.intelligenceCore &&
+      typeof latestIntelligenceSnapshot.state.intelligenceCore === 'object'
+        ? latestIntelligenceSnapshot.state.intelligenceCore
+        : latestIntelligenceSnapshot?.intelligence &&
+            typeof latestIntelligenceSnapshot.intelligence === 'object' &&
+            latestIntelligenceSnapshot.intelligence.intelligenceCore &&
+            typeof latestIntelligenceSnapshot.intelligence.intelligenceCore === 'object'
+          ? latestIntelligenceSnapshot.intelligence.intelligenceCore
+          : null
+
     const objectiveTitle = String(objective.title ?? objective.name ?? objective.description ?? 'Company objective')
     const objectiveDescription = String(objective.description ?? objective.details ?? '')
     const objectiveTarget = objective.target_value ?? objective.target ?? null
@@ -162,6 +186,7 @@ export async function POST(request: Request) {
       recentAgentRuns: recentAgentRuns ?? [],
       recentActionRuns: recentActionRuns ?? [],
       recentOutcomes: recentOutcomes ?? [],
+      intelligenceCore: intelligenceCore ?? { available: false },
       relationshipEvidence: {
         explicitRelationships: relationships.length,
         verifiedRelationships,
