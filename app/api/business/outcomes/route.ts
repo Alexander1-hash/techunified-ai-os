@@ -48,15 +48,44 @@ export async function GET() {
       return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
     }
 
-    const { data, error } = await supabase
-      .from('business_outcomes')
-      .select(outcomeSelect)
-      .eq('organization_id', organizationId)
-      .order('created_at', { ascending: false })
+    const [{ data, error }, { data: intelligenceSnapshot, error: intelligenceError }] = await Promise.all([
+      supabase
+        .from('business_outcomes')
+        .select(outcomeSelect)
+        .eq('organization_id', organizationId)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('company_intelligence_snapshots')
+        .select('state,intelligence,captured_at')
+        .eq('organization_id', organizationId)
+        .eq('snapshot_type', 'company_state')
+        .order('captured_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ])
 
     if (error) throw error
 
-    return NextResponse.json({ ok: true, outcomes: data ?? [] })
+    const intelligenceCore =
+      !intelligenceError &&
+      intelligenceSnapshot?.state &&
+      typeof intelligenceSnapshot.state === 'object' &&
+      intelligenceSnapshot.state.intelligenceCore &&
+      typeof intelligenceSnapshot.state.intelligenceCore === 'object'
+        ? intelligenceSnapshot.state.intelligenceCore
+        : !intelligenceError &&
+            intelligenceSnapshot?.intelligence &&
+            typeof intelligenceSnapshot.intelligence === 'object' &&
+            intelligenceSnapshot.intelligence.intelligenceCore &&
+            typeof intelligenceSnapshot.intelligence.intelligenceCore === 'object'
+          ? intelligenceSnapshot.intelligence.intelligenceCore
+          : null
+
+    return NextResponse.json({
+      ok: true,
+      outcomes: data ?? [],
+      intelligenceCore: intelligenceCore ?? { available: false },
+    })
   } catch (error) {
     console.error('[Business Outcomes] GET failed:', error)
     return NextResponse.json({ error: 'Unable to load business outcomes.' }, { status: 500 })
