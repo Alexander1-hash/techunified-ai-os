@@ -14,7 +14,7 @@ export async function GET() {
     )
   }
 
-  const [kpiResult, relationshipsResult] = await Promise.all([
+  const [kpiResult, relationshipsResult, intelligenceResult] = await Promise.all([
     supabase
       .from('business_kpis')
       .select(
@@ -26,14 +26,36 @@ export async function GET() {
       .from('business_relationships')
       .select('source_type,source_id,target_type,target_id,evidence_status')
       .eq('organization_id', organizationId),
+    supabase
+      .from('company_intelligence_snapshots')
+      .select('state,intelligence,captured_at')
+      .eq('organization_id', organizationId)
+      .eq('snapshot_type', 'company_state')
+      .order('captured_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
-  if (kpiResult.error || relationshipsResult.error) {
+  if (kpiResult.error || relationshipsResult.error || intelligenceResult.error) {
     return NextResponse.json(
       { error: 'Unable to load forecast data.' },
       { status: 500 }
     )
   }
+
+  const intelligenceSnapshot = intelligenceResult.data ?? null
+  const intelligenceCore =
+    intelligenceSnapshot?.state &&
+    typeof intelligenceSnapshot.state === 'object' &&
+    intelligenceSnapshot.state.intelligenceCore &&
+    typeof intelligenceSnapshot.state.intelligenceCore === 'object'
+      ? intelligenceSnapshot.state.intelligenceCore
+      : intelligenceSnapshot?.intelligence &&
+          typeof intelligenceSnapshot.intelligence === 'object' &&
+          intelligenceSnapshot.intelligence.intelligenceCore &&
+          typeof intelligenceSnapshot.intelligence.intelligenceCore === 'object'
+        ? intelligenceSnapshot.intelligence.intelligenceCore
+        : null
 
   const rows = kpiResult.data ?? []
   const relationshipRows = relationshipsResult.data ?? []
@@ -121,6 +143,7 @@ export async function GET() {
       forecasts.length > 0
         ? 'Forecasts are based on verified organization KPI records.'
         : 'More verified historical KPI data is required before TechUnified can produce a forecast.',
+    intelligenceCore: intelligenceCore ?? { available: false },
     relationshipEvidence: {
       explicitRelationships: relationshipRows.length,
       verifiedRelationships,
