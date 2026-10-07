@@ -158,6 +158,7 @@ export async function POST(request: Request) {
     const relationshipCoverage = relationships.length > 0 ? Math.round((verifiedRelationships / relationships.length) * 100) : null
 
     const contextSnapshot = {
+      agentLearning: learningEvidence,
       objective,
       recentAgentRuns: recentAgentRuns ?? [],
       recentActionRuns: recentActionRuns ?? [],
@@ -170,7 +171,6 @@ export async function POST(request: Request) {
         inferredRelationships,
         methodology: 'Relationship evidence is contextual planning evidence. It does not establish causation, profitability, ROI, or business impact by itself.',
       },
-      agentLearning: learningEvidence,
       availableAgents: agents ?? [],
       activeWorkflows: workflows ?? [],
       orchestrationRule:
