@@ -158,7 +158,6 @@ export async function POST(request: Request) {
     const relationshipCoverage = relationships.length > 0 ? Math.round((verifiedRelationships / relationships.length) * 100) : null
 
     const contextSnapshot = {
-      agentLearning: learningEvidence,
       objective,
       recentAgentRuns: recentAgentRuns ?? [],
       recentActionRuns: recentActionRuns ?? [],
@@ -253,6 +252,11 @@ export async function POST(request: Request) {
       durableLessons: durableLearning.slice(0, 5).map((memory: any) => ({ content: memory.content, evidenceStatus: memory.evidence_status, confidence: memory.confidence, sourceType: memory.source_type })),
       methodology: 'Durable learning is limited to explicit human feedback or verified/attributed evidence; unverified memory remains contextual.',
     }
+    const contextSnapshotWithLearning = {
+      ...contextSnapshot,
+      agentLearning: learningEvidence,
+    }
+
     const executionReady = Boolean(candidateAgent && candidateWorkflow)
     const decisionPackage = {
       objective: { id: objectiveId, title: objectiveTitle, target: objectiveTarget, metric: objectiveMetric },
@@ -324,7 +328,7 @@ export async function POST(request: Request) {
         status: 'planning',
         approval_status: 'not_required',
         plan,
-        context_snapshot: contextSnapshot,
+        context_snapshot: contextSnapshotWithLearning,
       })
       .select(
         'id,objective_id,initiated_by,lead_agent_id,status,approval_status,plan,context_snapshot,agent_run_ids,action_run_ids,evidence,result,error_message,started_at,completed_at,created_at,updated_at',
