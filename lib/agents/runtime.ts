@@ -56,6 +56,9 @@ async function loadContext(
       .select('from_type,from_id,to_type,to_id,relation,confidence,evidence')
       .eq('organization_id', organizationId).is('valid_to', null).order('created_at', { ascending: false }).limit(50),
   ])
+  const memoryRows = memories.data ?? []
+  const durableMemories = memoryRows.filter((row) => ['verified', 'attributed', 'explicit'].includes(String(row.evidence_status)))
+  const workingMemories = memoryRows.filter((row) => String(row.evidence_status) === 'unverified')
   const evaluationRows = evaluations.data ?? []
   const scoredGroundedness = evaluationRows.map((row) => row.groundedness_score).filter((value): value is number => typeof value === 'number')
   const scoredToolAccuracy = evaluationRows.map((row) => row.tool_accuracy_score).filter((value): value is number => typeof value === 'number')
@@ -70,7 +73,9 @@ async function loadContext(
   return {
     recentOutcomes: outcomes.data ?? [],
     recentActionRuns: actionRuns.data ?? [],
-    memories: memories.data ?? [],
+    memories: memoryRows,
+    durableLearning: durableMemories,
+    workingMemory: workingMemories,
     evaluations: evaluationRows,
     performance,
     companyIntelligence: intelligenceSnapshots.data?.[0] ?? null,
@@ -266,7 +271,8 @@ export async function runGovernedAgent(agentId: string, task: string, userId: st
         'Never claim a workflow or business action ran unless a completed action result is supplied. ' +
         'Separate observed facts, calculations, assumptions, recommendations, and proposed actions. ' +
         'If approval is pending, recommendations and proposals must remain non-executing. ' +
-        'Treat explicit human feedback as authoritative guidance, verified outcomes as evidence, and unverified run memories as hypotheses. ' +
+        'Treat explicit human feedback as authoritative guidance, verified or attributed lessons as durable evidence, and unverified run memories as hypotheses. ' +
+        'Prefer durable learning when it conflicts with unverified working memory, and do not promote working memory into durable guidance without explicit feedback, verified execution evidence, or a measured/attributed business outcome. ' +
         'Use the latest company intelligence snapshot, longitudinal intelligence events, and intelligence graph relationships when supplied. ' +
         'Adapt recommendations to meaningful company-state changes, but never treat a prediction as a fact. ' +
         'When intelligence confidence is low, explicitly state the evidence gap and avoid overconfident recommendations. ' +
