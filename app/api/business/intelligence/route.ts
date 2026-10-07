@@ -348,7 +348,8 @@ export async function GET() {
         changedFields: trackedChanges,
         recentStateAvailable: Boolean(previousSnapshot),
       },
-      intelligenceCore,\n      graph: {
+      intelligenceCore,
+      graph: {
         activeEdges: edgeRows.length,
         objectiveRelationships: edgeRows.filter((edge: any) => edge.from_type === 'objective').length,
       },
