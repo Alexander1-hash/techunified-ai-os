@@ -47,6 +47,28 @@ export async function POST(request: Request) {
   const groundednessScore = score(body?.groundednessScore)
   const toolAccuracyScore = score(body?.toolAccuracyScore)
 
+  const { data: intelligenceSnapshot } = await supabase
+    .from('company_intelligence_snapshots')
+    .select('state,intelligence,captured_at')
+    .eq('organization_id', organizationId)
+    .eq('snapshot_type', 'company_state')
+    .order('captured_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const intelligenceCore =
+    intelligenceSnapshot?.state &&
+    typeof intelligenceSnapshot.state === 'object' &&
+    intelligenceSnapshot.state.intelligenceCore &&
+    typeof intelligenceSnapshot.state.intelligenceCore === 'object'
+      ? intelligenceSnapshot.state.intelligenceCore
+      : intelligenceSnapshot?.intelligence &&
+          typeof intelligenceSnapshot.intelligence === 'object' &&
+          intelligenceSnapshot.intelligence.intelligenceCore &&
+          typeof intelligenceSnapshot.intelligence.intelligenceCore === 'object'
+        ? intelligenceSnapshot.intelligence.intelligenceCore
+        : null
+
   const { data: run } = await supabase
     .from('agent_runs')
     .select('id,agent_id,status,result,tool_calls')
