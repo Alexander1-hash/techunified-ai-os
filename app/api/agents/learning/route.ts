@@ -268,6 +268,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     evaluation,
+    intelligenceCore: intelligenceCore ?? { available: false },
     learning: learnedMemory
       ? { status: 'promoted', memory: learnedMemory, reviewerFeedback: explicitMemory }
       : explicitMemory
