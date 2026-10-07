@@ -128,7 +128,7 @@ export async function GET() {
         : []),
     ]
 
-    const scenarioBase = objectives.map((objective: any) => {
+    const scenarioBase = (objectives ?? []).map((objective: any) => {
       const target = typeof objective.target_value === 'number' ? objective.target_value : null
       const current = typeof objective.current_value === 'number' ? objective.current_value : null
       const progress = target && current !== null ? Math.max(0, Math.min(100, (current / target) * 100)) : null
