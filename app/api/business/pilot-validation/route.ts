@@ -37,13 +37,41 @@ export async function GET(request: Request) {
     if (measurementsError) throw measurementsError
     if (roiError) throw roiError
 
+    const intelligenceResult = await supabase
+      .from('company_intelligence_snapshots')
+      .select('state,intelligence,captured_at')
+      .eq('organization_id', organizationId)
+      .eq('snapshot_type', 'company_state')
+      .order('captured_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const intelligenceCore =
+      !intelligenceResult.error &&
+      intelligenceResult.data?.state &&
+      typeof intelligenceResult.data.state === 'object' &&
+      intelligenceResult.data.state.intelligenceCore &&
+      typeof intelligenceResult.data.state.intelligenceCore === 'object'
+        ? intelligenceResult.data.state.intelligenceCore
+        : !intelligenceResult.error &&
+            intelligenceResult.data?.intelligence &&
+            typeof intelligenceResult.data.intelligence === 'object' &&
+            intelligenceResult.data.intelligence.intelligenceCore &&
+            typeof intelligenceResult.data.intelligence.intelligenceCore === 'object'
+          ? intelligenceResult.data.intelligence.intelligenceCore
+          : null
+
     const enriched = (pilots ?? []).map((pilot) => ({
       ...pilot,
       measurements: (measurements ?? []).filter((item) => item.pilot_id === pilot.id),
       roiEvidence: (roiEvidence ?? []).filter((item) => item.pilot_id === pilot.id),
     }))
 
-    return NextResponse.json({ ok: true, pilots: enriched })
+    return NextResponse.json({
+      ok: true,
+      pilots: enriched,
+      intelligenceCore: intelligenceCore ?? { available: false },
+    })
   } catch (error) {
     console.error('[Pilot Validation] GET failed:', error)
     return NextResponse.json({ error: 'Unable to load pilot validation data.' }, { status: 500 })
