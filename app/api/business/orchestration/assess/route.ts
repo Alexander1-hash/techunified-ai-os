@@ -57,6 +57,32 @@ export async function POST(request: Request) {
     const verifiedRelationships = relationships.filter((row) => String(row.evidence_status) === 'verified').length
     const relationshipCoverage = relationships.length > 0 ? Math.round((verifiedRelationships / relationships.length) * 100) : null
 
+    const [{ data: agentEvaluations, error: agentEvaluationsError }, { data: agentMemories, error: agentMemoriesError }] = await Promise.all([
+      supabase.from('agent_evaluations').select('groundedness_score,tool_accuracy_score,execution_success,outcome_linked,created_at').eq('organization_id', profile.organization_id).eq('agent_id', agentId).order('created_at', { ascending: false }).limit(20),
+      supabase.from('agent_memory').select('content,confidence,evidence_status,source_type,created_at').eq('organization_id', profile.organization_id).eq('agent_id', agentId).is('superseded_at', null).order('confidence', { ascending: false }).order('importance', { ascending: false }).order('created_at', { ascending: false }).limit(20),
+    ])
+    if (agentEvaluationsError) throw agentEvaluationsError
+    if (agentMemoriesError) throw agentMemoriesError
+
+    const learningEvaluations = agentEvaluations ?? []
+    const learningMemories = agentMemories ?? []
+    const durableLearning = learningMemories.filter((memory: any) => ['verified', 'attributed', 'explicit'].includes(String(memory.evidence_status)))
+    const learningEvidence = {
+      evaluationCount: learningEvaluations.length,
+      averageGroundedness: (() => {
+        const values = learningEvaluations.map((item: any) => item.groundedness_score).filter((value: unknown): value is number => typeof value === 'number')
+        return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null
+      })(),
+      averageToolAccuracy: (() => {
+        const values = learningEvaluations.map((item: any) => item.tool_accuracy_score).filter((value: unknown): value is number => typeof value === 'number')
+        return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null
+      })(),
+      failedEvaluations: learningEvaluations.filter((item: any) => item.execution_success === false).length,
+      outcomeLinkedEvaluations: learningEvaluations.filter((item: any) => item.outcome_linked === true).length,
+      durableMemoryCount: durableLearning.length,
+      methodology: 'Durable learning is limited to explicit human feedback or verified/attributed evidence; unverified memory remains contextual.',
+    }
+
     const task = typeof recommended?.task === 'string' && recommended.task.trim()
       ? recommended.task.trim()
       : `Assess the company objective using available governed company context and identify measurable next steps. Objective: ${String(objective.title ?? objective.name ?? objective.description ?? 'Company objective')}`
@@ -92,6 +118,7 @@ export async function POST(request: Request) {
         executionReady: decisionPackage?.executionReady ?? false,
         activeAgents: decisionPackage?.availableAgentCount ?? 0,
         activeWorkflows: decisionPackage?.availableWorkflowCount ?? 0,
+        agentLearning: learningEvidence,
         relationshipEvidence: {
           explicitRelationships: relationships.length,
           verifiedRelationships,
