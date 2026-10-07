@@ -81,9 +81,34 @@ export async function GET() {
       );
     }
 
+    const { data: intelligenceSnapshot, error: intelligenceError } = await supabase
+      .from("company_intelligence_snapshots")
+      .select("state,intelligence,captured_at")
+      .eq("organization_id", profile.organization_id)
+      .eq("snapshot_type", "company_state")
+      .order("captured_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const intelligenceCore =
+      !intelligenceError &&
+      intelligenceSnapshot?.state &&
+      typeof intelligenceSnapshot.state === "object" &&
+      intelligenceSnapshot.state.intelligenceCore &&
+      typeof intelligenceSnapshot.state.intelligenceCore === "object"
+        ? intelligenceSnapshot.state.intelligenceCore
+        : !intelligenceError &&
+            intelligenceSnapshot?.intelligence &&
+            typeof intelligenceSnapshot.intelligence === "object" &&
+            intelligenceSnapshot.intelligence.intelligenceCore &&
+            typeof intelligenceSnapshot.intelligence.intelligenceCore === "object"
+          ? intelligenceSnapshot.intelligence.intelligenceCore
+          : null;
+
     return NextResponse.json({
       success: true,
       workflows: workflows ?? [],
+      intelligenceCore: intelligenceCore ?? { available: false },
     });
   } catch (error) {
     return NextResponse.json(
