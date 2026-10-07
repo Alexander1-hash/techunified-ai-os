@@ -127,6 +127,7 @@ export const navGroups: NavigationGroup[] = [
       { label: 'Customers', href: '/customers', icon: Users },
       { label: 'Sales', href: '/sales', icon: ShoppingCart },
       { label: 'Business Outcomes', href: '/business-outcomes', icon: Target },
+      { label: 'Commercial Validation', href: '/pilot-validation', icon: Target },
     ],
   },
   {
