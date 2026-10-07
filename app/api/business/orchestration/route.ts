@@ -170,6 +170,7 @@ export async function POST(request: Request) {
         inferredRelationships,
         methodology: 'Relationship evidence is contextual planning evidence. It does not establish causation, profitability, ROI, or business impact by itself.',
       },
+      agentLearning: learningEvidence,
       availableAgents: agents ?? [],
       activeWorkflows: workflows ?? [],
       orchestrationRule:
@@ -222,6 +223,36 @@ export async function POST(request: Request) {
 
     const candidateAgent = agents?.[0] ?? null
     const candidateWorkflow = workflows?.[0] ?? null
+
+    const [{ data: agentEvaluations, error: agentEvaluationsError }, { data: agentMemories, error: agentMemoriesError }] = candidateAgent
+      ? await Promise.all([
+          supabase.from('agent_evaluations').select('groundedness_score,tool_accuracy_score,execution_success,outcome_linked,created_at').eq('organization_id', organizationId).eq('agent_id', candidateAgent.id).order('created_at', { ascending: false }).limit(10),
+          supabase.from('agent_memory').select('content,confidence,evidence_status,source_type,created_at').eq('organization_id', organizationId).eq('agent_id', candidateAgent.id).is('superseded_at', null).order('confidence', { ascending: false }).order('importance', { ascending: false }).order('created_at', { ascending: false }).limit(20),
+        ])
+      : [{ data: [], error: null }, { data: [], error: null }]
+
+    if (agentEvaluationsError) throw agentEvaluationsError
+    if (agentMemoriesError) throw agentMemoriesError
+
+    const evaluations = agentEvaluations ?? []
+    const memories = agentMemories ?? []
+    const durableLearning = memories.filter((memory: any) => ['verified', 'attributed', 'explicit'].includes(String(memory.evidence_status)))
+    const learningEvidence = {
+      evaluationCount: evaluations.length,
+      averageGroundedness: (() => {
+        const values = evaluations.map((item: any) => item.groundedness_score).filter((value: unknown): value is number => typeof value === 'number')
+        return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null
+      })(),
+      averageToolAccuracy: (() => {
+        const values = evaluations.map((item: any) => item.tool_accuracy_score).filter((value: unknown): value is number => typeof value === 'number')
+        return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null
+      })(),
+      failedEvaluations: evaluations.filter((item: any) => item.execution_success === false).length,
+      outcomeLinkedEvaluations: evaluations.filter((item: any) => item.outcome_linked === true).length,
+      durableMemoryCount: durableLearning.length,
+      durableLessons: durableLearning.slice(0, 5).map((memory: any) => ({ content: memory.content, evidenceStatus: memory.evidence_status, confidence: memory.confidence, sourceType: memory.source_type })),
+      methodology: 'Durable learning is limited to explicit human feedback or verified/attributed evidence; unverified memory remains contextual.',
+    }
     const executionReady = Boolean(candidateAgent && candidateWorkflow)
     const decisionPackage = {
       objective: { id: objectiveId, title: objectiveTitle, target: objectiveTarget, metric: objectiveMetric },
@@ -238,6 +269,7 @@ export async function POST(request: Request) {
         estimatedRelationships,
         inferredRelationships,
       },
+      agentLearning: learningEvidence,
       recommendation: blockedDependencies.length > 0
         ? 'Resolve objective dependencies before assessment or execution.'
         : candidateAgent
@@ -260,12 +292,14 @@ export async function POST(request: Request) {
               `Available active workflows: ${workflows?.length ?? 0}`,
               `Recent business outcomes available: ${recentOutcomes?.length ?? 0}`,
               `Verified relationship evidence: ${verifiedRelationships} of ${relationships.length} explicit relationships`,
+              `Candidate agent durable learning: ${learningEvidence.durableMemoryCount} lessons; outcome-linked evaluations: ${learningEvidence.outcomeLinkedEvaluations}`,
             ],
             gaps: [
               ...(agents?.length ? [] : ['No active AI worker is available for objective coordination.']),
               ...(workflows?.length ? [] : ['No active workflow is available for controlled execution.']),
               ...(objectiveTarget == null ? ['Objective has no explicit target value in the available record.'] : []),
               ...(relationships.length > 0 && verifiedRelationships < relationships.length ? ['Some relationship evidence is not verified; orchestration should not treat it as established business causation.'] : []),
+              ...(learningEvidence.failedEvaluations > 0 ? ['Candidate agent has prior failed evaluations; review durable learning before repeating similar work.'] : []),
             ],
             recommendedAgentTask: candidateAgent
               ? { agentId: candidateAgent.id, agentName: candidateAgent.name, task: `Assess the objective “${objectiveTitle}” using available company context and return measurable next steps.` }
