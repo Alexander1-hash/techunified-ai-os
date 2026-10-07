@@ -220,7 +220,9 @@ export async function POST(request: Request) {
       }
     }
 
-    const candidateAgent = agents?.[0] ?? null
+    const candidateAgent = leadAgentId
+      ? agents?.find((agent) => agent.id === leadAgentId) ?? null
+      : agents?.[0] ?? null
     const candidateWorkflow = workflows?.[0] ?? null
 
     const [{ data: agentEvaluations, error: agentEvaluationsError }, { data: agentMemories, error: agentMemoriesError }] = candidateAgent
