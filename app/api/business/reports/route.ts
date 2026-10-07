@@ -19,7 +19,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
   }
 
-  const [{ data, error }, { data: relationships, error: relationshipError }] = await Promise.all([
+  const [{ data, error }, { data: relationships, error: relationshipError }, { data: intelligenceSnapshot, error: intelligenceError }] = await Promise.all([
     supabase
       .from('business_reports')
       .select('id,title,report_type,content,period,metadata,created_at,updated_at')
@@ -29,9 +29,32 @@ export async function GET() {
       .from('business_relationships')
       .select('source_type,target_type,relationship_type,evidence_status,confidence')
       .eq('organization_id', organizationId),
+    supabase
+      .from('company_intelligence_snapshots')
+      .select('state,intelligence,captured_at')
+      .eq('organization_id', organizationId)
+      .eq('snapshot_type', 'company_state')
+      .order('captured_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   if (error) return NextResponse.json({ error: 'Unable to load reports.' }, { status: 500 })
+
+  const intelligenceCore =
+    !intelligenceError &&
+    intelligenceSnapshot?.state &&
+    typeof intelligenceSnapshot.state === 'object' &&
+    intelligenceSnapshot.state.intelligenceCore &&
+    typeof intelligenceSnapshot.state.intelligenceCore === 'object'
+      ? intelligenceSnapshot.state.intelligenceCore
+      : !intelligenceError &&
+          intelligenceSnapshot?.intelligence &&
+          typeof intelligenceSnapshot.intelligence === 'object' &&
+          intelligenceSnapshot.intelligence.intelligenceCore &&
+          typeof intelligenceSnapshot.intelligence.intelligenceCore === 'object'
+        ? intelligenceSnapshot.intelligence.intelligenceCore
+        : null
 
   const relationshipRows: RelationshipRow[] = relationshipError ? [] : relationships ?? []
   const verified = relationshipRows.filter((row) => row.evidence_status === 'verified').length
@@ -49,6 +72,7 @@ export async function GET() {
 
   return NextResponse.json({
     reports: data ?? [],
+    intelligenceCore: intelligenceCore ?? { available: false },
     relationshipIntelligence: {
       explicitRelationships: relationshipRows.length,
       verifiedRelationships: verified,
