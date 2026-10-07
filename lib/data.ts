@@ -92,6 +92,7 @@ export const navGroups: NavigationGroup[] = [
     items: [
       { label: 'Company Brain', href: '/brain', icon: Brain },
       { label: 'Business Analyst', href: '/business-analyst', icon: Lightbulb },
+      { label: 'Intelligence Core', href: '/intelligence', icon: Brain },
     ],
   },
   {
