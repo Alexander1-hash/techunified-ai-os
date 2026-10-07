@@ -105,6 +105,7 @@ export async function GET() {
       executionsResult,
       outcomesResult,
       relationshipsResult,
+      intelligenceResult,
     ] = await Promise.all([
       supabase
         .from('sales')
@@ -130,6 +131,7 @@ export async function GET() {
       supabase.from('automation_executions').select('id,workflow_id,status').eq('organization_id', organizationId),
       supabase.from('business_outcomes').select('id,title,outcome_type,revenue_impact,cost_avoided,evidence_status').eq('organization_id', organizationId),
       supabase.from('business_relationships').select('id,source_type,source_id,relationship_type,target_type,target_id,evidence_status,confidence').eq('organization_id', organizationId),
+      supabase.from('company_intelligence_snapshots').select('state,intelligence,captured_at').eq('organization_id', organizationId).eq('snapshot_type', 'company_state').order('captured_at', { ascending: false }).limit(1).maybeSingle(),
     ])
 
     if (
@@ -159,6 +161,20 @@ export async function GET() {
     const workflows = (workflowsResult.data ?? []) as WorkflowRow[]
     const executions = (executionsResult.data ?? []) as AutomationExecutionRow[]
     const outcomes = (outcomesResult.data ?? []) as OutcomeRow[]
+    const intelligenceSnapshot = intelligenceResult.data ?? null
+    const intelligenceCore =
+      intelligenceSnapshot?.state &&
+      typeof intelligenceSnapshot.state === 'object' &&
+      intelligenceSnapshot.state.intelligenceCore &&
+      typeof intelligenceSnapshot.state.intelligenceCore === 'object'
+        ? intelligenceSnapshot.state.intelligenceCore
+        : intelligenceSnapshot?.intelligence &&
+            typeof intelligenceSnapshot.intelligence === 'object' &&
+            intelligenceSnapshot.intelligence.intelligenceCore &&
+            typeof intelligenceSnapshot.intelligence.intelligenceCore === 'object'
+          ? intelligenceSnapshot.intelligence.intelligenceCore
+          : null
+
     const relationshipRows = (relationshipsResult.data ?? []) as RelationshipRow[]
 
     const wonSales =
@@ -1141,6 +1157,8 @@ export async function GET() {
       },
 
       decisions,
+
+      intelligenceCore: intelligenceCore ?? { available: false },
 
       methodology:
         'Decisions are derived from organization-scoped operational records plus verified Business Analyst KPI evidence. Relationships are calculated from recorded customer_id, service_id, department_id, workflow execution, and explicit relationship links. No missing business values are invented. Revenue is not converted between currencies.',
