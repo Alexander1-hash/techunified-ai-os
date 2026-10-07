@@ -369,12 +369,26 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'orchestration run id is required.' }, { status: 400 })
     }
 
+    const { data: existingRun, error: existingRunError } = await supabase
+      .from('business_orchestration_runs')
+      .select('id,status,approval_status,action_run_ids,agent_run_ids')
+      .eq('id', id)
+      .eq('organization_id', organizationId)
+      .maybeSingle()
+
+    if (existingRunError) throw existingRunError
+    if (!existingRun) return NextResponse.json({ error: 'Orchestration run not found.' }, { status: 404 })
+
     const updates: Record<string, unknown> = {}
 
     if (typeof body?.status === 'string') {
       if (!allowedStatuses.includes(body.status as (typeof allowedStatuses)[number])) {
         return NextResponse.json({ error: 'Invalid orchestration status.' }, { status: 400 })
       }
+      if (body.status === 'executing' && existingRun.approval_status !== 'approved') return NextResponse.json({ error: 'Controlled execution requires explicit approval.' }, { status: 403 })
+      if (body.status === 'executing' && existingRun.status !== 'awaiting_approval') return NextResponse.json({ error: 'Execution can only begin from an approval-ready orchestration run.' }, { status: 409 })
+      if (body.status === 'executing' && !(Array.isArray(existingRun.action_run_ids) || Array.isArray(existingRun.agent_run_ids))) return NextResponse.json({ error: 'Execution requires governed work references.' }, { status: 409 })
+      if (body.status === 'completed' && existingRun.status !== 'executing') return NextResponse.json({ error: 'Only an executing orchestration run can be completed.' }, { status: 409 })
       updates.status = body.status
       if (body.status === 'executing' && !body.started_at) updates.started_at = new Date().toISOString()
       if (['completed', 'failed', 'cancelled'].includes(body.status) && !body.completed_at) {
@@ -386,6 +400,7 @@ export async function PATCH(request: Request) {
       if (!allowedApprovalStatuses.includes(body.approval_status as (typeof allowedApprovalStatuses)[number])) {
         return NextResponse.json({ error: 'Invalid orchestration approval status.' }, { status: 400 })
       }
+      if (body.approval_status === 'approved' && existingRun.status !== 'awaiting_approval') return NextResponse.json({ error: 'Approval can only be granted to an awaiting orchestration run.' }, { status: 409 })
       updates.approval_status = body.approval_status
     }
 
