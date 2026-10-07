@@ -198,6 +198,7 @@ export async function GET() {
       forecasts,
       objectiveIntelligence,
       governance,
+      intelligenceCore,
     }
 
     const intelligence = {
@@ -205,6 +206,7 @@ export async function GET() {
       evidence: [...evidence, { source: 'derived_signals', count: signals.length }],
       signalConfidence,
       governance,
+      intelligenceCore,
     }
 
     const { data: snapshot, error } = await supabase.from('company_intelligence_snapshots').insert({
