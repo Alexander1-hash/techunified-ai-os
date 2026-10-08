@@ -85,7 +85,7 @@ export function NotificationInbox({
   if (!open) return null
 
   return (
-    <div className="absolute right-0 top-[calc(100%+8px)] z-[220] w-[min(420px,calc(100vw-1rem))] overflow-hidden rounded-2xl border border-[#303030] bg-[#171717] text-white shadow-2xl">
+    <div className="fixed inset-x-2 top-[4.25rem] z-[220] overflow-hidden rounded-2xl border border-[#303030] bg-[#171717] text-white shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-[calc(100%+8px)] sm:w-[min(420px,calc(100vw-1rem))]">
       <div className="border-b border-[#303030] px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
