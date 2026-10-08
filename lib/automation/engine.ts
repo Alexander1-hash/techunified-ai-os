@@ -372,6 +372,7 @@ export async function runAutomationStep(
       const timeout = setTimeout(() => controller.abort(), 15_000);
 
       let response: Response;
+      let responseText: string;
       try {
         response = await fetch(url, {
           method,
@@ -384,8 +385,18 @@ export async function runAutomationStep(
                 body: JSON.stringify(input),
               }),
         });
+
+        // Keep the same deadline active while reading the response body.
+        // Some endpoints send headers quickly but then stall the body stream.
+        responseText = await readResponseBodyLimited(
+          response,
+          50_000
+        );
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") {
+          throw new Error("Webhook request timed out.");
+        }
+        if (controller.signal.aborted) {
           throw new Error("Webhook request timed out.");
         }
         throw new Error(
@@ -396,11 +407,6 @@ export async function runAutomationStep(
       } finally {
         clearTimeout(timeout);
       }
-
-      const responseText = await readResponseBodyLimited(
-        response,
-        50_000
-      );
 
       if (!response.ok) {
         throw new Error(
