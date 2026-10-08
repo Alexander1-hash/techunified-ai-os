@@ -175,6 +175,13 @@ export async function GET() {
       },
     }
 
+    const governance = {
+      requiresHumanOversight: signals.some((signal: any) => signal.type === 'governance' || signal.severity === 'high'),
+      highSeveritySignals: signals.filter((signal: any) => signal.severity === 'high').length,
+      forecastConfidence,
+      evidenceBound: true,
+    }
+
     const { data: previousSnapshot } = await supabase
       .from('company_intelligence_snapshots')
       .select('id,state,intelligence,captured_at')
@@ -184,6 +191,7 @@ export async function GET() {
       .limit(1)
       .maybeSingle()
 
+    const previousState = previousSnapshot?.state && typeof previousSnapshot.state === 'object' ? previousSnapshot.state as Record<string, any> : null
     const previousCore = previousState && previousState.intelligenceCore && typeof previousState.intelligenceCore === 'object'
       ? previousState.intelligenceCore as Record<string, any>
       : null
@@ -203,13 +211,6 @@ export async function GET() {
         verifiedOutcomeCountDelta: verifiedOutcomes.length - (Number.isFinite(previousVerifiedOutcomeCount) ? previousVerifiedOutcomeCount : 0),
         continuityRule: 'Use prior verified evidence as context, but never treat historical success as proof that a new execution path will succeed.',
       },
-    }
-
-    const governance = {
-      requiresHumanOversight: signals.some((signal: any) => signal.type === 'governance' || signal.severity === 'high'),
-      highSeveritySignals: signals.filter((signal: any) => signal.severity === 'high').length,
-      forecastConfidence,
-      evidenceBound: true,
     }
 
     const snapshotState = {
