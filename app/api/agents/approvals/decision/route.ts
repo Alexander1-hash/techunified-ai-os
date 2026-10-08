@@ -228,11 +228,29 @@ export async function POST(request: Request) {
     }, { status: 409 })
   }
 
-  const { data: linkedOrchestrationsForGate } = await supabase
+  const { data: linkedOrchestrationsForGate, error: orchestrationGateError } = await supabase
     .from('business_orchestration_runs')
     .select('id,objective_id,status')
     .eq('organization_id', organizationId)
     .contains('agent_run_ids', [approval.agent_run_id])
+
+  if (orchestrationGateError) {
+    const { error: approvalResetError } = await supabase
+      .from('agent_approvals')
+      .update({ status: 'pending', reviewed_by: null, reviewer_note: null, reviewed_at: null })
+      .eq('id', approvalId).eq('organization_id', organizationId).eq('status', 'approved')
+    const { error: runResetError } = await supabase
+      .from('agent_runs').update({ approval_status: 'pending' })
+      .eq('id', approval.agent_run_id).eq('organization_id', organizationId)
+
+    return NextResponse.json({
+      error: approvalResetError || runResetError
+        ? 'Unable to verify orchestration dependencies or restore approval state. Please review the approval record.'
+        : 'Unable to verify orchestration dependencies. Approval has been returned to pending.',
+      approvalStatus: approvalResetError || runResetError ? 'unknown' : 'pending',
+      execution: 'not_started',
+    }, { status: 500 })
+  }
 
   for (const orchestration of linkedOrchestrationsForGate ?? []) {
     const { data: objectiveForGate } = await supabase
