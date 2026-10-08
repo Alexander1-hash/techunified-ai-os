@@ -90,11 +90,16 @@ export async function PATCH(request: Request) {
     "avatar_url",
   );
 
-  if (!hasFullName && !hasAvatarUrl) {
+  const hasIdentityPreference = Object.prototype.hasOwnProperty.call(
+    payload,
+    "identity_preference",
+  );
+
+  if (!hasFullName && !hasAvatarUrl && !hasIdentityPreference) {
     return NextResponse.json(
       {
         error:
-          "Provide full_name or avatar_url to update the profile",
+          "Provide full_name, avatar_url, or identity_preference to update the profile",
       },
       { status: 400 },
     );
@@ -102,6 +107,7 @@ export async function PATCH(request: Request) {
 
   let fullName: string | null | undefined;
   let avatarUrl: string | null | undefined;
+  let identityPreference: "personal" | "company" | undefined;
 
   if (hasFullName) {
     if (
@@ -157,9 +163,20 @@ export async function PATCH(request: Request) {
     }
   }
 
+  if (hasIdentityPreference) {
+    if (payload.identity_preference !== "personal" && payload.identity_preference !== "company") {
+      return NextResponse.json(
+        { error: "identity_preference must be personal or company" },
+        { status: 400 },
+      );
+    }
+    identityPreference = payload.identity_preference;
+  }
+
   const updates: {
     full_name?: string | null;
     avatar_url?: string | null;
+    identity_preference?: "personal" | "company";
   } = {};
 
   if (hasFullName) {
@@ -170,12 +187,16 @@ export async function PATCH(request: Request) {
     updates.avatar_url = avatarUrl ?? null;
   }
 
+  if (hasIdentityPreference) {
+    updates.identity_preference = identityPreference;
+  }
+
   const { data, error } = await supabase
     .from("profiles")
     .update(updates)
     .eq("id", result.user.id)
     .select(
-      "id, organization_id, full_name, avatar_url, role, created_at",
+      "id, organization_id, full_name, avatar_url, identity_preference, role, created_at",
     )
     .single();
 

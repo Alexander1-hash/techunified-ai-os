@@ -20,6 +20,43 @@ import { useAuth } from "@/components/auth-provider";
 
 type MessageType = "success" | "error" | null;
 
+function IdentityChoice({
+  selected,
+  disabled,
+  title,
+  description,
+  onClick,
+  children,
+}: {
+  selected: boolean
+  disabled: boolean
+  title: string
+  description: string
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={[
+        "rounded-xl border p-4 text-left transition",
+        selected ? "border-primary bg-primary/10" : "hover:bg-muted",
+        disabled ? "cursor-not-allowed opacity-60" : "",
+      ].join(" ")}
+    >
+      <div className="flex items-center gap-3">
+        {children}
+        <div>
+          <p className="font-medium">{title}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+        </div>
+      </div>
+    </button>
+  )
+}
+
 export default function SettingsPage() {
   const {
     profile,
@@ -33,6 +70,8 @@ export default function SettingsPage() {
 
   const [fullName, setFullName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [identityPreference, setIdentityPreference] = useState<"personal" | "company">("personal");
+  const [savingIdentityPreference, setSavingIdentityPreference] = useState(false);
 
   const [displayFullName, setDisplayFullName] = useState("");
   const [displayAvatarUrl, setDisplayAvatarUrl] = useState("");
@@ -74,6 +113,8 @@ export default function SettingsPage() {
 
     setDisplayFullName(nextFullName);
     setDisplayAvatarUrl(nextAvatarUrl);
+
+    setIdentityPreference(profile?.identity_preference === "company" ? "company" : "personal");
 
     setAvatarPreviewError(false);
     setDisplayAvatarError(false);
@@ -152,6 +193,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           full_name: cleanedName,
           avatar_url: cleanedAvatarUrl || null,
+          identity_preference: identityPreference,
         }),
       });
 
@@ -487,6 +529,76 @@ export default function SettingsPage() {
                   </button>
                 </div>
               )}
+            </div>
+
+            <div className="border-t p-5">
+              <div className="rounded-xl border bg-muted/30 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Workspace identity</p>
+                <p className="mt-1 text-sm text-muted-foreground">Choose what represents you in the top-right workspace menu.</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <IdentityChoice
+                    selected={identityPreference === "personal"}
+                    disabled={savingIdentityPreference}
+                    title="Personal profile"
+                    description="Use your profile photo or initials."
+                    onClick={async () => {
+                      if (identityPreference === "personal") return;
+                      setSavingIdentityPreference(true);
+                      try {
+                        const response = await fetch("/api/profile", {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ identity_preference: "personal" }),
+                        });
+                        if (!response.ok) throw new Error("Failed to update workspace identity.");
+                        setIdentityPreference("personal");
+                        showMessage("Personal profile is now your workspace identity.", "success");
+                      } catch (error) {
+                        showMessage(error instanceof Error ? error.message : "Failed to update workspace identity.", "error");
+                      } finally {
+                        setSavingIdentityPreference(false);
+                      }
+                    }}
+                  >
+                    <div className="flex size-10 items-center justify-center overflow-hidden rounded-full border bg-background text-xs font-semibold">
+                      {displayAvatarUrl && !displayAvatarError ? <img src={displayAvatarUrl} alt={profileName} className="size-full object-cover" /> : initials}
+                    </div>
+                  </IdentityChoice>
+
+                  <IdentityChoice
+                    selected={identityPreference === "company"}
+                    disabled={savingIdentityPreference}
+                    title="Company logo"
+                    description={logoUrl ? "Use your company logo for workspace identity." : "Upload a company logo first."}
+                    onClick={async () => {
+                      if (!logoUrl) {
+                        showMessage("Upload a company logo first.", "error");
+                        return;
+                      }
+                      if (identityPreference === "company") return;
+                      setSavingIdentityPreference(true);
+                      try {
+                        const response = await fetch("/api/profile", {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ identity_preference: "company" }),
+                        });
+                        if (!response.ok) throw new Error("Failed to update workspace identity.");
+                        setIdentityPreference("company");
+                        showMessage("Company logo is now your workspace identity.", "success");
+                      } catch (error) {
+                        showMessage(error instanceof Error ? error.message : "Failed to update workspace identity.", "error");
+                      } finally {
+                        setSavingIdentityPreference(false);
+                      }
+                    }}
+                  >
+                    <div className="flex size-10 items-center justify-center overflow-hidden rounded-xl border bg-background">
+                      {logoUrl && !logoError ? <img src={logoUrl} alt={organizationName} className="size-full object-contain p-1" /> : <Building2 className="h-5 w-5 text-muted-foreground" />}
+                    </div>
+                  </IdentityChoice>
+                </div>
+              </div>
             </div>
 
             <div className="p-5">

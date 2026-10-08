@@ -280,7 +280,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             }}
             className="flex size-8 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-[10px] font-semibold sm:size-9"
           >
-            <Avatar profile={profile} user={user} />
+            <IdentityAvatar profile={profile} user={user} organization={organization} />
           </button>
         </div>
       </header>
@@ -451,6 +451,43 @@ function Avatar({
   )
 }
 
+function IdentityAvatar({
+  profile,
+  user,
+  organization,
+}: {
+  profile: Record<string, unknown> | null
+  user: {
+    email?: string
+    user_metadata?: { full_name?: string; name?: string }
+  } | null
+  organization: Record<string, unknown> | null
+}) {
+  const preference = profile?.identity_preference === "company" ? "company" : "personal"
+  const companyLogo =
+    typeof organization?.logo_url === "string" && organization.logo_url.trim()
+      ? organization.logo_url.trim()
+      : null
+  const personalAvatar =
+    typeof profile?.avatar_url === "string" && profile.avatar_url.trim()
+      ? profile.avatar_url.trim()
+      : null
+
+  if (preference === "company" && companyLogo) {
+    return <img src={companyLogo} alt={String(organization?.name ?? "Company")} className="size-full object-contain p-1" />
+  }
+
+  if (preference === "personal" && personalAvatar) {
+    return <img src={personalAvatar} alt={String(profile?.full_name ?? "Profile")} className="size-full object-cover" />
+  }
+
+  if (companyLogo) {
+    return <img src={companyLogo} alt={String(organization?.name ?? "Company")} className="size-full object-contain p-1" />
+  }
+
+  return <Avatar profile={profile} user={user} />
+}
+
 function ProfileMenu({
   profile,
   user,
@@ -512,7 +549,7 @@ function ProfileMenu({
           ].join(" ")}
         >
           <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-[10px] font-semibold">
-            <Avatar profile={profile} user={user} />
+            <IdentityAvatar profile={profile} user={user} organization={organization} />
           </div>
 
           {!collapsed && (
@@ -545,7 +582,7 @@ function ProfileMenu({
             <div className="rounded-lg border border-border bg-muted px-3 py-3 text-card-foreground shadow-inner">
               <div className="flex items-center gap-3">
                 <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background text-[10px] font-semibold">
-                  <Avatar profile={profile} user={user} />
+                  <IdentityAvatar profile={profile} user={user} organization={organization} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-white">{name}</p>
