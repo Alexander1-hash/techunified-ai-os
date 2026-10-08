@@ -60,13 +60,17 @@ export async function POST(request: Request) {
     ? approval.proposed_action as Record<string, unknown>
     : {}
 
-  const { data: linkedOrchestrationContext } = await supabase
+  const { data: linkedOrchestrationContext, error: linkedOrchestrationContextError } = await supabase
     .from('business_orchestration_runs')
     .select('id,objective_id,plan')
     .eq('organization_id', organizationId)
     .contains('agent_run_ids', [approval.agent_run_id])
     .limit(1)
     .maybeSingle()
+
+  if (linkedOrchestrationContextError) {
+    return NextResponse.json({ error: 'Unable to verify the linked orchestration context.' }, { status: 500 })
+  }
 
   const orchestrationPlan = linkedOrchestrationContext?.plan && typeof linkedOrchestrationContext.plan === 'object'
     ? linkedOrchestrationContext.plan as Record<string, unknown>
