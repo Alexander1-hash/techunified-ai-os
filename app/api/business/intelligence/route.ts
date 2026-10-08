@@ -94,6 +94,37 @@ export async function GET() {
       }
     })
 
+    const { data: previousSnapshot } = await supabase
+      .from('company_intelligence_snapshots')
+      .select('id,state,intelligence,captured_at')
+      .eq('organization_id', organizationId)
+      .eq('snapshot_type', 'company_state')
+      .order('captured_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const previousState = previousSnapshot?.state && typeof previousSnapshot.state === 'object'
+      ? previousSnapshot.state as Record<string, any>
+      : null
+    const previousCore = previousState?.intelligenceCore && typeof previousState.intelligenceCore === 'object'
+      ? previousState.intelligenceCore as Record<string, any>
+      : null
+    const previousLearning = previousCore?.learning && typeof previousCore.learning === 'object'
+      ? previousCore.learning as Record<string, any>
+      : null
+    const previousUnderstanding = previousCore?.understanding && typeof previousCore.understanding === 'object'
+      ? previousCore.understanding as Record<string, any>
+      : null
+
+    const longitudinalLearning = {
+      priorSnapshotAvailable: Boolean(previousSnapshot),
+      priorSnapshotId: previousSnapshot?.id ?? null,
+      priorSnapshotCapturedAt: previousSnapshot?.captured_at ?? null,
+      verifiedLearningSignalsDelta: successfulEvaluations.length - Number(previousLearning?.verifiedLearningSignals ?? 0),
+      verifiedOutcomeCountDelta: verifiedOutcomes.length - Number(previousUnderstanding?.verifiedOutcomeCount ?? 0),
+      continuityRule: 'Use prior verified evidence as context, but never treat historical success as proof that a new execution path will succeed.',
+    }
+
     // Adaptive Intelligence Core: transform observed company state into
     // evidence-bounded hypotheses, scenarios, decisions, and learning signals.
     const observations = [
@@ -174,37 +205,6 @@ export async function GET() {
         causalClaimsAllowed: false,
         roiClaimsAllowedWithoutPilotEvidence: false,
       },
-    }
-
-    const { data: previousSnapshot } = await supabase
-      .from('company_intelligence_snapshots')
-      .select('id,state,intelligence,captured_at')
-      .eq('organization_id', organizationId)
-      .eq('snapshot_type', 'company_state')
-      .order('captured_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    const previousState = previousSnapshot?.state && typeof previousSnapshot.state === 'object'
-      ? previousSnapshot.state as Record<string, any>
-      : null
-    const previousCore = previousState?.intelligenceCore && typeof previousState.intelligenceCore === 'object'
-      ? previousState.intelligenceCore as Record<string, any>
-      : null
-    const previousLearning = previousCore?.learning && typeof previousCore.learning === 'object'
-      ? previousCore.learning as Record<string, any>
-      : null
-    const previousUnderstanding = previousCore?.understanding && typeof previousCore.understanding === 'object'
-      ? previousCore.understanding as Record<string, any>
-      : null
-
-    const longitudinalLearning = {
-      priorSnapshotAvailable: Boolean(previousSnapshot),
-      priorSnapshotId: previousSnapshot?.id ?? null,
-      priorSnapshotCapturedAt: previousSnapshot?.captured_at ?? null,
-      verifiedLearningSignalsDelta: successfulEvaluations.length - Number(previousLearning?.verifiedLearningSignals ?? 0),
-      verifiedOutcomeCountDelta: verifiedOutcomes.length - Number(previousUnderstanding?.verifiedOutcomeCount ?? 0),
-      continuityRule: 'Use prior verified evidence as context, but never treat historical success as proof that a new execution path will succeed.',
     }
 
     const governance = {
