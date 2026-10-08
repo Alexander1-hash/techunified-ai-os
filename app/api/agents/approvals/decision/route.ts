@@ -299,7 +299,35 @@ export async function POST(request: Request) {
     .select('id')
     .single()
 
-  if (actionInsertError || !actionRun) return NextResponse.json({ error: 'Unable to create controlled action run.' }, { status: 500 })
+  if (actionInsertError || !actionRun) {
+    // No execution has started if the action record cannot be created. Keep the
+    // approval retryable instead of leaving it approved with no action evidence.
+    const { error: approvalResetError } = await supabase
+      .from('agent_approvals')
+      .update({ status: 'pending', reviewed_by: null, reviewer_note: null, reviewed_at: null })
+      .eq('id', approvalId)
+      .eq('organization_id', organizationId)
+      .eq('status', 'approved')
+
+    const { error: runResetError } = await supabase
+      .from('agent_runs')
+      .update({ approval_status: 'pending' })
+      .eq('id', approval.agent_run_id)
+      .eq('organization_id', organizationId)
+
+    if (approvalResetError || runResetError) {
+      return NextResponse.json({
+        error: 'Unable to create the action run, and approval state could not be restored. Please review the approval record.',
+        execution: 'not_started',
+      }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      error: 'Unable to create controlled action run. Approval has been returned to pending.',
+      approvalStatus: 'pending',
+      execution: 'not_started',
+    }, { status: 500 })
+  }
 
   const result = await executeAutomation(workflow.id, organizationId, {
     type: 'decision',
