@@ -18,7 +18,11 @@ export async function POST(request: Request) {
   const userId = profile?.id
   if (!organizationId || !userId) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
 
-  const body = await request.json().catch(() => null)
+  const rawBody = await request.text()
+  if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json({ error: 'Approval request is too large.' }, { status: 413 })
+  }
+  const body = JSON.parse(rawBody)
   const approvalId = typeof body?.approvalId === 'string' ? body.approvalId.trim() : ''
   const decision = body?.decision === 'approved' || body?.decision === 'rejected' ? body.decision : ''
   const reviewerNote = typeof body?.reviewerNote === 'string' ? body.reviewerNote.trim() : ''
