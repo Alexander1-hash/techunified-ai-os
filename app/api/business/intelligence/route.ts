@@ -184,7 +184,6 @@ export async function GET() {
       .limit(1)
       .maybeSingle()
 
-    const previousState = previousSnapshot?.state && typeof previousSnapshot.state === 'object' ? previousSnapshot.state as Record<string, any> : null
     const previousCore = previousState && previousState.intelligenceCore && typeof previousState.intelligenceCore === 'object'
       ? previousState.intelligenceCore as Record<string, any>
       : null
