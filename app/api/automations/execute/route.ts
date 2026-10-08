@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { executeAutomation } from "@/lib/automation/engine";
 
+const MAX_REQUEST_BYTES = 64 * 1024
+
 export async function POST(request: NextRequest) {
   try {
+    const contentLength = Number(request.headers.get("content-length") ?? 0)
+    if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+      return NextResponse.json({ success: false, error: "Automation request is too large" }, { status: 413 })
+    }
     const supabase = await createClient();
 
     const {
@@ -52,6 +58,10 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    if (workflowId.length > 200) {
+      return NextResponse.json({ success: false, error: "Invalid workflowId" }, { status: 400 })
     }
 
     const input =
