@@ -444,7 +444,7 @@ export async function runGovernedAgent(agentId: string, task: string, userId: st
       agent_id: agentId,
       run_id: run.id,
       memory_type: 'working',
-      content: 'Task: ' + task + '\\nResult: ' + output.slice(0, 4000),
+      content: 'Task: ' + task + '\nResult: ' + output.slice(0, 4000),
       importance: 40,
       confidence: 30,
       evidence_status: 'unverified',
