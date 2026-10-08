@@ -18,8 +18,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Generation request is too large.' }, { status: 413 })
   }
 
-  const body = await request.json().catch(() => null)
-  if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'Invalid generation request.' }, { status: 400 })
+  const rawBody = await request.text()
+  if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json({ error: 'Generation request is too large.' }, { status: 413 })
+  }
+
+  let body: Record<string, unknown>
+  try {
+    const parsed: unknown = JSON.parse(rawBody)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return NextResponse.json({ error: 'Invalid generation request.' }, { status: 400 })
+    }
+    body = parsed as Record<string, unknown>
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON request body.' }, { status: 400 })
+  }
+
+  if (body.type !== 'image' && body.type !== 'video') {
+    return NextResponse.json({ error: 'Generation type must be image or video.' }, { status: 400 })
+  }
   if (typeof body.prompt !== 'string' || body.prompt.trim().length < 3) {
     return NextResponse.json({ error: 'Describe your generation in at least 3 characters.' }, { status: 400 })
   }
@@ -40,7 +57,14 @@ export async function POST(request: Request) {
   const model = models.find((item) => item.type === type)
   const quality: Quality = body.quality === 'high' ? 'high' : 'standard'
   const duration = type === 'video' && body.duration === 10 ? 10 : type === 'video' ? 5 : undefined
-  const idempotencyKey = typeof body.idempotencyKey === 'string' && body.idempotencyKey.trim().length > 0 && body.idempotencyKey.length <= MAX_IDEMPOTENCY_KEY_LENGTH
+  if (body.idempotencyKey !== undefined && (
+    typeof body.idempotencyKey !== 'string' ||
+    body.idempotencyKey.trim().length === 0 ||
+    body.idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH
+  )) {
+    return NextResponse.json({ error: 'Invalid idempotency key.' }, { status: 400 })
+  }
+  const idempotencyKey = typeof body.idempotencyKey === 'string'
     ? body.idempotencyKey.trim()
     : crypto.randomUUID()
   const requestData: GenerationRequest = {
