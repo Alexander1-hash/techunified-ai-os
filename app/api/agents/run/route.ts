@@ -20,11 +20,18 @@ export async function GET(request: Request) {
       );
     }
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("organization_id")
       .eq("id", user.id)
       .maybeSingle();
+
+    if (profileError) {
+      return NextResponse.json(
+        { error: "Unable to verify organization membership." },
+        { status: 500 }
+      );
+    }
 
     if (!profile?.organization_id) {
       return NextResponse.json(
