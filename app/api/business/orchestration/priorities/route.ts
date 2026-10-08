@@ -28,6 +28,10 @@ export async function GET() {
         : null)
     const objectiveIntelligence = Array.isArray(intelligenceState.objectiveIntelligence) ? intelligenceState.objectiveIntelligence : []
     const intelligenceByObjective = new Map(objectiveIntelligence.map((item: any) => [String(item.objectiveId), item]))
+    const coreDecisions = intelligenceCore && Array.isArray(intelligenceCore.decisions) ? intelligenceCore.decisions : []
+    const coreContradictions = intelligenceCore && Array.isArray(intelligenceCore.contradictions) ? intelligenceCore.contradictions : []
+    const coreDecisionActions = new Set(coreDecisions.map((decision: any) => String(decision.action ?? '')))
+    const coreContradictionTypes = new Set(coreContradictions.map((contradiction: any) => String(contradiction.type ?? '')))
 
     const objectiveIndex = new Map((objectives ?? []).map((objective: any) => [String(objective.id), objective]))
     const relationships = relationshipRows ?? []
@@ -88,6 +92,32 @@ export async function GET() {
       if (learningSignal === 'positive_verified_learning') priorityScore += 3
       if (progress !== null && progress < 50) priorityScore += 15
 
+      const coreInfluence: string[] = []
+      if (coreDecisionActions.has('review_pending_approvals') && pendingApproval > 0) {
+        priorityScore += 10
+        coreInfluence.push('core_governance_decision')
+      }
+      if (coreDecisionActions.has('investigate_failed_work') && failed > 0) {
+        priorityScore += 10
+        coreInfluence.push('core_failure_decision')
+      }
+      if (coreDecisionActions.has('close_evidence_gap') && (completed > 0 || objectiveEvaluations.length > 0) && verified.length === 0) {
+        priorityScore += 8
+        coreInfluence.push('core_evidence_decision')
+      }
+      if (coreContradictionTypes.has('execution_capacity') && !capacityAvailable) {
+        priorityScore += 5
+        coreInfluence.push('core_capacity_contradiction')
+      }
+      if (coreContradictionTypes.has('learning_without_outcome') && (completed > 0 || objectiveEvaluations.length > 0) && verified.length === 0) {
+        priorityScore += 5
+        coreInfluence.push('core_learning_contradiction')
+      }
+      if (coreContradictionTypes.has('mixed_execution_evidence') && failed > 0 && verified.length > 0) {
+        priorityScore += 5
+        coreInfluence.push('core_mixed_execution_contradiction')
+      }
+
       const intelligence = intelligenceByObjective.get(String(objective.id))
       if (intelligence?.pressure === 'risk') priorityScore += 20
       if (intelligence?.pressure === 'governance') priorityScore += 15
@@ -99,6 +129,9 @@ export async function GET() {
 
       priorityScore = Math.min(100, priorityScore)
       const reason = blockedDependencies.length > 0 ? 'Blocked by an unresolved objective dependency' : !capacityAvailable ? 'No active AI worker and workflow execution capacity is available' : pendingApproval > 0 ? 'Pending governed approval' : failed > 0 ? 'Failed objective work needs review' : learningSignal === 'negative_execution_learning' ? 'Prior execution evidence indicates this objective needs additional review' : completed > 0 && verified.length === 0 ? 'Completed work lacks verified outcome evidence' : progress !== null && progress < 50 ? 'Objective is materially below its target' : active > 0 ? 'Active governed work is underway' : 'Objective has limited current evidence'
+      const priorityReason = coreInfluence.length > 0
+        ? `${reason}; Intelligence Core: ${coreInfluence.join(', ')}`
+        : reason
       return {
         id: objective.id,
         relationshipEvidence: {
@@ -113,7 +146,8 @@ export async function GET() {
         title: String(objective.title ?? objective.name ?? objective.description ?? 'Company objective'),
         description: String(objective.description ?? objective.details ?? ''),
         priorityScore,
-        priorityReason: reason,
+        priorityReason,
+        intelligenceCoreInfluence: coreInfluence,
         progressPercent: progress,
         activeRuns: active,
         pendingApprovalRuns: pendingApproval,
@@ -140,6 +174,13 @@ export async function GET() {
 
     const adaptiveSummary = {
       confidence: intelligenceSnapshot?.confidence ?? 'low',
+      intelligenceCoreInfluence: {
+        available: Boolean(intelligenceCore),
+        decisionCount: coreDecisions.length,
+        contradictionCount: coreContradictions.length,
+        activeDecisionActions: [...coreDecisionActions].filter(Boolean),
+        contradictionTypes: [...coreContradictionTypes].filter(Boolean),
+      },
       computedAt: intelligenceSnapshot?.computed_at ?? null,
       signalCount: intelligenceSignals.length,
       highSeveritySignals: intelligenceSignals.filter((signal: any) => signal.severity === 'high').length,
@@ -217,7 +258,6 @@ export async function GET() {
     const failedObjectiveIds = new Set(
       (runs ?? []).filter((run: any) => String(run.status) === 'failed').map((run: any) => String(run.objective_id)),
     )
-
     const workloadIntelligence = scored.map((objective: any) => {
       const active = activeOrchestrationRuns.filter((run: any) => String(run.objective_id) === objective.id)
       const pendingApproval = pendingApprovalObjectives.has(objective.id)
