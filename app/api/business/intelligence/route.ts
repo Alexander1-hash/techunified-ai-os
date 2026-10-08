@@ -184,6 +184,7 @@ export async function GET() {
       .limit(1)
       .maybeSingle()
 
+    const previousState = previousSnapshot?.state && typeof previousSnapshot.state === 'object' ? previousSnapshot.state as Record<string, any> : null
     const previousCore = previousState && previousState.intelligenceCore && typeof previousState.intelligenceCore === 'object'
       ? previousState.intelligenceCore as Record<string, any>
       : null
@@ -359,3 +360,31 @@ export async function GET() {
             computed_at: snapshot.captured_at,
           }
         : snapshot,
+      previousSnapshotId: previousSnapshot?.id ?? null,
+      signals,
+      signalConfidence,
+      forecasts,
+      forecastConfidence,
+      objectiveIntelligence,
+      governance,
+      longitudinal: {
+        changed: trackedChanges.length > 0,
+        changedFields: trackedChanges,
+        recentStateAvailable: Boolean(previousSnapshot),
+      },
+      intelligenceCore,
+      graph: {
+        activeEdges: edgeRows.length,
+        objectiveRelationships: edgeRows.filter((edge: any) => edge.from_type === 'objective').length,
+      },
+      forecastEvaluation: {
+        evaluated: forecastEvaluations.length,
+        averageAccuracy: forecastEvaluations.length
+          ? Math.round(forecastEvaluations.reduce((sum: number, item: any) => sum + item.accuracyScore, 0) / forecastEvaluations.length)
+          : null,
+      },
+    })
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to compute company intelligence.' }, { status: 500 })
+  }
+}
