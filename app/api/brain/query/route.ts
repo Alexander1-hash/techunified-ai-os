@@ -9,8 +9,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Company Brain request is too large.' }, { status: 413 })
   }
 
-  const body = await request.json().catch(() => null)
-  const question = body && typeof body.question === 'string' ? body.question.trim() : ''
+  const rawBody = await request.text()
+  if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json({ error: 'Company Brain request is too large.' }, { status: 413 })
+  }
+
+  let body: unknown
+  try {
+    body = JSON.parse(rawBody)
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON request body.' }, { status: 400 })
+  }
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Request body must be a JSON object.' }, { status: 400 })
+  }
+
+  const payload = body as Record<string, unknown>
+  const question = typeof payload.question === 'string' ? payload.question.trim() : ''
   if (!question) return NextResponse.json({ error: 'Ask a question about your organization.' }, { status: 400 })
   if (question.length > 4000) return NextResponse.json({ error: 'Keep your question under 4,000 characters.' }, { status: 400 })
   try { return NextResponse.json(await askCompanyBrainServer(question)) } catch (error) {
