@@ -9,7 +9,7 @@ export async function GET() {
     if (!profile?.organization_id) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
     const organizationId = profile.organization_id
 
-    const [{ data: objectives }, { data: runs }, { data: outcomes }, { data: agents }, { data: workflows }, { data: evaluations }, { data: memories }] = await Promise.all([
+    const [{ data: objectives }, { data: runs }, { data: outcomes }, { data: agents }, { data: workflows }, { data: evaluations }, { data: memories }, { data: kpis }, { data: sourceRecords }] = await Promise.all([
       supabase.from('company_objectives').select('id,status,target_value,current_value').eq('organization_id', organizationId).limit(200),
       supabase.from('business_orchestration_runs').select('id,objective_id,status,approval_status,created_at').eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(300),
       supabase.from('business_outcomes').select('id,action_run_id,evidence_status,hours_saved,cost_avoided,revenue_impact').eq('organization_id', organizationId).limit(300),
@@ -17,6 +17,8 @@ export async function GET() {
       supabase.from('workflows').select('id,status').eq('organization_id', organizationId).eq('status', 'active').limit(100),
       supabase.from('agent_evaluations').select('id,execution_success,outcome_linked').eq('organization_id', organizationId).limit(300),
       supabase.from('agent_memory').select('id,agent_id,memory_type,evidence_status,source_type,source_id,created_at').eq('organization_id', organizationId).eq('memory_type', 'lesson').is('superseded_at', null).limit(500),
+      supabase.from('business_kpis').select('*').eq('organization_id', organizationId).limit(500),
+      supabase.from('business_source_records').select('id,source_id,record_key,recorded_at').eq('organization_id', organizationId).limit(1000),
     ])
 
     const objectiveIds = new Set((objectives ?? []).map((item: any) => String(item.id)))
@@ -26,6 +28,12 @@ export async function GET() {
     const verifiedOutcomes = (outcomes ?? []).filter((outcome: any) => ['measured', 'attributed'].includes(String(outcome.evidence_status)))
     const successfulEvaluations = (evaluations ?? []).filter((evaluation: any) => evaluation.execution_success === true && evaluation.outcome_linked === true)
     const verifiedDurableLessons = (memories ?? []).filter((memory: any) => ['verified', 'attributed'].includes(String(memory.evidence_status)))
+    const dataGrounding = {
+      kpiCount: (kpis ?? []).length,
+      sourceRecordCount: (sourceRecords ?? []).length,
+      hasBusinessData: (kpis ?? []).length > 0 || (sourceRecords ?? []).length > 0,
+      groundingConfidence: (kpis ?? []).length > 0 && (sourceRecords ?? []).length > 0 ? 'high' : (kpis ?? []).length > 0 || (sourceRecords ?? []).length > 0 ? 'medium' : 'low',
+    }
 
     const state = {
       objectiveCount: objectiveIds.size,
@@ -148,6 +156,7 @@ export async function GET() {
       { type: 'pending_governance', count: pendingApprovals.length, evidence: 'observed' },
       { type: 'agent_learning', count: successfulEvaluations.length, evidence: 'evaluated_and_outcome_linked' },
       { type: 'durable_learning', count: verifiedDurableLessons.length, evidence: 'persisted_agent_memory' },
+      { type: 'business_data', count: dataGrounding.kpiCount + dataGrounding.sourceRecordCount, evidence: dataGrounding.groundingConfidence === 'high' ? 'kpis_and_source_records' : dataGrounding.hasBusinessData ? 'partial_business_data' : 'no_business_data' },
     ]
 
     const hypotheses = signals.map((signal: any) => ({
@@ -190,10 +199,13 @@ export async function GET() {
       ...(failedRuns.length > 0 ? [{ priority: 'high', action: 'investigate_failed_work', rationale: 'Recent execution failures require diagnosis before scaling the same path.' }] : []),
       ...(verifiedOutcomes.length === 0 && (runs ?? []).length > 0 ? [{ priority: 'high', action: 'close_evidence_gap', rationale: 'Existing work lacks measured or attributed outcome evidence.' }] : []),
       ...((agents ?? []).length > 0 && (workflows ?? []).length > 0 ? [{ priority: 'medium', action: 'prioritize_best_governed_path', rationale: 'Both agent and workflow capacity are available for controlled orchestration.' }] : []),
+      ...(!dataGrounding.hasBusinessData ? [{ priority: 'high', action: 'connect_business_data', rationale: 'The intelligence engine has no KPI or source-record evidence from the company data layer; recommendations should remain limited until grounding improves.' }] : []),
     ]
 
     const intelligenceCore = {
-      version: 'adaptive-core-v1',
+      version: 'adaptive-core-v1.1',
+      purpose: 'Evidence-grounded company intelligence that observes business data, reasons over signals, governs actions, measures outcomes, and promotes only verified learning.',
+      dataGrounding,
       stages: ['observe', 'understand', 'hypothesize', 'reason', 'simulate', 'decide', 'govern', 'measure', 'evaluate', 'learn'],
       observations,
       understanding: {
@@ -202,6 +214,8 @@ export async function GET() {
         evidenceBound: true,
         verifiedOutcomeCount: verifiedOutcomes.length,
         activeWorkCount: activeRuns.length,
+        dataGrounding,
+        currentEvidenceCoverage: dataGrounding.groundingConfidence,
       },
       hypotheses,
       contradictions,
