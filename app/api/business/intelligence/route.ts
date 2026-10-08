@@ -288,7 +288,7 @@ export async function GET() {
     }).filter(Boolean)
 
     if (previousSnapshot && forecastEvaluations.length > 0) {
-      await supabase.from('company_intelligence_forecast_evaluations').upsert(
+      const { error: forecastEvaluationError } = await supabase.from('company_intelligence_forecast_evaluations').upsert(
         forecastEvaluations.map((evaluation: any) => ({
           organization_id: organizationId,
           snapshot_id: previousSnapshot.id,
@@ -301,6 +301,7 @@ export async function GET() {
         })),
         { onConflict: 'snapshot_id,objective_id' },
       )
+      if (forecastEvaluationError) throw forecastEvaluationError
     }
 
     const trackedChanges = [
@@ -316,7 +317,7 @@ export async function GET() {
     ].filter((key) => previousState && previousState[key] !== (state as Record<string, any>)[key])
 
     if (previousState && trackedChanges.length > 0) {
-      await supabase.from('company_intelligence_events').insert({
+      const { error: stateChangeError } = await supabase.from('company_intelligence_events').insert({
         organization_id: organizationId,
         snapshot_id: snapshot.id,
         event_type: 'state_change',
@@ -327,10 +328,11 @@ export async function GET() {
         after_state: Object.fromEntries(trackedChanges.map((key) => [key, (state as Record<string, any>)[key]])),
         evidence: evidence,
       })
+      if (stateChangeError) throw stateChangeError
     }
 
     if (previousState && previousState.pendingApprovals !== state.pendingApprovals) {
-      await supabase.from('company_intelligence_events').insert({
+      const { error: governanceChangeError } = await supabase.from('company_intelligence_events').insert({
         organization_id: organizationId,
         snapshot_id: snapshot.id,
         event_type: 'governance_change',
@@ -341,6 +343,7 @@ export async function GET() {
         after_state: { pendingApprovals: state.pendingApprovals },
         evidence: [{ source: 'business_orchestration_runs', count: runs?.length ?? 0 }],
       })
+      if (governanceChangeError) throw governanceChangeError
     }
 
     const edgeRows = [
@@ -369,9 +372,10 @@ export async function GET() {
     ].flat()
 
     if (edgeRows.length > 0) {
-      await supabase.from('company_intelligence_edges').upsert(edgeRows, {
+      const { error: edgeError } = await supabase.from('company_intelligence_edges').upsert(edgeRows, {
         onConflict: 'organization_id,from_type,from_id,to_type,to_id,relation',
       })
+      if (edgeError) throw edgeError
     }
 
     return NextResponse.json({
