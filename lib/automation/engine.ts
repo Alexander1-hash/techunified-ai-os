@@ -1,3 +1,4 @@
+import { lookup } from "node:dns/promises";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runTextAI } from "@/lib/ai/text";
 
@@ -219,15 +220,16 @@ export async function runAutomationStep(
     case "create_record": {
       const table = String(config.table ?? "").trim();
 
-      if (!table) {
-        throw new Error(
-          "create_record requires a table name"
-        );
-      }
+      assertWritableAutomationTable(table);
 
-      const record = isRecord(config.record)
+      const rawRecord = isRecord(config.record)
         ? config.record
         : input;
+
+      const record = withOrganizationBoundary(
+        rawRecord,
+        organizationId
+      );
 
       const { data, error } = await supabase
         .from(table)
@@ -253,11 +255,7 @@ export async function runAutomationStep(
       const table = String(config.table ?? "").trim();
       const id = String(config.id ?? "").trim();
 
-      if (!table) {
-        throw new Error(
-          "update_record requires a table name"
-        );
-      }
+      assertWritableAutomationTable(table);
 
       if (!id) {
         throw new Error(
@@ -265,14 +263,20 @@ export async function runAutomationStep(
         );
       }
 
-      const record = isRecord(config.record)
+      const rawRecord = isRecord(config.record)
         ? config.record
         : input;
+
+      const record = withOrganizationBoundary(
+        rawRecord,
+        organizationId
+      );
 
       const { data, error } = await supabase
         .from(table)
         .update(record)
         .eq("id", id)
+        .eq("organization_id", organizationId)
         .select("*")
         .single();
 
@@ -298,6 +302,8 @@ export async function runAutomationStep(
           "call_webhook requires a webhook URL"
         );
       }
+
+      await assertSafeWebhookUrl(url);
 
       const method = String(
         config.method ?? "POST"
@@ -328,17 +334,36 @@ export async function runAutomationStep(
         }
       }
 
-      const response = await fetch(url, {
-        method,
-        headers,
-        ...(method === "GET"
-          ? {}
-          : {
-              body: JSON.stringify(input),
-            }),
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15_000);
 
-      const responseText = await response.text();
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          method,
+          headers,
+          redirect: "error",
+          signal: controller.signal,
+          ...(method === "GET"
+            ? {}
+            : {
+                body: JSON.stringify(input),
+              }),
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          throw new Error("Webhook request timed out.");
+        }
+        throw new Error(
+          error instanceof Error
+            ? `Webhook request failed: ${error.message}`
+            : "Webhook request failed."
+        );
+      } finally {
+        clearTimeout(timeout);
+      }
+
+      const responseText = (await response.text()).slice(0, 50_000);
 
       if (!response.ok) {
         throw new Error(
@@ -506,6 +531,119 @@ export async function runAutomationStep(
         `Unsupported automation step type: ${step.type}`
       );
   }
+}
+
+const AUTOMATION_WRITABLE_TABLES = new Set([
+  "business_action_runs",
+  "business_data_sources",
+  "business_kpis",
+  "business_objectives",
+  "business_outcomes",
+  "business_source_records",
+  "customers",
+  "leads",
+]);
+
+function assertWritableAutomationTable(table: string) {
+  if (!AUTOMATION_WRITABLE_TABLES.has(table)) {
+    throw new Error(
+      `Automation writes are not permitted for table: ${table}`
+    );
+  }
+}
+
+function withOrganizationBoundary(
+  record: Record<string, unknown>,
+  organizationId: string
+) {
+  if (
+    "organization_id" in record &&
+    record.organization_id !== organizationId
+  ) {
+    throw new Error(
+      "Automation record organization does not match the workflow organization."
+    );
+  }
+
+  return {
+    ...record,
+    organization_id: organizationId,
+  };
+}
+
+async function assertSafeWebhookUrl(rawUrl: string) {
+  let parsed: URL;
+
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error("call_webhook requires a valid URL.");
+  }
+
+  if (parsed.protocol !== "https:") {
+    throw new Error("Webhook URLs must use HTTPS.");
+  }
+
+  if (parsed.username || parsed.password) {
+    throw new Error("Webhook URLs must not contain embedded credentials.");
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  if (
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname === "metadata.google.internal" ||
+    hostname === "metadata.google" ||
+    hostname === "169.254.169.254" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1"
+  ) {
+    throw new Error("Webhook destination is not allowed.");
+  }
+
+  const addresses = await lookup(hostname, {
+    all: true,
+    verbatim: true,
+  });
+
+  if (!addresses.length || addresses.some(({ address }) => isPrivateAddress(address))) {
+    throw new Error("Webhook destination resolves to a private or restricted address.");
+  }
+}
+
+function isPrivateAddress(address: string) {
+  const normalized = address.toLowerCase();
+
+  if (normalized.includes(":")) {
+    return (
+      normalized === "::1" ||
+      normalized.startsWith("fc") ||
+      normalized.startsWith("fd") ||
+      normalized.startsWith("fe8") ||
+      normalized.startsWith("fe9") ||
+      normalized.startsWith("fea") ||
+      normalized.startsWith("feb") ||
+      normalized.startsWith("::ffff:127.") ||
+      normalized.startsWith("::ffff:10.") ||
+      normalized.startsWith("::ffff:192.168.")
+    );
+  }
+
+  const parts = normalized.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return true;
+  }
+
+  const [a, b] = parts;
+  return (
+    a === 10 ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    a === 0
+  );
 }
 
 function isRecord(
