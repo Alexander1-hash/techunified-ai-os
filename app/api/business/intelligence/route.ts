@@ -245,7 +245,6 @@ export async function GET() {
     }).select('id,snapshot_type,state,metrics,intelligence,captured_at').single()
 
     if (error) throw error
-    const previousState = previousSnapshot?.state && typeof previousSnapshot.state === 'object' ? previousSnapshot.state as Record<string, any> : null
     const previousForecasts = previousState && Array.isArray(previousState.forecasts) ? previousState.forecasts : []
     const forecastEvaluations = previousForecasts.map((forecast: any) => {
       const objective = (objectives ?? []).find((item: any) => String(item.id) === String(forecast.objectiveId))
