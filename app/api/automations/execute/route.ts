@@ -43,7 +43,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    const rawBody = await request.text();
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
+      return NextResponse.json({ success: false, error: "Automation request is too large" }, { status: 413 })
+    }
+    const body = JSON.parse(rawBody);
 
     const workflowId =
       typeof body?.workflowId === "string"
