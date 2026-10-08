@@ -118,7 +118,27 @@ export async function POST(request: Request) {
     .eq('id', approval.agent_run_id)
     .eq('organization_id', organizationId)
 
-  if (runError) return NextResponse.json({ error: 'Approval updated, but agent run state could not be synchronized.' }, { status: 500 })
+  if (runError) {
+    // Keep the decision retryable if the linked agent run could not be synchronized.
+    // This is a best-effort recovery because the two records are not updated in a DB transaction.
+    const { error: approvalRecoveryError } = await supabase
+      .from('agent_approvals')
+      .update({ status: 'pending', reviewed_by: null, reviewer_note: null, reviewed_at: null })
+      .eq('id', approvalId)
+      .eq('organization_id', organizationId)
+      .eq('status', decision)
+
+    if (approvalRecoveryError) {
+      return NextResponse.json({
+        error: 'Approval was updated, but agent run synchronization and approval recovery both failed. Please review the approval record.',
+      }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      error: 'Agent run state could not be synchronized. Approval has been returned to pending.',
+      approvalStatus: 'pending',
+    }, { status: 500 })
+  }
 
   const approvalLesson = decision === 'rejected'
     ? 'Human reviewer rejected the proposed action. Do not treat this proposal as approved; reviewer note: ' + (reviewerNote || 'No reviewer note provided.')
