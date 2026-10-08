@@ -491,7 +491,8 @@ export async function POST(request: Request) {
 
   if (actionUpdateError) return NextResponse.json({ error: 'Workflow executed, but action evidence could not be finalized.' }, { status: 500 })
 
-  const { data: linkedOutcome } = await supabase.from('business_outcomes')
+  const evidenceSyncWarnings: string[] = []
+  const { data: linkedOutcome, error: linkedOutcomeError } = await supabase.from('business_outcomes')
     .select('id,evidence_status')
     .eq('organization_id', organizationId)
     .eq('action_run_id', actionRun.id)
@@ -499,15 +500,19 @@ export async function POST(request: Request) {
     .limit(1)
     .maybeSingle()
 
-  const { data: completedEvaluation } = await supabase.from('agent_evaluations')
+  if (linkedOutcomeError) evidenceSyncWarnings.push('outcome_lookup')
+
+  const { data: completedEvaluation, error: evaluationLookupError } = await supabase.from('agent_evaluations')
     .select('evidence')
     .eq('run_id', approval.agent_run_id)
     .eq('organization_id', organizationId)
     .maybeSingle()
+  if (evaluationLookupError) evidenceSyncWarnings.push('evaluation_lookup')
+
   const completedEvidence = completedEvaluation?.evidence && typeof completedEvaluation.evidence === 'object'
     ? completedEvaluation.evidence as Record<string, unknown>
     : {}
-  await supabase.from('agent_evaluations').update({
+  const { error: evaluationUpdateError } = await supabase.from('agent_evaluations').update({
     execution_success: true,
     outcome_linked: Boolean(linkedOutcome),
     evidence: {
@@ -521,16 +526,19 @@ export async function POST(request: Request) {
       completedAt: completedAction.completed_at,
     },
   }).eq('run_id', approval.agent_run_id).eq('organization_id', organizationId)
+  if (evaluationUpdateError) evidenceSyncWarnings.push('evaluation_update')
 
-  const { data: linkedOrchestrations } = await supabase
+  const { data: linkedOrchestrations, error: orchestrationLookupError } = await supabase
     .from('business_orchestration_runs')
     .select('id,objective_id,action_run_ids')
     .eq('organization_id', organizationId)
     .contains('agent_run_ids', [approval.agent_run_id])
 
+  if (orchestrationLookupError) evidenceSyncWarnings.push('orchestration_lookup')
+
   for (const orchestration of linkedOrchestrations ?? []) {
     const actionRunIds = Array.isArray(orchestration.action_run_ids) ? orchestration.action_run_ids : []
-    await supabase.from('business_orchestration_runs').update({
+    const { error: orchestrationUpdateError } = await supabase.from('business_orchestration_runs').update({
       status: 'completed',
       approval_status: 'approved',
       action_run_ids: Array.from(new Set([...actionRunIds, actionRun.id])),
@@ -553,7 +561,19 @@ export async function POST(request: Request) {
       completed_at: completedAction.completed_at,
       error_message: null,
     }).eq('id', orchestration.id).eq('organization_id', organizationId)
+    if (orchestrationUpdateError) evidenceSyncWarnings.push('orchestration_update')
   }
 
-  return NextResponse.json({ ok: true, approvalId, agentRunId: approval.agent_run_id, status: 'approved', execution: 'completed', actionRun: completedAction, message: 'Approved workflow executed through the controlled Phase 1 action path.' })
+  return NextResponse.json({
+    ok: true,
+    approvalId,
+    agentRunId: approval.agent_run_id,
+    status: 'approved',
+    execution: 'completed',
+    actionRun: completedAction,
+    evidenceSyncWarnings: evidenceSyncWarnings.length ? [...new Set(evidenceSyncWarnings)] : [],
+    message: evidenceSyncWarnings.length
+      ? 'Workflow executed successfully, but some related evidence records could not be synchronized.'
+      : 'Approved workflow executed through the controlled Phase 1 action path.',
+  })
 }
