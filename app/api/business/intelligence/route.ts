@@ -115,6 +115,9 @@ export async function GET() {
     const previousUnderstanding = previousCore?.understanding && typeof previousCore.understanding === 'object'
       ? previousCore.understanding as Record<string, any>
       : null
+    const previousHypotheses = Array.isArray(previousCore?.hypotheses) ? previousCore.hypotheses : []
+    const previousContradictions = Array.isArray(previousCore?.contradictions) ? previousCore.contradictions : []
+    const previousDecisions = Array.isArray(previousCore?.decisions) ? previousCore.decisions : []
 
     const longitudinalLearning = {
       priorSnapshotAvailable: Boolean(previousSnapshot),
@@ -122,7 +125,13 @@ export async function GET() {
       priorSnapshotCapturedAt: previousSnapshot?.captured_at ?? null,
       verifiedLearningSignalsDelta: successfulEvaluations.length - Number(previousLearning?.verifiedLearningSignals ?? 0),
       verifiedOutcomeCountDelta: verifiedOutcomes.length - Number(previousUnderstanding?.verifiedOutcomeCount ?? 0),
+      priorHypothesisCount: previousHypotheses.length,
+      priorContradictionCount: previousContradictions.length,
+      priorDecisionCount: previousDecisions.length,
+      priorVerifiedEvidenceAvailable: Number(previousLearning?.verifiedLearningSignals ?? 0) > 0 ||
+        Number(previousUnderstanding?.verifiedOutcomeCount ?? 0) > 0,
       continuityRule: 'Use prior verified evidence as context, but never treat historical success as proof that a new execution path will succeed.',
+      promotionBoundary: 'Only new measured/attributed outcomes, verified execution evidence, or explicit human feedback may promote context into durable learning.',
     }
 
     // Adaptive Intelligence Core: transform observed company state into
@@ -197,6 +206,14 @@ export async function GET() {
         verifiedLearningSignals: successfulEvaluations.length,
         outcomeEvidenceRequired: true,
         promotionRule: 'Only measured/attributed outcomes, verified execution evidence, or explicit human feedback may become durable learning.',
+        durableEvidenceCount: verifiedOutcomes.length + successfulEvaluations.length,
+        contextualPriorEvidence: {
+          available: longitudinalLearning.priorVerifiedEvidenceAvailable,
+          priorSnapshotId: longitudinalLearning.priorSnapshotId,
+          mayInfluencePrioritization: true,
+          mayEstablishNewCausality: false,
+          mayEstablishNewRoi: false,
+        },
         longitudinal: longitudinalLearning,
       },
       governance: {
