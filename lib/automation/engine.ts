@@ -31,6 +31,7 @@ export type ExecutionResult = {
   executionId?: string;
   output?: Record<string, unknown>;
   error?: string;
+  warnings?: string[];
 };
 
 export async function executeAutomation(
@@ -134,6 +135,7 @@ export async function executeAutomation(
   }
 
   let currentInput: Record<string, unknown> = initialInput;
+  const persistenceWarnings: string[] = [];
 
   try {
     for (const step of steps) {
@@ -180,7 +182,7 @@ export async function executeAutomation(
 
         currentInput = result;
 
-        await supabase
+        const { error: stepCompletionError } = await supabase
           .from("automation_execution_steps")
           .update({
             status: "completed",
@@ -188,6 +190,10 @@ export async function executeAutomation(
             completed_at: new Date().toISOString(),
           })
           .eq("id", executionStep.id);
+
+        if (stepCompletionError) {
+          persistenceWarnings.push("A step result could not be saved to execution history.");
+        }
       } catch (stepError) {
         const message =
           stepError instanceof Error
@@ -209,7 +215,7 @@ export async function executeAutomation(
       }
     }
 
-    await supabase
+    const { error: executionCompletionError } = await supabase
       .from("automation_executions")
       .update({
         status: "completed",
@@ -218,10 +224,15 @@ export async function executeAutomation(
       })
       .eq("id", execution.id);
 
+    if (executionCompletionError) {
+      persistenceWarnings.push("The workflow ran, but its final execution status could not be saved.");
+    }
+
     return {
       success: true,
       executionId: execution.id,
       output: currentInput,
+      ...(persistenceWarnings.length ? { warnings: persistenceWarnings } : {}),
     };
   } catch (error) {
     const message =
