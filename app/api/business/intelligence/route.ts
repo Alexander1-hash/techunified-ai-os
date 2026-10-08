@@ -9,13 +9,14 @@ export async function GET() {
     if (!profile?.organization_id) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
     const organizationId = profile.organization_id
 
-    const [{ data: objectives }, { data: runs }, { data: outcomes }, { data: agents }, { data: workflows }, { data: evaluations }] = await Promise.all([
+    const [{ data: objectives }, { data: runs }, { data: outcomes }, { data: agents }, { data: workflows }, { data: evaluations }, { data: memories }] = await Promise.all([
       supabase.from('company_objectives').select('id,status,target_value,current_value').eq('organization_id', organizationId).limit(200),
       supabase.from('business_orchestration_runs').select('id,objective_id,status,approval_status,created_at').eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(300),
       supabase.from('business_outcomes').select('id,action_run_id,evidence_status,hours_saved,cost_avoided,revenue_impact').eq('organization_id', organizationId).limit(300),
       supabase.from('agents').select('id,status').eq('organization_id', organizationId).in('status', ['active', 'running']).limit(100),
       supabase.from('workflows').select('id,status').eq('organization_id', organizationId).eq('status', 'active').limit(100),
       supabase.from('agent_evaluations').select('id,execution_success,outcome_linked').eq('organization_id', organizationId).limit(300),
+      supabase.from('agent_memory').select('id,agent_id,memory_type,evidence_status,source_type,source_id,created_at').eq('organization_id', organizationId).eq('memory_type', 'lesson').is('superseded_at', null).limit(500),
     ])
 
     const objectiveIds = new Set((objectives ?? []).map((item: any) => String(item.id)))
@@ -24,6 +25,7 @@ export async function GET() {
     const pendingApprovals = (runs ?? []).filter((run: any) => run.status === 'awaiting_approval' || run.approval_status === 'pending')
     const verifiedOutcomes = (outcomes ?? []).filter((outcome: any) => ['measured', 'attributed'].includes(String(outcome.evidence_status)))
     const successfulEvaluations = (evaluations ?? []).filter((evaluation: any) => evaluation.execution_success === true && evaluation.outcome_linked === true)
+    const verifiedDurableLessons = (memories ?? []).filter((memory: any) => ['verified', 'attributed'].includes(String(memory.evidence_status)))
 
     const state = {
       objectiveCount: objectiveIds.size,
@@ -34,6 +36,7 @@ export async function GET() {
       activeAgents: (agents ?? []).length,
       activeWorkflows: (workflows ?? []).length,
       successfulVerifiedEvaluations: successfulEvaluations.length,
+      durableLearningLessons: verifiedDurableLessons.length,
       executionCapacityAvailable: (agents ?? []).length > 0 && (workflows ?? []).length > 0,
       intelligenceLoop: 'objective → assessment → approval → action → outcome → learning',
     }
@@ -44,6 +47,7 @@ export async function GET() {
       { source: 'business_orchestration_runs', count: runs?.length ?? 0 },
       { source: 'business_outcomes', verified: verifiedOutcomes.length },
       { source: 'agent_evaluations', verifiedLearning: successfulEvaluations.length },
+      { source: 'agent_memory', verifiedDurableLessons: verifiedDurableLessons.length },
     ]
 
     const signals = [
@@ -143,6 +147,7 @@ export async function GET() {
       { type: 'failed_work', count: failedRuns.length, evidence: 'observed' },
       { type: 'pending_governance', count: pendingApprovals.length, evidence: 'observed' },
       { type: 'agent_learning', count: successfulEvaluations.length, evidence: 'evaluated_and_outcome_linked' },
+      { type: 'durable_learning', count: verifiedDurableLessons.length, evidence: 'persisted_agent_memory' },
     ]
 
     const hypotheses = signals.map((signal: any) => ({
@@ -204,6 +209,7 @@ export async function GET() {
       decisions: decisionOptions,
       learning: {
         verifiedLearningSignals: successfulEvaluations.length,
+        durableLearningLessons: verifiedDurableLessons.length,
         outcomeEvidenceRequired: true,
         promotionRule: 'Only measured/attributed outcomes, verified execution evidence, or explicit human feedback may become durable learning.',
         durableEvidenceCount: verifiedOutcomes.length + successfulEvaluations.length,
@@ -306,6 +312,7 @@ export async function GET() {
       'activeAgents',
       'activeWorkflows',
       'successfulVerifiedEvaluations',
+      'durableLearningLessons',
     ].filter((key) => previousState && previousState[key] !== (state as Record<string, any>)[key])
 
     if (previousState && trackedChanges.length > 0) {
