@@ -166,6 +166,7 @@ export async function GET() {
         verifiedLearningSignals: successfulEvaluations.length,
         outcomeEvidenceRequired: true,
         promotionRule: 'Only measured/attributed outcomes, verified execution evidence, or explicit human feedback may become durable learning.',
+        longitudinal: null as Record<string, any> | null,
       },
       governance: {
         humanOversightRequired: true,
@@ -202,9 +203,7 @@ export async function GET() {
       ? Number(previousCore.understanding.verifiedOutcomeCount ?? 0)
       : 0
 
-    intelligenceCore.learning = {
-      ...intelligenceCore.learning,
-      longitudinal: {
+    intelligenceCore.learning.longitudinal = {
         priorSnapshotAvailable: Boolean(previousSnapshot),
         priorSnapshotCapturedAt: previousSnapshot?.captured_at ?? null,
         verifiedLearningSignalsDelta: successfulEvaluations.length - (Number.isFinite(previousLearningCount) ? previousLearningCount : 0),
