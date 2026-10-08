@@ -96,9 +96,46 @@ export async function executeAutomation(
     ? configuration.steps
     : [];
 
+  const MAX_AUTOMATION_STEPS = 50;
+  const MAX_AUTOMATION_INPUT_BYTES = 64 * 1024;
+
+  if (steps.length > MAX_AUTOMATION_STEPS) {
+    await supabase
+      .from("automation_executions")
+      .update({
+        status: "failed",
+        error_message: "Workflow exceeds the maximum allowed number of steps.",
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", execution.id);
+
+    return {
+      success: false,
+      executionId: execution.id,
+      error: "Workflow exceeds the maximum allowed number of steps.",
+    };
+  }
+
   let currentInput: Record<string, unknown> = {
     ...(trigger.input ?? {}),
   };
+
+  if (JSON.stringify(currentInput).length > MAX_AUTOMATION_INPUT_BYTES) {
+    await supabase
+      .from("automation_executions")
+      .update({
+        status: "failed",
+        error_message: "Automation input is too large.",
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", execution.id);
+
+    return {
+      success: false,
+      executionId: execution.id,
+      error: "Automation input is too large.",
+    };
+  }
 
   try {
     for (const step of steps) {
