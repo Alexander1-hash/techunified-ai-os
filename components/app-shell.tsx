@@ -263,7 +263,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             {notifications && (
               <div
-                className="fixed right-3 top-[4.25rem] z-[220] isolate w-80 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border-border bg-card p-2 text-card-foreground shadow-2xl sm:absolute sm:right-0 sm:top-11 sm:max-w-[calc(100vw-1rem)]"
+                className="absolute right-0 top-[calc(100%+8px)] z-[220] isolate w-80 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-[#303030] bg-[#171717] p-2 text-white shadow-2xl sm:right-0 sm:max-w-[calc(100vw-1rem)]"
               >
                 <div className="rounded-lg border border-border bg-muted px-3 py-3 text-card-foreground shadow-inner">
                   <p className="text-sm font-semibold text-card-foreground">Notifications</p>
