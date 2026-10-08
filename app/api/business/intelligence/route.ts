@@ -166,7 +166,6 @@ export async function GET() {
         verifiedLearningSignals: successfulEvaluations.length,
         outcomeEvidenceRequired: true,
         promotionRule: 'Only measured/attributed outcomes, verified execution evidence, or explicit human feedback may become durable learning.',
-        longitudinal: null as Record<string, any> | null,
       },
       governance: {
         humanOversightRequired: true,
@@ -174,13 +173,6 @@ export async function GET() {
         causalClaimsAllowed: false,
         roiClaimsAllowedWithoutPilotEvidence: false,
       },
-    }
-
-    const governance = {
-      requiresHumanOversight: signals.some((signal: any) => signal.type === 'governance' || signal.severity === 'high'),
-      highSeveritySignals: signals.filter((signal: any) => signal.severity === 'high').length,
-      forecastConfidence,
-      evidenceBound: true,
     }
 
     const { data: previousSnapshot } = await supabase
@@ -192,24 +184,11 @@ export async function GET() {
       .limit(1)
       .maybeSingle()
 
-    const previousState = previousSnapshot?.state && typeof previousSnapshot.state === 'object' ? previousSnapshot.state as Record<string, any> : null
-    const previousCore = previousState && previousState.intelligenceCore && typeof previousState.intelligenceCore === 'object'
-      ? previousState.intelligenceCore as Record<string, any>
-      : null
-    const previousLearningCount = previousCore?.learning && typeof previousCore.learning === 'object'
-      ? Number(previousCore.learning.verifiedLearningSignals ?? 0)
-      : 0
-    const previousVerifiedOutcomeCount = previousCore?.understanding && typeof previousCore.understanding === 'object'
-      ? Number(previousCore.understanding.verifiedOutcomeCount ?? 0)
-      : 0
-
-    intelligenceCore.learning.longitudinal = {
-        priorSnapshotAvailable: Boolean(previousSnapshot),
-        priorSnapshotCapturedAt: previousSnapshot?.captured_at ?? null,
-        verifiedLearningSignalsDelta: successfulEvaluations.length - (Number.isFinite(previousLearningCount) ? previousLearningCount : 0),
-        verifiedOutcomeCountDelta: verifiedOutcomes.length - (Number.isFinite(previousVerifiedOutcomeCount) ? previousVerifiedOutcomeCount : 0),
-        continuityRule: 'Use prior verified evidence as context, but never treat historical success as proof that a new execution path will succeed.',
-      },
+    const governance = {
+      requiresHumanOversight: signals.some((signal: any) => signal.type === 'governance' || signal.severity === 'high'),
+      highSeveritySignals: signals.filter((signal: any) => signal.severity === 'high').length,
+      forecastConfidence,
+      evidenceBound: true,
     }
 
     const snapshotState = {
@@ -244,6 +223,7 @@ export async function GET() {
     }).select('id,snapshot_type,state,metrics,intelligence,captured_at').single()
 
     if (error) throw error
+    const previousState = previousSnapshot?.state && typeof previousSnapshot.state === 'object' ? previousSnapshot.state as Record<string, any> : null
     const previousForecasts = previousState && Array.isArray(previousState.forecasts) ? previousState.forecasts : []
     const forecastEvaluations = previousForecasts.map((forecast: any) => {
       const objective = (objectives ?? []).find((item: any) => String(item.id) === String(forecast.objectiveId))
