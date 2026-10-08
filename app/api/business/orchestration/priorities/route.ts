@@ -21,6 +21,11 @@ export async function GET() {
 
     const intelligenceState = intelligenceSnapshot?.state && typeof intelligenceSnapshot.state === 'object' ? intelligenceSnapshot.state as Record<string, any> : {}
     const intelligenceSignals = Array.isArray(intelligenceState.signals) ? intelligenceState.signals : []
+    const intelligenceCore = intelligenceState.intelligenceCore && typeof intelligenceState.intelligenceCore === 'object'
+      ? intelligenceState.intelligenceCore
+      : (intelligenceSnapshot?.intelligence && typeof intelligenceSnapshot.intelligence === 'object' && (intelligenceSnapshot.intelligence as Record<string, any>).intelligenceCore
+        ? (intelligenceSnapshot.intelligence as Record<string, any>).intelligenceCore
+        : null)
     const objectiveIntelligence = Array.isArray(intelligenceState.objectiveIntelligence) ? intelligenceState.objectiveIntelligence : []
     const intelligenceByObjective = new Map(objectiveIntelligence.map((item: any) => [String(item.objectiveId), item]))
 
@@ -330,7 +335,7 @@ export async function GET() {
       execution: (nextMoveObjective?.blockedDependencies?.length ?? 0) > 0 ? 'not_started_blocked' : (nextMoveObjective?.pendingApprovalRuns ?? 0) > 0 ? 'awaiting_human_approval' : nextMoveObjective?.capacity?.executionPathAvailable ? 'not_started_ready' : 'not_started_capacity_gap',
     }
 
-    return NextResponse.json({ ok: true, adaptiveSummary, relationshipEvidence: adaptiveSummary.relationshipEvidence, objectives: scored, dependencyEdges, dependencyFirstSequence, criticalPath, capacityAwareSequence, workloadIntelligence, workloadSummary, nextMove: enrichedNextMove, highestPriority: scored[0] ?? null })
+    return NextResponse.json({ ok: true, adaptiveSummary, intelligenceCore: intelligenceCore ?? { available: false }, relationshipEvidence: adaptiveSummary.relationshipEvidence, objectives: scored, dependencyEdges, dependencyFirstSequence, criticalPath, capacityAwareSequence, workloadIntelligence, workloadSummary, nextMove: enrichedNextMove, highestPriority: scored[0] ?? null })
   } catch (error) {
     console.error('[Business Orchestration] priorities failed:', error)
     return NextResponse.json({ error: 'Unable to prioritize objectives.' }, { status: 500 })
