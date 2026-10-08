@@ -38,7 +38,11 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 })
 
-  const body = await request.json().catch(() => null) as { agentId?: string; task?: string } | null
+  const rawBody = await request.text();
+  if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json({ error: 'Request body is too large.' }, { status: 413 })
+  }
+  const body = JSON.parse(rawBody) as { agentId?: string; task?: string }
   const agentId = body?.agentId?.trim()
   const task = body?.task?.trim()
 
