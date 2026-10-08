@@ -13,6 +13,8 @@
   --accent: #f6c766;
   --destructive: #f87171;
   --overlay: #212121;
+  --popover: #262626;
+  --popover-foreground: #f5f5f5;
   --radius: 0.7rem;
 }
 
@@ -29,6 +31,8 @@ html[data-theme="light"] {
   --accent: #9a6717;
   --destructive: #dc2626;
   --overlay: #ffffff;
+  --popover: #ffffff;
+  --popover-foreground: #202020;
 }
 
 * {

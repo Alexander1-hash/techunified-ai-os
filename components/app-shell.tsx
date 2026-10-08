@@ -267,11 +267,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             {notifications && (
               <div
-                className="fixed right-3 top-[4.25rem] z-[220] isolate w-80 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-white/10 bg-[#0b0b0b] p-2 text-white shadow-2xl sm:absolute sm:right-0 sm:top-11 sm:max-w-[calc(100vw-1rem)]"
+                className="fixed right-3 top-[4.25rem] z-[220] isolate w-80 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border-border bg-card p-2 text-card-foreground shadow-2xl sm:absolute sm:right-0 sm:top-11 sm:max-w-[calc(100vw-1rem)]"
               >
-                <div className="rounded-lg border border-white/10 bg-[#111111] px-3 py-3 text-white shadow-inner">
-                  <p className="text-sm font-semibold text-white">Notifications</p>
-                  <p className="pt-1 text-xs leading-5 text-white/60">
+                <div className="rounded-lg border border-border bg-muted px-3 py-3 text-card-foreground shadow-inner">
+                  <p className="text-sm font-semibold text-card-foreground">Notifications</p>
+                  <p className="pt-1 text-xs leading-5 text-muted-foreground">
                     Notification preferences can be managed in Settings.
                   </p>
                 </div>
@@ -279,7 +279,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Link
                   href="/settings"
                   onClick={() => setNotifications(false)}
-                  className="mt-1 flex min-h-10 items-center rounded-lg px-3 text-xs font-medium text-white/80 hover:bg-white/10 hover:text-white"
+                  className="mt-1 flex min-h-10 items-center rounded-lg px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
                   Notification settings
                 </Link>
@@ -558,20 +558,20 @@ function ProfileMenu({
         {open && (
           <div
             className={[
-              "absolute z-[220] isolate overflow-hidden rounded-xl border border-white/10 bg-[#0b0b0b] p-2 text-white shadow-2xl",
+              "absolute z-[220] isolate overflow-hidden rounded-xl border-border bg-card p-2 text-card-foreground shadow-2xl",
               collapsed
                 ? "bottom-0 left-full ml-2 w-72"
                 : "bottom-[calc(100%+8px)] left-0 right-0",
             ].join(" ")}
           >
-            <div className="rounded-lg border border-white/10 bg-[#111111] px-3 py-3 text-white shadow-inner">
+            <div className="rounded-lg border border-border bg-muted px-3 py-3 text-card-foreground shadow-inner">
               <div className="flex items-center gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-[#1b1b1b] text-[10px] font-semibold">
+                <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background text-[10px] font-semibold">
                   <Avatar profile={profile} user={user} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-white">{name}</p>
-                  <p className="mt-1 truncate text-[11px] text-white/60">
+                  <p className="mt-1 truncate text-[11px] text-muted-foreground">
                     {role} · {org}
                   </p>
                 </div>
@@ -609,7 +609,7 @@ function ProfileMenu({
               Workspace settings
             </Link>
 
-            <div className="my-2 border-t border-white/10" />
+            <div className="my-2 border-t border-border" />
 
             <p className="px-3 pt-1 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
               Appearance
@@ -635,7 +635,7 @@ function ProfileMenu({
 
             <button
               onClick={signOut}
-              className="mt-2 flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-sm text-white/70 hover:bg-white/10 hover:text-white"
+              className="mt-2 flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <LogOut size={15} />
               Log out
