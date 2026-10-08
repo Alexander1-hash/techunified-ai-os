@@ -135,7 +135,7 @@ export async function POST(
         {
           success: false,
           executionId: result.executionId,
-          error: result.error,
+          error: "Webhook-triggered automation failed. Check execution history for details.",
         },
         { status: 400 }
       );
