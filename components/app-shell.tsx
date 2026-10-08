@@ -176,11 +176,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   )
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div aria-hidden="true" className={["fixed inset-y-0 left-0 hidden bg-card lg:block", collapsed ? "w-[72px]" : "w-[256px]"].join(" ")} />
+    <div className="min-h-screen bg-background text-foreground lg:flex">
       <aside
         className={[
-          "fixed inset-y-0 left-0 hidden border-r border-border bg-card lg:flex lg:flex-col",
+          "sticky top-0 hidden h-screen shrink-0 border-r border-border bg-card lg:flex lg:flex-col",
           collapsed ? "w-[72px]" : "w-[256px]",
           profileOpen ? "z-[210]" : "z-50",
         ].join(" ")}
@@ -238,12 +237,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
       </aside>
 
-      <header
-        className={[
-          "sticky top-0 z-30 flex h-14 items-center border-b border-border bg-background px-3 lg:px-5",
-          collapsed ? "lg:ml-[72px]" : "lg:ml-[256px]",
-        ].join(" ")}
-      >
+      <div className="min-w-0 flex-1">
+        <header className="sticky top-0 z-30 flex h-14 items-center border-b border-border bg-background px-3 lg:px-5">
         <button
           aria-label={mobile ? "Close navigation" : "Open navigation"}
           onClick={() => setMobile((value) => !value)}
@@ -354,16 +349,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </>
       )}
 
-      <main
-        className={[
-          "min-h-[calc(100vh-3.5rem)]",
-          collapsed ? "lg:ml-[72px]" : "lg:ml-[256px]",
-        ].join(" ")}
-      >
+        <main className="min-h-[calc(100vh-3.5rem)]">
         <div className="mx-auto w-full max-w-[1500px] px-3 py-4 sm:px-5 sm:py-5 lg:px-7 lg:py-7">
           {children}
         </div>
-      </main>
+        </main>
+      </div>
     </div>
   )
 }
