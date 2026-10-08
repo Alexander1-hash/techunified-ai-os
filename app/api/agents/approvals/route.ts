@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/repositories/profile'
 
+const MAX_REQUEST_BYTES = 64 * 1024
+const MAX_TITLE_LENGTH = 200
+const MAX_REASON_LENGTH = 2000
+
 export async function GET() {
   const supabase = await createClient()
   const { profile } = await getCurrentProfile(supabase)
@@ -25,14 +29,42 @@ export async function POST(request: Request) {
   const userId = profile?.id
   if (!organizationId || !userId) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
 
-  const body = await request.json().catch(() => null)
-  const agentRunId = typeof body?.agentRunId === 'string' ? body.agentRunId.trim() : ''
-  const title = typeof body?.title === 'string' ? body.title.trim() : ''
-  const reason = typeof body?.reason === 'string' ? body.reason.trim() : ''
-  const proposedAction = body?.proposedAction && typeof body.proposedAction === 'object' ? body.proposedAction : {}
-  const decisionEvidence = body?.decisionEvidence && typeof body.decisionEvidence === 'object' ? body.decisionEvidence : {}
+  const contentLength = Number(request.headers.get('content-length') ?? 0)
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json({ error: 'Approval request is too large.' }, { status: 413 })
+  }
 
-  if (!agentRunId || !title) return NextResponse.json({ error: 'agentRunId and title are required.' }, { status: 400 })
+  const rawBody = await request.text()
+  if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json({ error: 'Approval request is too large.' }, { status: 413 })
+  }
+
+  let body: unknown
+  try {
+    body = JSON.parse(rawBody)
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON request body.' }, { status: 400 })
+  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Request body must be a JSON object.' }, { status: 400 })
+  }
+
+  const payload = body as Record<string, unknown>
+  const agentRunId = typeof payload.agentRunId === 'string' ? payload.agentRunId.trim() : ''
+  const title = typeof payload.title === 'string' ? payload.title.trim() : ''
+  const reason = typeof payload.reason === 'string' ? payload.reason.trim() : ''
+  const proposedAction = payload.proposedAction && typeof payload.proposedAction === 'object' && !Array.isArray(payload.proposedAction) ? payload.proposedAction : {}
+  const decisionEvidence = payload.decisionEvidence && typeof payload.decisionEvidence === 'object' && !Array.isArray(payload.decisionEvidence) ? payload.decisionEvidence : {}
+
+  if (!agentRunId || agentRunId.length > 200 || !title) {
+    return NextResponse.json({ error: 'A valid agentRunId and title are required.' }, { status: 400 })
+  }
+  if (title.length > MAX_TITLE_LENGTH) {
+    return NextResponse.json({ error: 'Approval title is too long.' }, { status: 400 })
+  }
+  if (reason.length > MAX_REASON_LENGTH) {
+    return NextResponse.json({ error: 'Approval reason is too long.' }, { status: 400 })
+  }
 
   const { data: run } = await supabase
     .from('agent_runs')
