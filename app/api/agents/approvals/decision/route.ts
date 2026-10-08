@@ -253,12 +253,30 @@ export async function POST(request: Request) {
   }
 
   for (const orchestration of linkedOrchestrationsForGate ?? []) {
-    const { data: objectiveForGate } = await supabase
+    const { data: objectiveForGate, error: objectiveGateError } = await supabase
       .from('company_objectives')
       .select('id,title,status,dependencies,dependency_ids')
       .eq('id', orchestration.objective_id)
       .eq('organization_id', organizationId)
       .maybeSingle()
+
+    if (objectiveGateError || !objectiveForGate) {
+      const { error: approvalResetError } = await supabase
+        .from('agent_approvals')
+        .update({ status: 'pending', reviewed_by: null, reviewer_note: null, reviewed_at: null })
+        .eq('id', approvalId).eq('organization_id', organizationId).eq('status', 'approved')
+      const { error: runResetError } = await supabase
+        .from('agent_runs').update({ approval_status: 'pending' })
+        .eq('id', approval.agent_run_id).eq('organization_id', organizationId)
+
+      return NextResponse.json({
+        error: approvalResetError || runResetError
+          ? 'Unable to verify the linked objective or restore approval state. Please review the approval record.'
+          : 'Unable to verify the linked objective. Approval has been returned to pending.',
+        approvalStatus: approvalResetError || runResetError ? 'unknown' : 'pending',
+        execution: 'not_started',
+      }, { status: 500 })
+    }
 
     const dependencyIds = Array.isArray(objectiveForGate?.dependencies)
       ? objectiveForGate.dependencies.filter((id: unknown): id is string => typeof id === 'string')
@@ -267,11 +285,29 @@ export async function POST(request: Request) {
         : []
 
     if (dependencyIds.length > 0) {
-      const { data: dependencyObjectives } = await supabase
+      const { data: dependencyObjectives, error: dependencyLookupError } = await supabase
         .from('company_objectives')
         .select('id,title,status')
         .eq('organization_id', organizationId)
         .in('id', dependencyIds)
+
+      if (dependencyLookupError) {
+        const { error: approvalResetError } = await supabase
+          .from('agent_approvals')
+          .update({ status: 'pending', reviewed_by: null, reviewer_note: null, reviewed_at: null })
+          .eq('id', approvalId).eq('organization_id', organizationId).eq('status', 'approved')
+        const { error: runResetError } = await supabase
+          .from('agent_runs').update({ approval_status: 'pending' })
+          .eq('id', approval.agent_run_id).eq('organization_id', organizationId)
+
+        return NextResponse.json({
+          error: approvalResetError || runResetError
+            ? 'Unable to verify objective dependencies or restore approval state. Please review the approval record.'
+            : 'Unable to verify objective dependencies. Approval has been returned to pending.',
+          approvalStatus: approvalResetError || runResetError ? 'unknown' : 'pending',
+          execution: 'not_started',
+        }, { status: 500 })
+      }
 
       const unresolved = dependencyIds
         .map((dependencyId: string) => ({
