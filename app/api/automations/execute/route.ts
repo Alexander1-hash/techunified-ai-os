@@ -132,6 +132,7 @@ export async function POST(request: NextRequest) {
       success: true,
       executionId: result.executionId,
       output: result.output,
+      ...(result.warnings?.length ? { warnings: result.warnings } : {}),
     });
   } catch {
     return NextResponse.json(
