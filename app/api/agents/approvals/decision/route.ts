@@ -43,13 +43,16 @@ export async function POST(request: Request) {
 
   if (!approvalId || !decision) return NextResponse.json({ error: 'approvalId and a valid decision are required.' }, { status: 400 })
 
-  const { data: approval } = await supabase
+  const { data: approval, error: approvalLookupError } = await supabase
     .from('agent_approvals')
     .select('id,agent_run_id,status,action_type,proposed_action')
     .eq('id', approvalId)
     .eq('organization_id', organizationId)
     .maybeSingle()
 
+  if (approvalLookupError) {
+    return NextResponse.json({ error: 'Unable to verify the approval request.' }, { status: 500 })
+  }
   if (!approval) return NextResponse.json({ error: 'Approval request not found.' }, { status: 404 })
   if (approval.status !== 'pending') return NextResponse.json({ error: 'This approval is no longer pending.' }, { status: 409 })
 
@@ -81,12 +84,16 @@ export async function POST(request: Request) {
   }
 
   if (decision === 'approved' && approval.action_type === 'workflow_execution') {
-    const { data: workflowCheck } = await supabase
+    const { data: workflowCheck, error: workflowCheckError } = await supabase
       .from('workflows')
       .select('id,status')
       .eq('id', workflowId)
       .eq('organization_id', organizationId)
       .maybeSingle()
+
+    if (workflowCheckError) {
+      return NextResponse.json({ error: 'Unable to verify that the workflow is active.' }, { status: 500 })
+    }
 
     if (!workflowCheck || String(workflowCheck.status).toLowerCase() !== 'active') {
       return NextResponse.json({ error: 'Approved workflow is no longer active.' }, { status: 409 })
