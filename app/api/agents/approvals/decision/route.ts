@@ -22,10 +22,21 @@ export async function POST(request: Request) {
   if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
     return NextResponse.json({ error: 'Approval request is too large.' }, { status: 413 })
   }
-  const body = JSON.parse(rawBody)
-  const approvalId = typeof body?.approvalId === 'string' ? body.approvalId.trim() : ''
-  const decision = body?.decision === 'approved' || body?.decision === 'rejected' ? body.decision : ''
-  const reviewerNote = typeof body?.reviewerNote === 'string' ? body.reviewerNote.trim() : ''
+  let body: unknown
+  try {
+    body = JSON.parse(rawBody)
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON request body.' }, { status: 400 })
+  }
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Request body must be a JSON object.' }, { status: 400 })
+  }
+
+  const payload = body as Record<string, unknown>
+  const approvalId = typeof payload.approvalId === 'string' ? payload.approvalId.trim() : ''
+  const decision = payload.decision === 'approved' || payload.decision === 'rejected' ? payload.decision : ''
+  const reviewerNote = typeof payload.reviewerNote === 'string' ? payload.reviewerNote.trim() : ''
 
   if (reviewerNote.length > MAX_REVIEWER_NOTE_CHARS) return NextResponse.json({ error: 'Reviewer note is too long.' }, { status: 400 })
   if (approvalId.length > 200) return NextResponse.json({ error: 'Approval ID is too long.' }, { status: 400 })
@@ -82,7 +93,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const { error: updateError } = await supabase
+  const { data: updatedApproval, error: updateError } = await supabase
     .from('agent_approvals')
     .update({
       status: decision,
@@ -92,8 +103,14 @@ export async function POST(request: Request) {
     })
     .eq('id', approvalId)
     .eq('organization_id', organizationId)
+    .eq('status', 'pending')
+    .select('id')
+    .maybeSingle()
 
   if (updateError) return NextResponse.json({ error: 'Unable to update approval.' }, { status: 500 })
+  if (!updatedApproval) {
+    return NextResponse.json({ error: 'This approval has already been reviewed.' }, { status: 409 })
+  }
 
   const { error: runError } = await supabase
     .from('agent_runs')
