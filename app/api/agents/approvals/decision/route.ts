@@ -214,14 +214,39 @@ export async function POST(request: Request) {
         .filter((dependency) => !dependency || String(dependency.status ?? '').toLowerCase() !== 'completed')
 
       if (unresolved.length > 0) {
+        // The approval was recorded before the final dependency gate. Restore its
+        // pending state so the reviewer can retry after dependencies are resolved.
+        const { error: approvalResetError } = await supabase
+          .from('agent_approvals')
+          .update({ status: 'pending', reviewed_by: null, reviewer_note: null, reviewed_at: null })
+          .eq('id', approvalId)
+          .eq('organization_id', organizationId)
+          .eq('status', 'approved')
+
+        const { error: runResetError } = await supabase
+          .from('agent_runs')
+          .update({ approval_status: 'pending' })
+          .eq('id', approval.agent_run_id)
+          .eq('organization_id', organizationId)
+
+        if (approvalResetError || runResetError) {
+          return NextResponse.json({
+            error: 'Execution was blocked, but approval state could not be restored. Please review the approval record.',
+            execution: 'not_started',
+          }, { status: 500 })
+        }
+
+        const blockedDependencies = unresolved.map((dependency) => ({
+          id: dependency?.id ?? dependencyIds.find((id) => !dependencyObjectives?.some((item) => String(item.id) === id)),
+          title: dependency?.title ?? 'Unknown dependency',
+          status: dependency?.status ?? 'not_found',
+        }))
+
         return NextResponse.json({
           error: 'Controlled execution blocked because an objective dependency is unresolved.',
           orchestrationRunId: orchestration.id,
-          blockedDependencies: unresolved.map((dependency, index) => ({
-            id: dependency?.id ?? dependencyIds[index],
-            title: dependency?.title ?? 'Unknown dependency',
-            status: dependency?.status ?? 'not_found',
-          })),
+          blockedDependencies,
+          approvalStatus: 'pending',
           execution: 'not_started',
         }, { status: 409 })
       }
