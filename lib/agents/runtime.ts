@@ -225,7 +225,13 @@ async function runTool(
 
 export async function runGovernedAgent(agentId: string, task: string, userId: string) {
   const supabase = await createClient()
-  const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', userId).maybeSingle()
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('organization_id')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (profileError) throw new Error('Unable to verify your organization membership.')
   const organizationId = profile?.organization_id
   if (!organizationId) throw new Error('Your account is not connected to an organization.')
 
