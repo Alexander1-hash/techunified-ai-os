@@ -24,6 +24,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useAuth } from "@/components/auth-provider"
 import { useTheme, type Theme } from "@/components/theme-provider"
 import { TechUnifiedBrand } from "@/components/techunified-brand"
+import { NotificationInbox } from "@/components/notification-inbox"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname()
@@ -262,24 +263,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
 
             {notifications && (
-              <div
-                className="absolute right-0 top-[calc(100%+8px)] z-[220] isolate w-80 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-[#303030] bg-[#171717] p-2 text-white shadow-2xl sm:right-0 sm:max-w-[calc(100vw-1rem)]"
-              >
-                <div className="rounded-lg border border-border bg-muted px-3 py-3 text-card-foreground shadow-inner">
-                  <p className="text-sm font-semibold text-card-foreground">Notifications</p>
-                  <p className="pt-1 text-xs leading-5 text-muted-foreground">
-                    Notification preferences can be managed in Settings.
-                  </p>
-                </div>
-
-                <Link
-                  href="/settings"
-                  onClick={() => setNotifications(false)}
-                  className="mt-1 flex min-h-10 items-center rounded-lg px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-                >
-                  Notification settings
-                </Link>
-              </div>
+              <NotificationInbox
+                open={notifications}
+                onClose={() => setNotifications(false)}
+              />
             )}
           </div>
 
