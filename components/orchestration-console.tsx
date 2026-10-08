@@ -189,6 +189,26 @@ export default function OrchestrationConsole({ objectives, initialRuns }: Props)
 
       <section>
         <div className="mb-4 flex items-end justify-between gap-3">
+          <div><h2 className="text-lg font-semibold">Intelligence Core context</h2><p className="mt-1 text-sm text-muted-foreground">Organization-level observations, hypotheses, contradictions, scenarios, and governance signals informing this orchestration view.</p></div>
+        </div>
+        <Card>
+          {progress?.intelligenceCore?.available === false ? (
+            <p className="text-sm text-muted-foreground">Intelligence Core context is not available in the latest organization snapshot.</p>
+          ) : progress?.intelligenceCore ? (
+            <div className="grid gap-3 sm:grid-cols-4">
+              <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Hypotheses</p><p className="mt-1 font-semibold">{Array.isArray(progress.intelligenceCore.hypotheses) ? progress.intelligenceCore.hypotheses.length : 0}</p></div>
+              <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Contradictions</p><p className="mt-1 font-semibold">{Array.isArray(progress.intelligenceCore.contradictions) ? progress.intelligenceCore.contradictions.length : 0}</p></div>
+              <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Scenarios</p><p className="mt-1 font-semibold">{Array.isArray(progress.intelligenceCore.scenarios) ? progress.intelligenceCore.scenarios.length : 0}</p></div>
+              <div className="rounded-lg border p-3"><p className="text-xs text-muted-foreground">Human oversight</p><p className="mt-1 font-semibold">{progress.intelligenceCore.governance?.humanOversightRequired === true ? 'Required' : 'Configured'}</p></div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Select an objective to load the current Intelligence Core context.</p>
+          )}
+        </Card>
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-3">
           <div><h2 className="text-lg font-semibold">Decision package</h2><p className="mt-1 text-sm text-muted-foreground">The current governed recommendation, blockers, evidence basis, capacity, and approval boundary are kept together before AI assessment or controlled execution.</p></div>
         </div>
         <Card>
