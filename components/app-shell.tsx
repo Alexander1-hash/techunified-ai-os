@@ -177,6 +177,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <div aria-hidden="true" className={["fixed inset-y-0 left-0 hidden bg-card lg:block", collapsed ? "w-[72px]" : "w-[256px]"].join(" ")} />
       <aside
         className={[
           "fixed inset-y-0 left-0 hidden border-r border-border bg-card lg:flex lg:flex-col",
