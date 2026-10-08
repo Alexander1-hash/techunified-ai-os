@@ -301,12 +301,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <button
             aria-label="Close navigation"
             onClick={closeMobile}
-            className="fixed inset-0 z-[90] bg-black/40 lg:hidden"
+            className="fixed inset-0 z-[90] bg-background lg:hidden"
           />
 
           <aside
             className={[
-              "fixed inset-y-0 left-0 flex w-[min(292px,82vw)] flex-col border-r border-border bg-card text-foreground shadow-2xl lg:hidden",
+              "fixed inset-y-0 left-0 flex w-[min(320px,86vw)] flex-col border-r border-border bg-card text-foreground shadow-2xl lg:hidden",
               profileOpen ? "z-[210]" : "z-[100]",
             ].join(" ")}
             role="dialog"
