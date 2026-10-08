@@ -285,6 +285,16 @@ export async function POST(request: Request) {
     }
 
     const executionReady = Boolean(candidateAgent && candidateWorkflow)
+
+    const coreDecisions = intelligenceCore && Array.isArray(intelligenceCore.decisions) ? intelligenceCore.decisions : []
+    const coreContradictions = intelligenceCore && Array.isArray(intelligenceCore.contradictions) ? intelligenceCore.contradictions : []
+    const coreDecisionActions = new Set(coreDecisions.map((decision: any) => String(decision.action ?? '')))
+    const coreContradictionTypes = new Set(coreContradictions.map((contradiction: any) => String(contradiction.type ?? '')))
+    const intelligenceExecutionGates: string[] = []
+    if (coreContradictionTypes.has('execution_capacity') && !executionReady) intelligenceExecutionGates.push('execution_capacity')
+    if (coreDecisionActions.has('close_evidence_gap') && (recentOutcomes?.length ?? 0) > 0 && !(recentOutcomes ?? []).some((outcome) => ['measured', 'attributed'].includes(String(outcome.evidence_status)))) intelligenceExecutionGates.push('evidence_gap')
+    if (coreContradictionTypes.has('learning_without_outcome') && (evaluations.length > 0 || (recentOutcomes?.length ?? 0) > 0) && !(recentOutcomes ?? []).some((outcome) => ['measured', 'attributed'].includes(String(outcome.evidence_status)))) intelligenceExecutionGates.push('learning_without_outcome')
+
     const decisionPackage = {
       objective: { id: objectiveId, title: objectiveTitle, target: objectiveTarget, metric: objectiveMetric },
       workload: 'available',
@@ -308,6 +318,12 @@ export async function POST(request: Request) {
           : 'Activate an appropriate AI worker before assessment.',
       execution: 'not_started',
       governance: 'human approval remains required for consequential controlled actions',
+      intelligenceCore: {
+        available: Boolean(intelligenceCore),
+        decisionActions: [...coreDecisionActions].filter(Boolean),
+        contradictionTypes: [...coreContradictionTypes].filter(Boolean),
+        executionGates: intelligenceExecutionGates,
+      },
     }
     const plan =
       body?.plan && typeof body.plan === 'object' && !Array.isArray(body.plan)
@@ -412,6 +428,28 @@ export async function PATCH(request: Request) {
       }
       if (body.status === 'executing' && existingRun.approval_status !== 'approved') return NextResponse.json({ error: 'Controlled execution requires explicit approval.' }, { status: 403 })
       if (body.status === 'executing' && existingRun.status !== 'awaiting_approval') return NextResponse.json({ error: 'Execution can only begin from an approval-ready orchestration run.' }, { status: 409 })
+      if (body.status === 'executing') {
+        const { data: latestSnapshot, error: latestSnapshotError } = await supabase
+          .from('company_intelligence_snapshots')
+          .select('state,intelligence')
+          .eq('organization_id', organizationId)
+          .eq('snapshot_type', 'company_state')
+          .order('captured_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (latestSnapshotError) throw latestSnapshotError
+        const core = latestSnapshot?.state && typeof latestSnapshot.state === 'object' && latestSnapshot.state.intelligenceCore && typeof latestSnapshot.state.intelligenceCore === 'object'
+          ? latestSnapshot.state.intelligenceCore
+          : latestSnapshot?.intelligence && typeof latestSnapshot.intelligence === 'object' && latestSnapshot.intelligence.intelligenceCore && typeof latestSnapshot.intelligence.intelligenceCore === 'object'
+            ? latestSnapshot.intelligence.intelligenceCore
+            : null
+        const actions = core && Array.isArray(core.decisions) ? new Set(core.decisions.map((decision: any) => String(decision.action ?? ''))) : new Set<string>()
+        const contradictions = core && Array.isArray(core.contradictions) ? new Set(core.contradictions.map((contradiction: any) => String(contradiction.type ?? ''))) : new Set<string>()
+        if (contradictions.has('execution_capacity')) return NextResponse.json({ error: 'Intelligence Core execution-capacity contradiction must be resolved before controlled execution.' }, { status: 409 })
+        if (actions.has('investigate_failed_work')) return NextResponse.json({ error: 'Intelligence Core requires failed-work investigation before another controlled execution.' }, { status: 409 })
+        if (actions.has('close_evidence_gap')) return NextResponse.json({ error: 'Intelligence Core requires the current evidence gap to be closed before controlled execution.' }, { status: 409 })
+        if (contradictions.has('learning_without_outcome')) return NextResponse.json({ error: 'Intelligence Core requires the learning-to-outcome gap to be resolved before controlled execution.' }, { status: 409 })
+      }
       if (body.status === 'executing' && !(Array.isArray(existingRun.action_run_ids) || Array.isArray(existingRun.agent_run_ids))) return NextResponse.json({ error: 'Execution requires governed work references.' }, { status: 409 })
       if (body.status === 'completed' && existingRun.status !== 'executing') return NextResponse.json({ error: 'Only an executing orchestration run can be completed.' }, { status: 409 })
       updates.status = body.status
