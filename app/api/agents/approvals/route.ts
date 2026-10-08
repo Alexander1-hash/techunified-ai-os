@@ -53,8 +53,8 @@ export async function POST(request: Request) {
   const agentRunId = typeof payload.agentRunId === 'string' ? payload.agentRunId.trim() : ''
   const title = typeof payload.title === 'string' ? payload.title.trim() : ''
   const reason = typeof payload.reason === 'string' ? payload.reason.trim() : ''
-  const proposedAction = payload.proposedAction && typeof payload.proposedAction === 'object' && !Array.isArray(payload.proposedAction) ? payload.proposedAction : {}
-  const decisionEvidence = payload.decisionEvidence && typeof payload.decisionEvidence === 'object' && !Array.isArray(payload.decisionEvidence) ? payload.decisionEvidence : {}
+  const proposedAction: Record<string, unknown> = payload.proposedAction && typeof payload.proposedAction === 'object' && !Array.isArray(payload.proposedAction) ? payload.proposedAction as Record<string, unknown> : {}
+  const decisionEvidence: Record<string, unknown> = payload.decisionEvidence && typeof payload.decisionEvidence === 'object' && !Array.isArray(payload.decisionEvidence) ? payload.decisionEvidence as Record<string, unknown> : {}
 
   if (!agentRunId || agentRunId.length > 200 || !title) {
     return NextResponse.json({ error: 'A valid agentRunId and title are required.' }, { status: 400 })
