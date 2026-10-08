@@ -53,8 +53,29 @@ export async function POST(request: Request) {
   const agentRunId = typeof payload.agentRunId === 'string' ? payload.agentRunId.trim() : ''
   const title = typeof payload.title === 'string' ? payload.title.trim() : ''
   const reason = typeof payload.reason === 'string' ? payload.reason.trim() : ''
-  const proposedAction: Record<string, unknown> = payload.proposedAction && typeof payload.proposedAction === 'object' && !Array.isArray(payload.proposedAction) ? payload.proposedAction as Record<string, unknown> : {}
-  const decisionEvidence: Record<string, unknown> = payload.decisionEvidence && typeof payload.decisionEvidence === 'object' && !Array.isArray(payload.decisionEvidence) ? payload.decisionEvidence as Record<string, unknown> : {}
+  if (payload.proposedAction !== undefined && (
+    !payload.proposedAction ||
+    typeof payload.proposedAction !== 'object' ||
+    Array.isArray(payload.proposedAction)
+  )) {
+    return NextResponse.json({ error: 'proposedAction must be a JSON object.' }, { status: 400 })
+  }
+  if (payload.decisionEvidence !== undefined && (
+    !payload.decisionEvidence ||
+    typeof payload.decisionEvidence !== 'object' ||
+    Array.isArray(payload.decisionEvidence)
+  )) {
+    return NextResponse.json({ error: 'decisionEvidence must be a JSON object.' }, { status: 400 })
+  }
+  const proposedAction = (payload.proposedAction ?? {}) as Record<string, unknown>
+  const decisionEvidence = (payload.decisionEvidence ?? {}) as Record<string, unknown>
+  if (proposedAction.workflowId !== undefined && (
+    typeof proposedAction.workflowId !== 'string' ||
+    proposedAction.workflowId.trim().length === 0 ||
+    proposedAction.workflowId.length > 200
+  )) {
+    return NextResponse.json({ error: 'proposedAction.workflowId must be a valid workflow ID.' }, { status: 400 })
+  }
 
   if (!agentRunId || agentRunId.length > 200 || !title) {
     return NextResponse.json({ error: 'A valid agentRunId and title are required.' }, { status: 400 })
