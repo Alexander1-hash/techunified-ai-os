@@ -4,11 +4,19 @@ import { creditCost, models, type GenerationRequest, type GenerationType, type Q
 import { enqueueGeneration, workerConfigured } from '@/lib/ai/inference'
 
 const MAX_PROMPT_LENGTH = 4000
+const MAX_REQUEST_BYTES = 64 * 1024
+const MAX_IDEMPOTENCY_KEY_LENGTH = 120
+const ALLOWED_MODES = new Set(['text-to-video', 'text-to-image'])
 
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Please sign in to generate.' }, { status: 401 })
+
+  const contentLength = Number(request.headers.get('content-length') ?? 0)
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json({ error: 'Generation request is too large.' }, { status: 413 })
+  }
 
   const body = await request.json().catch(() => null)
   if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'Invalid generation request.' }, { status: 400 })
@@ -24,13 +32,20 @@ export async function POST(request: Request) {
   }
 
   const type: GenerationType = body.type === 'image' ? 'image' : 'video'
+  const mode = typeof body.mode === 'string' ? body.mode : type === 'video' ? 'text-to-video' : 'text-to-image'
+  const expectedMode = type === 'video' ? 'text-to-video' : 'text-to-image'
+  if (!ALLOWED_MODES.has(mode) || mode !== expectedMode) {
+    return NextResponse.json({ error: 'Invalid generation mode.' }, { status: 400 })
+  }
   const model = models.find((item) => item.type === type)
   const quality: Quality = body.quality === 'high' ? 'high' : 'standard'
   const duration = type === 'video' && body.duration === 10 ? 10 : type === 'video' ? 5 : undefined
-  const idempotencyKey = typeof body.idempotencyKey === 'string' && body.idempotencyKey.length <= 120 ? body.idempotencyKey : crypto.randomUUID()
+  const idempotencyKey = typeof body.idempotencyKey === 'string' && body.idempotencyKey.trim().length > 0 && body.idempotencyKey.length <= MAX_IDEMPOTENCY_KEY_LENGTH
+    ? body.idempotencyKey.trim()
+    : crypto.randomUUID()
   const requestData: GenerationRequest = {
     type,
-    mode: body.mode ?? (type === 'video' ? 'text-to-video' : 'text-to-image'),
+    mode,
     prompt: body.prompt.trim(),
     model: model?.id ?? (type === 'video' ? 'our-video-model' : 'our-image-model'),
     aspectRatio: body.aspectRatio === '9:16' || body.aspectRatio === '1:1' ? body.aspectRatio : '16:9',
