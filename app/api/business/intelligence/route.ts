@@ -184,6 +184,31 @@ export async function GET() {
       .limit(1)
       .maybeSingle()
 
+    const previousState = previousSnapshot?.state && typeof previousSnapshot.state === 'object'
+      ? previousSnapshot.state as Record<string, any>
+      : null
+    const previousCore = previousState?.intelligenceCore && typeof previousState.intelligenceCore === 'object'
+      ? previousState.intelligenceCore as Record<string, any>
+      : null
+    const previousLearning = previousCore?.learning && typeof previousCore.learning === 'object'
+      ? previousCore.learning as Record<string, any>
+      : null
+    const previousUnderstanding = previousCore?.understanding && typeof previousCore.understanding === 'object'
+      ? previousCore.understanding as Record<string, any>
+      : null
+
+    intelligenceCore.learning = {
+      ...intelligenceCore.learning,
+      longitudinal: {
+        priorSnapshotAvailable: Boolean(previousSnapshot),
+        priorSnapshotId: previousSnapshot?.id ?? null,
+        priorSnapshotCapturedAt: previousSnapshot?.captured_at ?? null,
+        verifiedLearningSignalsDelta: successfulEvaluations.length - Number(previousLearning?.verifiedLearningSignals ?? 0),
+        verifiedOutcomeCountDelta: verifiedOutcomes.length - Number(previousUnderstanding?.verifiedOutcomeCount ?? 0),
+        continuityRule: 'Use prior verified evidence as context, but never treat historical success as proof that a new execution path will succeed.',
+      },
+    }
+
     const governance = {
       requiresHumanOversight: signals.some((signal: any) => signal.type === 'governance' || signal.severity === 'high'),
       highSeveritySignals: signals.filter((signal: any) => signal.severity === 'high').length,
@@ -223,7 +248,6 @@ export async function GET() {
     }).select('id,snapshot_type,state,metrics,intelligence,captured_at').single()
 
     if (error) throw error
-    const previousState = previousSnapshot?.state && typeof previousSnapshot.state === 'object' ? previousSnapshot.state as Record<string, any> : null
     const previousForecasts = previousState && Array.isArray(previousState.forecasts) ? previousState.forecasts : []
     const forecastEvaluations = previousForecasts.map((forecast: any) => {
       const objective = (objectives ?? []).find((item: any) => String(item.id) === String(forecast.objectiveId))
