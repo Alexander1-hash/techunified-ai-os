@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           executionId: result.executionId,
-          error: result.error,
+          error: "Automation execution failed. Check execution history for details.",
         },
         { status: 400 }
       );
