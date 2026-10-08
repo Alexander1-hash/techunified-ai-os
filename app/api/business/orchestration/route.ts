@@ -450,7 +450,44 @@ export async function PATCH(request: Request) {
         if (actions.has('close_evidence_gap')) return NextResponse.json({ error: 'Intelligence Core requires the current evidence gap to be closed before controlled execution.' }, { status: 409 })
         if (contradictions.has('learning_without_outcome')) return NextResponse.json({ error: 'Intelligence Core requires the learning-to-outcome gap to be resolved before controlled execution.' }, { status: 409 })
       }
-      if (body.status === 'executing' && !(Array.isArray(existingRun.action_run_ids) || Array.isArray(existingRun.agent_run_ids))) return NextResponse.json({ error: 'Execution requires governed work references.' }, { status: 409 })
+      if (body.status === 'executing') {
+        const actionRunIds = Array.isArray(existingRun.action_run_ids)
+          ? existingRun.action_run_ids.filter((value: unknown): value is string => typeof value === 'string' && value.trim().length > 0)
+          : []
+        const agentRunIds = Array.isArray(existingRun.agent_run_ids)
+          ? existingRun.agent_run_ids.filter((value: unknown): value is string => typeof value === 'string' && value.trim().length > 0)
+          : []
+
+        if (actionRunIds.length === 0 && agentRunIds.length === 0) {
+          return NextResponse.json({ error: 'Execution requires at least one governed agent or action run reference.' }, { status: 409 })
+        }
+
+        if (actionRunIds.length > 0) {
+          const { data: actionRuns, error: actionRunsError } = await supabase
+            .from('business_action_runs')
+            .select('id,status')
+            .eq('organization_id', organizationId)
+            .in('id', actionRunIds)
+          if (actionRunsError) throw actionRunsError
+          const validActionRuns = (actionRuns ?? []).filter((run: any) => ['running', 'completed'].includes(String(run.status)))
+          if (validActionRuns.length !== actionRunIds.length) {
+            return NextResponse.json({ error: 'Every referenced action run must exist for this organization and be running or completed before orchestration execution.' }, { status: 409 })
+          }
+        }
+
+        if (agentRunIds.length > 0) {
+          const { data: agentRuns, error: agentRunsError } = await supabase
+            .from('agent_runs')
+            .select('id,status')
+            .eq('organization_id', organizationId)
+            .in('id', agentRunIds)
+          if (agentRunsError) throw agentRunsError
+          const validAgentRuns = (agentRuns ?? []).filter((run: any) => !['failed', 'cancelled'].includes(String(run.status)))
+          if (validAgentRuns.length !== agentRunIds.length) {
+            return NextResponse.json({ error: 'Every referenced agent run must exist for this organization and not be failed or cancelled before orchestration execution.' }, { status: 409 })
+          }
+        }
+      }
       if (body.status === 'completed' && existingRun.status !== 'executing') return NextResponse.json({ error: 'Only an executing orchestration run can be completed.' }, { status: 409 })
       updates.status = body.status
       if (body.status === 'executing' && !body.started_at) updates.started_at = new Date().toISOString()
@@ -464,6 +501,26 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: 'Invalid orchestration approval status.' }, { status: 400 })
       }
       if (body.approval_status === 'approved' && existingRun.status !== 'awaiting_approval') return NextResponse.json({ error: 'Approval can only be granted to an awaiting orchestration run.' }, { status: 409 })
+      if (body.approval_status === 'approved') {
+        const latestSnapshot = await supabase
+          .from('company_intelligence_snapshots')
+          .select('state,intelligence')
+          .eq('organization_id', organizationId)
+          .eq('snapshot_type', 'company_state')
+          .order('captured_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (latestSnapshot.error) throw latestSnapshot.error
+        const core = latestSnapshot.data?.state && typeof latestSnapshot.data.state === 'object' && latestSnapshot.data.state.intelligenceCore && typeof latestSnapshot.data.state.intelligenceCore === 'object'
+          ? latestSnapshot.data.state.intelligenceCore
+          : latestSnapshot.data?.intelligence && typeof latestSnapshot.data.intelligence === 'object' && latestSnapshot.data.intelligence.intelligenceCore && typeof latestSnapshot.data.intelligence.intelligenceCore === 'object'
+            ? latestSnapshot.data.intelligence.intelligenceCore
+            : null
+        const contradictions = core && Array.isArray(core.contradictions) ? new Set(core.contradictions.map((item: any) => String(item.type ?? ''))) : new Set<string>()
+        if (contradictions.has('execution_capacity') || contradictions.has('learning_without_outcome')) {
+          return NextResponse.json({ error: 'Current Intelligence Core contradictions must be resolved before approving controlled execution.' }, { status: 409 })
+        }
+      }
       updates.approval_status = body.approval_status
     }
 
