@@ -8,6 +8,7 @@ const MAX_RESULTS = 5
 const MAX_CONTEXT_CHARS = 18000
 const MAX_WEB_RECORDS = 50
 const MAX_OUTCOME_RECORDS = 50
+const MAX_WEB_CONTEXT_CHARS = 10000
 
 function cleanSearchTerms(question: string): string[] {
   return question
