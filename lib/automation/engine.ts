@@ -1,4 +1,5 @@
 import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runTextAI } from "@/lib/ai/text";
 
@@ -741,38 +742,91 @@ async function assertSafeWebhookUrl(rawUrl: string) {
   }
 }
 
-function isPrivateAddress(address: string) {
+function isPrivateAddress(address: string): boolean {
   const normalized = address.toLowerCase();
 
-  if (normalized.includes(":")) {
-    return (
-      normalized === "::1" ||
-      normalized.startsWith("fc") ||
-      normalized.startsWith("fd") ||
-      normalized.startsWith("fe8") ||
-      normalized.startsWith("fe9") ||
-      normalized.startsWith("fea") ||
-      normalized.startsWith("feb") ||
-      normalized.startsWith("::ffff:127.") ||
-      normalized.startsWith("::ffff:10.") ||
-      normalized.startsWith("::ffff:192.168.")
-    );
+  if (isIP(normalized) === 4) {
+    return isNonPublicIPv4(normalized);
   }
 
-  const parts = normalized.split(".").map(Number);
+  if (isIP(normalized) !== 6) return true;
+
+  // Convert IPv4-mapped IPv6 addresses before applying the IPv4 policy.
+  const mappedDotted = normalized.match(/^::ffff:(\\d{1,3}(?:\\.\\d{1,3}){3})$/);
+  if (mappedDotted) return isNonPublicIPv4(mappedDotted[1]);
+
+  const groups = expandIPv6(normalized);
+  if (!groups) return true;
+
+  if (groups.slice(0, 5).every((group) => group === 0) && groups[5] === 0xffff) {
+    const high = groups[6];
+    const low = groups[7];
+    const ipv4 = [
+      (high >> 8) & 255,
+      high & 255,
+      (low >> 8) & 255,
+      low & 255,
+    ].join(".");
+    return isNonPublicIPv4(ipv4);
+  }
+
+  // Only permit globally routable IPv6 global-unicast space (2000::/3).
+  // This blocks unspecified, loopback, link-local, ULA, multicast, and special-use ranges.
+  const first = groups[0];
+  if (first < 0x2000 || first > 0x3fff) return true;
+
+  // Documentation and special-purpose allocations are not public destinations.
+  if (groups[0] === 0x2001 && (groups[1] === 0x0db8 || (groups[1] & 0xfff0) === 0x0010 || (groups[1] & 0xfff0) === 0x0020)) {
+    return true;
+  }
+
+  return false;
+}
+
+function isNonPublicIPv4(address: string): boolean {
+  const parts = address.split(".").map(Number);
   if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
     return true;
   }
 
-  const [a, b] = parts;
+  const [a, b, c] = parts;
   return (
-    a === 10 ||
-    a === 127 ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    a === 0
+    a === 0 ||                         // Current network / unspecified
+    a === 10 ||                        // Private
+    a === 127 ||                       // Loopback
+    (a === 100 && b >= 64 && b <= 127) || // Carrier-grade NAT
+    (a === 169 && b === 254) ||        // Link-local / cloud metadata
+    (a === 172 && b >= 16 && b <= 31) || // Private
+    (a === 192 && b === 0 && c === 0) || // IETF protocol assignments
+    (a === 192 && b === 0 && c === 2) || // Documentation
+    (a === 192 && b === 88 && c === 99) || // Deprecated 6to4 relay
+    (a === 192 && b === 168) ||        // Private
+    (a === 198 && (b === 18 || b === 19)) || // Benchmarking
+    (a === 198 && b === 51 && c === 100) || // Documentation
+    (a === 203 && b === 0 && c === 113) || // Documentation
+    a >= 224                            // Multicast and reserved
   );
+}
+
+function expandIPv6(address: string): number[] | null {
+  const normalized = address.toLowerCase().split("%")[0];
+  const halves = normalized.split("::");
+  if (halves.length > 2) return null;
+
+  const parseHalf = (half: string) => half ? half.split(":").map((group) => {
+    if (!/^[0-9a-f]{1,4}$/.test(group)) throw new Error("Invalid IPv6 group");
+    return Number.parseInt(group, 16);
+  }) : [];
+
+  try {
+    const left = parseHalf(halves[0]);
+    const right = parseHalf(halves[1] ?? "");
+    const missing = 8 - left.length - right.length;
+    if ((halves.length === 1 && missing !== 0) || (halves.length === 2 && missing < 1)) return null;
+    return [...left, ...Array(missing).fill(0), ...right];
+  } catch {
+    return null;
+  }
 }
 
 async function readResponseBodyLimited(
