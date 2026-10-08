@@ -752,7 +752,7 @@ function isPrivateAddress(address: string): boolean {
   if (isIP(normalized) !== 6) return true;
 
   // Convert IPv4-mapped IPv6 addresses before applying the IPv4 policy.
-  const mappedDotted = normalized.match(/^::ffff:(\\d{1,3}(?:\\.\\d{1,3}){3})$/);
+  const mappedDotted = normalized.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
   if (mappedDotted) return isNonPublicIPv4(mappedDotted[1]);
 
   const groups = expandIPv6(normalized);
