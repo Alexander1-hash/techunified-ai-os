@@ -421,7 +421,9 @@ export async function runGovernedAgent(agentId: string, task: string, userId: st
     }
 
     // Record only objective system signals here. Quality scores remain unset until a human evaluates the run.
-    await supabase.from('agent_evaluations').upsert({
+    // Secondary-record failures are surfaced without mislabeling a completed agent run as failed.
+    const persistenceWarnings: string[] = []
+    const { error: evaluationPersistenceError } = await supabase.from('agent_evaluations').upsert({
       organization_id: organizationId,
       agent_id: agentId,
       run_id: run.id,
@@ -435,13 +437,14 @@ export async function runGovernedAgent(agentId: string, task: string, userId: st
         deniedToolCalls: toolCalls.filter((call) => call.status === 'denied').length,
       },
     }, { onConflict: 'run_id' })
+    if (evaluationPersistenceError) persistenceWarnings.push('evaluation_record')
 
-    await supabase.from('agent_memory').insert({
+    const { error: memoryPersistenceError } = await supabase.from('agent_memory').insert({
       organization_id: organizationId,
       agent_id: agentId,
       run_id: run.id,
       memory_type: 'working',
-      content: 'Task: ' + task + '\nResult: ' + output.slice(0, 4000),
+      content: 'Task: ' + task + '\\nResult: ' + output.slice(0, 4000),
       importance: 40,
       confidence: 30,
       evidence_status: 'unverified',
@@ -449,12 +452,14 @@ export async function runGovernedAgent(agentId: string, task: string, userId: st
       source_id: run.id,
       metadata: { autonomyMode, requiresApproval, toolCount: toolCalls.length },
     })
+    if (memoryPersistenceError) persistenceWarnings.push('working_memory')
 
     return {
       runId: run.id,
       agent: { id: config.id, name: config.name },
       status: 'completed',
       ...result,
+      persistenceWarnings,
       tools: toolCalls.map((call) => ({ name: call.name, status: call.status, riskLevel: call.riskLevel ?? null })),
     }
   } catch (error) {
