@@ -87,13 +87,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Approval reason is too long.' }, { status: 400 })
   }
 
-  const { data: run } = await supabase
+  const { data: run, error: runLookupError } = await supabase
     .from('agent_runs')
     .select('id,agent_id,status,autonomy_mode,requires_approval,approval_status,result')
     .eq('id', agentRunId)
     .eq('organization_id', organizationId)
     .maybeSingle()
 
+  if (runLookupError) {
+    return NextResponse.json({ error: 'Unable to verify the agent run.' }, { status: 500 })
+  }
   if (!run) return NextResponse.json({ error: 'Agent run not found.' }, { status: 404 })
   if (!run.requires_approval) return NextResponse.json({ error: 'This run does not require approval.' }, { status: 409 })
   if (run.approval_status !== 'pending') return NextResponse.json({ error: 'This run is not awaiting approval.' }, { status: 409 })
