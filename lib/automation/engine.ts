@@ -407,7 +407,10 @@ export async function runAutomationStep(
         clearTimeout(timeout);
       }
 
-      const responseText = (await response.text()).slice(0, 50_000);
+      const responseText = await readResponseBodyLimited(
+        response,
+        50_000
+      );
 
       if (!response.ok) {
         throw new Error(
@@ -706,6 +709,43 @@ function isPrivateAddress(address: string) {
     (a === 192 && b === 168) ||
     a === 0
   );
+}
+
+async function readResponseBodyLimited(
+  response: Response,
+  maxBytes: number
+) {
+  if (!response.body) {
+    const text = await response.text();
+    return text.slice(0, maxBytes);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let totalBytes = 0;
+  let text = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      totalBytes += value.byteLength;
+
+      if (totalBytes > maxBytes) {
+        await reader.cancel();
+        throw new Error("Webhook response body is too large.");
+      }
+
+      text += decoder.decode(value, { stream: true });
+    }
+
+    text += decoder.decode();
+    return text;
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 function isRecord(
