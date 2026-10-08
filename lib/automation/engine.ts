@@ -98,6 +98,7 @@ export async function executeAutomation(
 
   const MAX_AUTOMATION_STEPS = 50;
   const MAX_AUTOMATION_INPUT_BYTES = 64 * 1024;
+  const MAX_AUTOMATION_OUTPUT_BYTES = 128 * 1024;
 
   if (steps.length > MAX_AUTOMATION_STEPS) {
     await supabase
@@ -169,6 +170,16 @@ export async function executeAutomation(
           workflowId,
           organizationId
         );
+
+        const resultBytes = new TextEncoder().encode(
+          JSON.stringify(result)
+        ).byteLength;
+
+        if (resultBytes > MAX_AUTOMATION_OUTPUT_BYTES) {
+          throw new Error(
+            "Automation step output is too large."
+          );
+        }
 
         currentInput = result;
 
@@ -490,6 +501,12 @@ export async function runAutomationStep(
         );
       }
 
+      if (prompt.length > 4000) {
+        throw new Error(
+          "run_ai_analysis prompt is too long."
+        );
+      }
+
       const result = await runTextAI({
         model,
         system:
@@ -527,6 +544,18 @@ export async function runAutomationStep(
       if (!prompt) {
         throw new Error(
           "generate_ai_content requires a prompt"
+        );
+      }
+
+      if (prompt.length > 4000) {
+        throw new Error(
+          "generate_ai_content prompt is too long."
+        );
+      }
+
+      if (outputFormat.length > 100) {
+        throw new Error(
+          "generate_ai_content output format is too long."
         );
       }
 
