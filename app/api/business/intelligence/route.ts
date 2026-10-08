@@ -184,6 +184,27 @@ export async function GET() {
       .limit(1)
       .maybeSingle()
 
+    const previousCore = previousState && previousState.intelligenceCore && typeof previousState.intelligenceCore === 'object'
+      ? previousState.intelligenceCore as Record<string, any>
+      : null
+    const previousLearningCount = previousCore?.learning && typeof previousCore.learning === 'object'
+      ? Number(previousCore.learning.verifiedLearningSignals ?? 0)
+      : 0
+    const previousVerifiedOutcomeCount = previousCore?.understanding && typeof previousCore.understanding === 'object'
+      ? Number(previousCore.understanding.verifiedOutcomeCount ?? 0)
+      : 0
+
+    intelligenceCore.learning = {
+      ...intelligenceCore.learning,
+      longitudinal: {
+        priorSnapshotAvailable: Boolean(previousSnapshot),
+        priorSnapshotCapturedAt: previousSnapshot?.captured_at ?? null,
+        verifiedLearningSignalsDelta: successfulEvaluations.length - (Number.isFinite(previousLearningCount) ? previousLearningCount : 0),
+        verifiedOutcomeCountDelta: verifiedOutcomes.length - (Number.isFinite(previousVerifiedOutcomeCount) ? previousVerifiedOutcomeCount : 0),
+        continuityRule: 'Use prior verified evidence as context, but never treat historical success as proof that a new execution path will succeed.',
+      },
+    }
+
     const governance = {
       requiresHumanOversight: signals.some((signal: any) => signal.type === 'governance' || signal.severity === 'high'),
       highSeveritySignals: signals.filter((signal: any) => signal.severity === 'high').length,
@@ -338,31 +359,3 @@ export async function GET() {
             computed_at: snapshot.captured_at,
           }
         : snapshot,
-      previousSnapshotId: previousSnapshot?.id ?? null,
-      signals,
-      signalConfidence,
-      forecasts,
-      forecastConfidence,
-      objectiveIntelligence,
-      governance,
-      longitudinal: {
-        changed: trackedChanges.length > 0,
-        changedFields: trackedChanges,
-        recentStateAvailable: Boolean(previousSnapshot),
-      },
-      intelligenceCore,
-      graph: {
-        activeEdges: edgeRows.length,
-        objectiveRelationships: edgeRows.filter((edge: any) => edge.from_type === 'objective').length,
-      },
-      forecastEvaluation: {
-        evaluated: forecastEvaluations.length,
-        averageAccuracy: forecastEvaluations.length
-          ? Math.round(forecastEvaluations.reduce((sum: number, item: any) => sum + item.accuracyScore, 0) / forecastEvaluations.length)
-          : null,
-      },
-    })
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to compute company intelligence.' }, { status: 500 })
-  }
-}
