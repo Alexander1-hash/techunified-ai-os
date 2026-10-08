@@ -366,17 +366,7 @@ export async function runAutomationStep(
         );
       }
 
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-
-      if (isRecord(config.headers)) {
-        for (const [key, value] of Object.entries(
-          config.headers
-        )) {
-          headers[key] = String(value);
-        }
-      }
+      const headers = buildWebhookHeaders(config.headers);
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15_000);
@@ -634,6 +624,74 @@ function withOrganizationBoundary(
     ...record,
     organization_id: organizationId,
   };
+}
+
+function buildWebhookHeaders(rawHeaders: unknown) {
+  const MAX_HEADERS = 50;
+  const MAX_HEADER_NAME_LENGTH = 200;
+  const MAX_HEADER_VALUE_LENGTH = 2_000;
+  const MAX_TOTAL_HEADER_BYTES = 16 * 1024;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (!isRecord(rawHeaders)) {
+    return headers;
+  }
+
+  const entries = Object.entries(rawHeaders);
+
+  if (entries.length > MAX_HEADERS) {
+    throw new Error("Webhook request contains too many headers.");
+  }
+
+  const forbiddenHeaders = new Set([
+    "connection",
+    "content-length",
+    "host",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailer",
+    "transfer-encoding",
+    "upgrade",
+  ]);
+
+  let totalBytes = new TextEncoder().encode(
+    JSON.stringify(headers)
+  ).byteLength;
+
+  for (const [rawKey, rawValue] of entries) {
+    const key = rawKey.trim();
+
+    if (!key || key.length > MAX_HEADER_NAME_LENGTH) {
+      throw new Error("Webhook header name is invalid or too long.");
+    }
+
+    if (forbiddenHeaders.has(key.toLowerCase())) {
+      throw new Error(`Webhook header is not allowed: ${key}`);
+    }
+
+    const value = String(rawValue);
+
+    if (value.length > MAX_HEADER_VALUE_LENGTH) {
+      throw new Error(`Webhook header value is too long: ${key}`);
+    }
+
+    totalBytes += new TextEncoder().encode(
+      `${key}: ${value}`
+    ).byteLength;
+
+    if (totalBytes > MAX_TOTAL_HEADER_BYTES) {
+      throw new Error("Webhook headers are too large.");
+    }
+
+    headers[key] = value;
+  }
+
+  return headers;
 }
 
 async function assertSafeWebhookUrl(rawUrl: string) {
