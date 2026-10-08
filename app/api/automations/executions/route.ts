@@ -64,7 +64,7 @@ export async function GET() {
       return NextResponse.json(
         {
           success: false,
-          error: executionsError.message,
+          error: "Unable to load automation executions.",
         },
         { status: 500 }
       );
@@ -74,16 +74,11 @@ export async function GET() {
       success: true,
       executions: executions ?? [],
     });
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Failed to load automation executions";
-
+  } catch {
     return NextResponse.json(
       {
         success: false,
-        error: message,
+        error: "Unable to load automation executions.",
       },
       { status: 500 }
     );
