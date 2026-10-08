@@ -240,7 +240,7 @@ export async function POST(request: Request) {
             .maybeSingle()
 
           if (!existingMemory) {
-            await supabase.from('agent_memory').insert({
+            const { error: memoryError } = await supabase.from('agent_memory').insert({
               organization_id: organizationId,
               agent_id: agentRun.agent_id,
               run_id: agentRun.id,
@@ -261,6 +261,8 @@ export async function POST(request: Request) {
                 currency: data.currency,
               },
             })
+
+            if (memoryError) throw memoryError
           }
         }
       }
