@@ -3,7 +3,15 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/repositories/profile'
 import { executeAutomation } from '@/lib/automation/engine'
 
+const MAX_REQUEST_BYTES = 64 * 1024
+const MAX_REVIEWER_NOTE_CHARS = 2000
+
 export async function POST(request: Request) {
+  const contentLength = Number(request.headers.get('content-length') ?? 0)
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json({ error: 'Approval request is too large.' }, { status: 413 })
+  }
+
   const supabase = await createClient()
   const { profile } = await getCurrentProfile(supabase)
   const organizationId = profile?.organization_id
@@ -14,6 +22,8 @@ export async function POST(request: Request) {
   const approvalId = typeof body?.approvalId === 'string' ? body.approvalId.trim() : ''
   const decision = body?.decision === 'approved' || body?.decision === 'rejected' ? body.decision : ''
   const reviewerNote = typeof body?.reviewerNote === 'string' ? body.reviewerNote.trim() : ''
+
+  if (reviewerNote.length > MAX_REVIEWER_NOTE_CHARS) return NextResponse.json({ error: 'Reviewer note is too long.' }, { status: 400 })
 
   if (!approvalId || !decision) return NextResponse.json({ error: 'approvalId and a valid decision are required.' }, { status: 400 })
 
