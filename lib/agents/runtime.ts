@@ -378,15 +378,19 @@ export async function runGovernedAgent(agentId: string, task: string, userId: st
       : null
     const proposedWorkflowId = typeof proposal?.workflowId === 'string' ? proposal.workflowId : ''
     if (requiresApproval && proposedWorkflowId) {
-      const { data: existingApproval } = await supabase.from('agent_approvals')
+      const { data: existingApproval, error: existingApprovalError } = await supabase.from('agent_approvals')
         .select('id')
         .eq('organization_id', organizationId)
         .eq('agent_run_id', run.id)
         .eq('status', 'pending')
         .maybeSingle()
 
+      if (existingApprovalError) {
+        throw new Error('Unable to verify the workflow approval request.')
+      }
+
       if (!existingApproval) {
-        await supabase.from('agent_approvals').insert({
+        const { error: approvalInsertError } = await supabase.from('agent_approvals').insert({
           organization_id: organizationId,
           agent_run_id: run.id,
           requested_by: userId,
@@ -405,6 +409,10 @@ export async function runGovernedAgent(agentId: string, task: string, userId: st
             source: 'workflow.propose_action',
           },
         })
+
+        if (approvalInsertError) {
+          throw new Error('Unable to save the workflow approval request.')
+        }
       }
     }
 
