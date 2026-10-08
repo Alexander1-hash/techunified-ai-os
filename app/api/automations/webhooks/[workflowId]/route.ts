@@ -25,6 +25,29 @@ export async function POST(
       );
     }
 
+    if (workflowId.length > 200) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Workflow ID is too long",
+        },
+        { status: 400 }
+      );
+    }
+
+    const contentLength = Number(request.headers.get("content-length") ?? "0");
+    const MAX_REQUEST_BYTES = 64 * 1024;
+
+    if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Request body is too large",
+        },
+        { status: 413 }
+      );
+    }
+
     const supabase = await createClient();
 
     const {
