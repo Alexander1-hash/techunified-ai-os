@@ -311,7 +311,7 @@ export async function POST(request: Request) {
       }).eq('id', orchestration.id).eq('organization_id', organizationId)
     }
 
-    return NextResponse.json({ ok: false, approvalId, agentRunId: approval.agent_run_id, actionRunId: actionRun.id, executionId: result.executionId ?? null, error: result.error ?? 'Automation execution failed.' }, { status: 400 })
+    return NextResponse.json({ ok: false, approvalId, agentRunId: approval.agent_run_id, actionRunId: actionRun.id, executionId: result.executionId ?? null, error: 'Controlled workflow execution failed. Review the action run for details.' }, { status: 500 })
   }
 
   const { data: completedAction, error: actionUpdateError } = await supabase
