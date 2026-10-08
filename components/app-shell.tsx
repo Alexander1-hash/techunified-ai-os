@@ -301,7 +301,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <button
             aria-label="Close navigation"
             onClick={closeMobile}
-            className="fixed inset-0 z-[90] bg-[#171717] lg:hidden"
+            className="fixed inset-y-0 left-0 z-[90] w-[min(320px,86vw)] bg-[#171717] lg:hidden"
           />
 
           <aside
