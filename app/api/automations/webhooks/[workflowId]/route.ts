@@ -85,8 +85,16 @@ export async function POST(
 
     const contentType = request.headers.get("content-type") ?? "";
 
+    const rawBody = await request.text();
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
+      return NextResponse.json(
+        { success: false, error: "Request body is too large" },
+        { status: 413 }
+      );
+    }
+
     if (contentType.includes("application/json")) {
-      const body = await request.json();
+      const body = JSON.parse(rawBody);
 
       if (
         body &&
@@ -100,10 +108,8 @@ export async function POST(
         };
       }
     } else {
-      const text = await request.text();
-
       input = {
-        body: text,
+        body: rawBody,
       };
     }
 
