@@ -80,6 +80,10 @@ export async function GET(request: Request) {
       return relationshipEvidence && typeof relationshipEvidence === 'object' ? [relationshipEvidence] : []
     })
     const relationshipEvidence = relationshipRows[0] ?? null
+    const coreDecisions = intelligenceCore && Array.isArray(intelligenceCore.decisions) ? intelligenceCore.decisions : []
+    const coreContradictions = intelligenceCore && Array.isArray(intelligenceCore.contradictions) ? intelligenceCore.contradictions : []
+    const coreDecisionActions = new Set(coreDecisions.map((decision: any) => String(decision.action ?? '')))
+    const coreContradictionTypes = new Set(coreContradictions.map((contradiction: any) => String(contradiction.type ?? '')))
 
     const objectiveIndex = new Map<string, any>()
     const explicitDependencies = Array.isArray(objective.dependencies)
@@ -184,6 +188,41 @@ export async function GET(request: Request) {
       nextMoveAction = 'strengthen_evidence'
     }
 
+    const coreInfluence: string[] = []
+    if (coreDecisionActions.has('review_pending_approvals') && awaitingApprovalRuns > 0) coreInfluence.push('core_governance_decision')
+    if (coreDecisionActions.has('investigate_failed_work') && failedRuns > 0) coreInfluence.push('core_failure_decision')
+    if (coreDecisionActions.has('close_evidence_gap') && completedRuns > 0 && verifiedOutcomes.length === 0) coreInfluence.push('core_evidence_decision')
+    if (coreContradictionTypes.has('execution_capacity') && !latestDecisionIntelligence?.execution) coreInfluence.push('core_capacity_contradiction')
+    if (coreContradictionTypes.has('learning_without_outcome') && (completedRuns > 0 || objectiveEvaluations.length > 0) && verifiedOutcomes.length === 0) coreInfluence.push('core_learning_contradiction')
+    if (coreContradictionTypes.has('mixed_execution_evidence') && failedRuns > 0 && verifiedOutcomes.length > 0) coreInfluence.push('core_mixed_execution_contradiction')
+
+    if (coreDecisionActions.has('review_pending_approvals') && awaitingApprovalRuns > 0) {
+      decisionRecommendation = 'Review the pending human approval before initiating any controlled workflow execution.'
+      decisionReason = 'The Intelligence Core identifies a governance decision that matches this objective’s pending approval state.'
+      decisionEvidence = 'intelligence_core_governance_decision'
+      nextMoveAction = 'resolve_approval'
+    } else if (coreDecisionActions.has('investigate_failed_work') && failedRuns > 0) {
+      decisionRecommendation = 'Investigate the latest failed orchestration before starting another execution.'
+      decisionReason = 'The Intelligence Core identifies failed governed work requiring investigation for this objective.'
+      decisionEvidence = 'intelligence_core_failure_decision'
+      nextMoveAction = 'investigate_failure'
+    } else if (coreDecisionActions.has('close_evidence_gap') && completedRuns > 0 && verifiedOutcomes.length === 0) {
+      decisionRecommendation = 'Strengthen outcome evidence before starting another governed execution path.'
+      decisionReason = 'The Intelligence Core identifies an evidence gap between completed work and verified business outcomes.'
+      decisionEvidence = 'intelligence_core_evidence_decision'
+      nextMoveAction = 'strengthen_evidence'
+    } else if (coreContradictionTypes.has('execution_capacity') && coreInfluence.includes('core_capacity_contradiction')) {
+      decisionRecommendation = 'Resolve execution capacity constraints before initiating another governed execution path.'
+      decisionReason = 'The Intelligence Core reports an execution-capacity contradiction for the current operating state.'
+      decisionEvidence = 'intelligence_core_capacity_contradiction'
+      nextMoveAction = 'resolve_capacity'
+    } else if (coreContradictionTypes.has('learning_without_outcome') && verifiedOutcomes.length === 0 && (completedRuns > 0 || objectiveEvaluations.length > 0)) {
+      decisionRecommendation = 'Resolve the learning-to-outcome evidence gap before starting another governed execution path.'
+      decisionReason = 'The Intelligence Core reports learning evidence without a verified business outcome.'
+      decisionEvidence = 'intelligence_core_learning_contradiction'
+      nextMoveAction = 'strengthen_evidence'
+    }
+
     const target = objective.target_value ?? objective.target ?? null
     const current = objective.current_value ?? objective.current ?? null
     let progressPercent: number | null = null
@@ -259,6 +298,7 @@ export async function GET(request: Request) {
         learningSignal,
         approval: latestDecisionIntelligence?.approval ?? (awaitingApprovalRuns > 0 ? 'human_approval_required' : 'not_required_yet'),
         execution: latestDecisionIntelligence?.execution ?? 'not_started',
+        intelligenceCoreInfluence: coreInfluence,
       },
       nextRecommendedMove: decisionRecommendation,
       nextMoveAction,
