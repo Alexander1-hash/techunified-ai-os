@@ -11,6 +11,7 @@ type ActionRunInput = {
     evidence?: Record<string, unknown>;
   };
   workflowId?: string;
+  orchestrationRunId?: string;
   input?: Record<string, unknown>;
 };
 
@@ -54,9 +55,17 @@ export async function POST(request: Request) {
 
     const body = (await request.json().catch(() => null)) as ActionRunInput | null;
     const workflowId = body?.workflowId?.trim();
+    const orchestrationRunId = body?.orchestrationRunId?.trim();
 
     if (!workflowId) {
       return NextResponse.json({ error: "workflowId is required." }, { status: 400 });
+    }
+
+    if (!orchestrationRunId) {
+      return NextResponse.json(
+        { error: "orchestrationRunId is required. Controlled actions must execute through a governed orchestration run." },
+        { status: 400 },
+      );
     }
 
     const decision = body?.decision ?? {};
@@ -64,6 +73,95 @@ export async function POST(request: Request) {
       body?.input && typeof body.input === "object" && !Array.isArray(body.input)
         ? body.input
         : {};
+
+    const { data: orchestrationRun, error: orchestrationError } = await supabase
+      .from("business_orchestration_runs")
+      .select("id,status,approval_status,action_run_ids")
+      .eq("id", orchestrationRunId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (orchestrationError) throw orchestrationError;
+
+    if (!orchestrationRun) {
+      return NextResponse.json({ error: "Governed orchestration run not found." }, { status: 404 });
+    }
+
+    if (String(orchestrationRun.status).toLowerCase() !== "awaiting_approval") {
+      return NextResponse.json(
+        { error: "Controlled execution can only begin from an awaiting-approval orchestration run." },
+        { status: 409 },
+      );
+    }
+
+    if (String(orchestrationRun.approval_status).toLowerCase() !== "approved") {
+      return NextResponse.json(
+        { error: "Controlled execution requires explicit human approval." },
+        { status: 403 },
+      );
+    }
+
+    const { data: latestSnapshot, error: latestSnapshotError } = await supabase
+      .from("company_intelligence_snapshots")
+      .select("state,intelligence")
+      .eq("organization_id", organizationId)
+      .eq("snapshot_type", "company_state")
+      .order("captured_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestSnapshotError) throw latestSnapshotError;
+
+    const intelligenceCore =
+      latestSnapshot?.state &&
+      typeof latestSnapshot.state === "object" &&
+      latestSnapshot.state.intelligenceCore &&
+      typeof latestSnapshot.state.intelligenceCore === "object"
+        ? latestSnapshot.state.intelligenceCore
+        : latestSnapshot?.intelligence &&
+            typeof latestSnapshot.intelligence === "object" &&
+            latestSnapshot.intelligence.intelligenceCore &&
+            typeof latestSnapshot.intelligence.intelligenceCore === "object"
+          ? latestSnapshot.intelligence.intelligenceCore
+          : null;
+
+    const coreDecisions =
+      intelligenceCore && Array.isArray(intelligenceCore.decisions)
+        ? intelligenceCore.decisions
+        : [];
+    const coreContradictions =
+      intelligenceCore && Array.isArray(intelligenceCore.contradictions)
+        ? intelligenceCore.contradictions
+        : [];
+    const decisionActions = new Set(coreDecisions.map((item: any) => String(item.action ?? "")));
+    const contradictionTypes = new Set(
+      coreContradictions.map((item: any) => String(item.type ?? "")),
+    );
+
+    if (contradictionTypes.has("execution_capacity")) {
+      return NextResponse.json(
+        { error: "Intelligence Core execution-capacity contradiction must be resolved before controlled execution." },
+        { status: 409 },
+      );
+    }
+    if (decisionActions.has("investigate_failed_work")) {
+      return NextResponse.json(
+        { error: "Intelligence Core requires failed-work investigation before another controlled execution." },
+        { status: 409 },
+      );
+    }
+    if (decisionActions.has("close_evidence_gap")) {
+      return NextResponse.json(
+        { error: "Intelligence Core requires the current evidence gap to be closed before controlled execution." },
+        { status: 409 },
+      );
+    }
+    if (contradictionTypes.has("learning_without_outcome")) {
+      return NextResponse.json(
+        { error: "Intelligence Core requires the learning-to-outcome gap to be resolved before controlled execution." },
+        { status: 409 },
+      );
+    }
 
     const { data: workflow, error: workflowError } = await supabase
       .from("workflows")
@@ -113,6 +211,22 @@ export async function POST(request: Request) {
       throw insertError ?? new Error("Unable to create action run.");
     }
 
+    const existingActionRunIds = Array.isArray(orchestrationRun.action_run_ids)
+      ? orchestrationRun.action_run_ids.filter((id: unknown): id is string => typeof id === "string")
+      : [];
+
+    const { error: orchestrationStartError } = await supabase
+      .from("business_orchestration_runs")
+      .update({
+        status: "executing",
+        action_run_ids: [...existingActionRunIds, actionRun.id],
+        started_at: new Date().toISOString(),
+      })
+      .eq("id", orchestrationRunId)
+      .eq("organization_id", organizationId);
+
+    if (orchestrationStartError) throw orchestrationStartError;
+
     const result = await executeAutomation(workflow.id, organizationId, {
       type: "decision",
       input: {
@@ -137,6 +251,20 @@ export async function POST(request: Request) {
           completed_at: new Date().toISOString(),
         })
         .eq("id", actionRun.id)
+        .eq("organization_id", organizationId);
+
+      await supabase
+        .from("business_orchestration_runs")
+        .update({
+          status: "failed",
+          error_message: result.error ?? "Automation execution failed.",
+          result: {
+            actionRunId: actionRun.id,
+            executionId: result.executionId ?? null,
+          },
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", orchestrationRunId)
         .eq("organization_id", organizationId);
 
       return NextResponse.json(
@@ -166,6 +294,22 @@ export async function POST(request: Request) {
       .single();
 
     if (updateError) throw updateError;
+
+    const { error: orchestrationCompleteError } = await supabase
+      .from("business_orchestration_runs")
+      .update({
+        status: "completed",
+        result: {
+          actionRunId: actionRun.id,
+          executionId: result.executionId ?? null,
+          output: result.output ?? {},
+        },
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", orchestrationRunId)
+      .eq("organization_id", organizationId);
+
+    if (orchestrationCompleteError) throw orchestrationCompleteError;
 
     return NextResponse.json(
       {
