@@ -24,6 +24,7 @@ export async function POST(request: Request) {
   const reviewerNote = typeof body?.reviewerNote === 'string' ? body.reviewerNote.trim() : ''
 
   if (reviewerNote.length > MAX_REVIEWER_NOTE_CHARS) return NextResponse.json({ error: 'Reviewer note is too long.' }, { status: 400 })
+  if (approvalId.length > 200) return NextResponse.json({ error: 'Approval ID is too long.' }, { status: 400 })
 
   if (!approvalId || !decision) return NextResponse.json({ error: 'approvalId and a valid decision are required.' }, { status: 400 })
 
