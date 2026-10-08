@@ -21,7 +21,7 @@ export const LEGAL_POLICIES: LegalPolicy[] = [
     sections: [
       { heading: "1. Agreement", paragraphs: [
         "These Terms of Service govern your access to and use of TechUnified AI OS, including its workspace, Company Brain, Business Analyst, AI agents, workflows, analytics, decision-support features, integrations, and related services. By creating an account, accessing a workspace, or using the service, you agree to these Terms.",
-        "If you use TechUnified AI OS on behalf of a company or other organization, you represent that you are authorized to bind that organization. In that case, references to "you" include both you and the organization you represent."
+        "If you use TechUnified AI OS on behalf of a company or other organization, you represent that you are authorized to bind that organization. In that case, references to \"you\" include both you and the organization you represent."
       ]},
       { heading: "2. Your account and workspace", paragraphs: [
         "You are responsible for providing accurate account information, protecting your authentication credentials, and keeping access to your workspace under appropriate control. You must promptly notify TechUnified if you believe an account or workspace has been compromised.",
