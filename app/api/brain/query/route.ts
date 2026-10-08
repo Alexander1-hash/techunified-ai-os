@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server'
 import { askCompanyBrainServer } from '@/lib/brain/server'
 
+const MAX_REQUEST_BYTES = 64 * 1024
+
 export async function POST(request: Request) {
+  const contentLength = Number(request.headers.get('content-length') ?? 0)
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json({ error: 'Company Brain request is too large.' }, { status: 413 })
+  }
+
   const body = await request.json().catch(() => null)
   const question = body && typeof body.question === 'string' ? body.question.trim() : ''
   if (!question) return NextResponse.json({ error: 'Ask a question about your organization.' }, { status: 400 })
