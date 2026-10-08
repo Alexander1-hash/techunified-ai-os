@@ -82,10 +82,9 @@ export async function POST(
     }
 
     let input: Record<string, unknown> = {};
-
     const contentType = request.headers.get("content-type") ?? "";
-
     const rawBody = await request.text();
+
     if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
       return NextResponse.json(
         { success: false, error: "Request body is too large" },
@@ -93,8 +92,17 @@ export async function POST(
       );
     }
 
-    if (contentType.includes("application/json")) {
-      const body = JSON.parse(rawBody);
+    if (contentType.toLowerCase().includes("application/json")) {
+      let body: unknown;
+
+      try {
+        body = JSON.parse(rawBody);
+      } catch {
+        return NextResponse.json(
+          { success: false, error: "Invalid JSON request body" },
+          { status: 400 }
+        );
+      }
 
       if (
         body &&
@@ -138,16 +146,11 @@ export async function POST(
       executionId: result.executionId,
       output: result.output,
     });
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Webhook execution failed";
-
+  } catch {
     return NextResponse.json(
       {
         success: false,
-        error: message,
+        error: "Webhook execution failed. Check the execution history for details.",
       },
       { status: 500 }
     );
