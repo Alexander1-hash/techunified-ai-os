@@ -210,7 +210,7 @@ export async function POST(request: Request) {
             ? existingEvaluation.evidence as Record<string, unknown>
             : {}
 
-          await supabase.from('agent_evaluations').upsert({
+          const { error: evaluationError } = await supabase.from('agent_evaluations').upsert({
             organization_id: organizationId,
             agent_id: agentRun.agent_id,
             run_id: agentRun.id,
@@ -225,6 +225,8 @@ export async function POST(request: Request) {
               linkedAt: new Date().toISOString(),
             },
           }, { onConflict: 'run_id' })
+
+          if (evaluationError) throw evaluationError
 
           const { data: existingMemory } = await supabase.from('agent_memory')
             .select('id,memory_type,content,confidence,evidence_status,source_type,source_id')
