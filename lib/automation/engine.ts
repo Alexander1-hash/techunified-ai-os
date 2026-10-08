@@ -69,6 +69,31 @@ export async function executeAutomation(
 
   const typedWorkflow = workflow as WorkflowRecord;
 
+  const configuration = typedWorkflow.configuration ?? {};
+
+  const steps = Array.isArray(configuration.steps)
+    ? configuration.steps
+    : [];
+
+  const MAX_AUTOMATION_STEPS = 50;
+  const MAX_AUTOMATION_INPUT_BYTES = 64 * 1024;
+  const MAX_AUTOMATION_OUTPUT_BYTES = 128 * 1024;
+
+  const initialInput = {
+    ...(trigger.input ?? {}),
+  };
+
+  const initialInputBytes = new TextEncoder().encode(
+    JSON.stringify(initialInput)
+  ).byteLength;
+
+  if (initialInputBytes > MAX_AUTOMATION_INPUT_BYTES) {
+    return {
+      success: false,
+      error: "Automation input is too large.",
+    };
+  }
+
   const { data: execution, error: executionError } = await supabase
     .from("automation_executions")
     .insert({
@@ -76,7 +101,7 @@ export async function executeAutomation(
       workflow_id: workflowId,
       trigger_type: trigger.type,
       status: "running",
-      input: trigger.input ?? {},
+      input: initialInput,
     })
     .select("id")
     .single();
@@ -89,16 +114,6 @@ export async function executeAutomation(
         "Failed to create automation execution",
     };
   }
-
-  const configuration = typedWorkflow.configuration ?? {};
-
-  const steps = Array.isArray(configuration.steps)
-    ? configuration.steps
-    : [];
-
-  const MAX_AUTOMATION_STEPS = 50;
-  const MAX_AUTOMATION_INPUT_BYTES = 64 * 1024;
-  const MAX_AUTOMATION_OUTPUT_BYTES = 128 * 1024;
 
   if (steps.length > MAX_AUTOMATION_STEPS) {
     await supabase
@@ -117,26 +132,7 @@ export async function executeAutomation(
     };
   }
 
-  let currentInput: Record<string, unknown> = {
-    ...(trigger.input ?? {}),
-  };
-
-  if (JSON.stringify(currentInput).length > MAX_AUTOMATION_INPUT_BYTES) {
-    await supabase
-      .from("automation_executions")
-      .update({
-        status: "failed",
-        error_message: "Automation input is too large.",
-        completed_at: new Date().toISOString(),
-      })
-      .eq("id", execution.id);
-
-    return {
-      success: false,
-      executionId: execution.id,
-      error: "Automation input is too large.",
-    };
-  }
+  let currentInput: Record<string, unknown> = initialInput;
 
   try {
     for (const step of steps) {
