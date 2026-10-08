@@ -512,7 +512,7 @@ function ProfileMenu({
   ]
 
   return (
-    <div className="relative shrink-0 border-t border-border bg-card p-2">
+    <div className="relative shrink-0 border-t border-[#303030] bg-[#171717] p-2 text-white">
       <div ref={profileRef} className="relative">
         <button
           onClick={() => setOpen(!open)}
@@ -550,10 +550,7 @@ function ProfileMenu({
         {open && (
           <div
             className={[
-              "absolute z-[220] isolate overflow-hidden rounded-xl border-border bg-card p-2 text-card-foreground shadow-2xl",
-              collapsed
-                ? "bottom-0 left-full ml-2 w-72"
-                : "bottom-[calc(100%+8px)] left-0 right-0",
+              "relative z-10 mt-2 isolate overflow-hidden rounded-xl border border-[#303030] bg-[#202020] p-2 text-white shadow-2xl",
             ].join(" ")}
           >
             <div className="rounded-lg border border-border bg-muted px-3 py-3 text-card-foreground shadow-inner">
