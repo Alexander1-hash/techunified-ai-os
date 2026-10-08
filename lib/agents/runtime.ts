@@ -364,12 +364,16 @@ export async function runGovernedAgent(agentId: string, task: string, userId: st
       toolCount: toolCalls.length,
     }
 
-    await supabase.from('agent_runs').update({
+    const { error: completionError } = await supabase.from('agent_runs').update({
       status: 'completed',
       tool_calls: toolCalls,
       result,
       completed_at: new Date().toISOString(),
     }).eq('id', run.id).eq('organization_id', organizationId)
+
+    if (completionError) {
+      throw new Error('Unable to save the completed agent run.')
+    }
 
     const workflowProposal = toolCalls.find((call) => call.name === 'workflow.propose_action' && call.status === 'completed' && call.result && typeof call.result === 'object')
     const proposalResult = workflowProposal?.result as Record<string, unknown> | undefined
