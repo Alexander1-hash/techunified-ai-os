@@ -101,6 +101,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     path.startsWith("/auth") ||
     path === "/about" ||
     path.startsWith("/founder") ||
+    path === "/legal" ||
+    path.startsWith("/legal/") ||
     path === "/onboarding"
   ) {
     return <>{children}</>

@@ -843,6 +843,27 @@ export default function SettingsPage() {
             </div>
           </section>
 
+          {/* Legal & policies */}
+          <section className="rounded-2xl border bg-card shadow-sm">
+            <div className="border-b p-5">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-muted-foreground" />
+                <h2 className="font-semibold">Legal & policies</h2>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Read the policies that govern TechUnified AI OS and your workspace.
+              </p>
+            </div>
+            <div className="p-5">
+              <a
+                href="/legal"
+                className="inline-flex min-h-10 items-center justify-center rounded-lg border bg-background px-4 py-2 text-sm font-medium transition hover:bg-muted"
+              >
+                Open legal & policies
+              </a>
+            </div>
+          </section>
+
           {/* Security */}
           <section className="rounded-2xl border bg-card shadow-sm">
             <div className="border-b p-5">
