@@ -56,6 +56,21 @@ async function loadContext(
       .select('from_type,from_id,to_type,to_id,relation,confidence,evidence')
       .eq('organization_id', organizationId).is('valid_to', null).order('created_at', { ascending: false }).limit(50),
   ])
+  const contextErrors = [
+    outcomes.error,
+    actionRuns.error,
+    memories.error,
+    evaluations.error,
+    intelligenceSnapshots.error,
+    intelligenceEvents.error,
+    intelligenceEdges.error,
+  ].filter(Boolean)
+
+  if (contextErrors.length) {
+    // Do not let a partial context snapshot look like verified absence of data.
+    throw new Error('Unable to load complete organization context for this agent run.')
+  }
+
   const memoryRows = memories.data ?? []
   const durableMemories = memoryRows.filter((row) => ['verified', 'attributed', 'explicit'].includes(String(row.evidence_status)))
   const workingMemories = memoryRows.filter((row) => String(row.evidence_status) === 'unverified')
