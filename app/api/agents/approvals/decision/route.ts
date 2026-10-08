@@ -210,8 +210,11 @@ export async function POST(request: Request) {
         .in('id', dependencyIds)
 
       const unresolved = dependencyIds
-        .map((dependencyId: string) => dependencyObjectives?.find((item) => String(item.id) === dependencyId))
-        .filter((dependency) => !dependency || String(dependency.status ?? '').toLowerCase() !== 'completed')
+        .map((dependencyId: string) => ({
+          dependencyId,
+          objective: dependencyObjectives?.find((item) => String(item.id) === dependencyId),
+        }))
+        .filter(({ objective }) => !objective || String(objective.status ?? '').toLowerCase() !== 'completed')
 
       if (unresolved.length > 0) {
         // The approval was recorded before the final dependency gate. Restore its
@@ -236,10 +239,10 @@ export async function POST(request: Request) {
           }, { status: 500 })
         }
 
-        const blockedDependencies = unresolved.map((dependency) => ({
-          id: dependency?.id ?? dependencyIds.find((id) => !dependencyObjectives?.some((item) => String(item.id) === id)),
-          title: dependency?.title ?? 'Unknown dependency',
-          status: dependency?.status ?? 'not_found',
+        const blockedDependencies = unresolved.map(({ dependencyId, objective }) => ({
+          id: objective?.id ?? dependencyId,
+          title: objective?.title ?? 'Unknown dependency',
+          status: objective?.status ?? 'not_found',
         }))
 
         return NextResponse.json({
