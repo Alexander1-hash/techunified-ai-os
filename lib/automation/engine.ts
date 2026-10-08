@@ -118,7 +118,7 @@ export async function executeAutomation(
   }
 
   if (steps.length > MAX_AUTOMATION_STEPS) {
-    await supabase
+    const { error: limitStatusError } = await supabase
       .from("automation_executions")
       .update({
         status: "failed",
@@ -131,6 +131,7 @@ export async function executeAutomation(
       success: false,
       executionId: execution.id,
       error: "Workflow exceeds the maximum allowed number of steps.",
+      ...(limitStatusError ? { warnings: ["The rejected workflow status could not be saved to execution history."] } : {}),
     };
   }
 
@@ -200,7 +201,7 @@ export async function executeAutomation(
             ? stepError.message
             : "Automation step failed";
 
-        await supabase
+        const { error: stepFailureStatusError } = await supabase
           .from("automation_execution_steps")
           .update({
             status: "failed",
@@ -208,6 +209,10 @@ export async function executeAutomation(
             completed_at: new Date().toISOString(),
           })
           .eq("id", executionStep.id);
+
+        if (stepFailureStatusError) {
+          persistenceWarnings.push("A failed step could not be marked as failed in execution history.");
+        }
 
         throw new Error(
           `Step ${step.type} failed: ${message}`
@@ -240,7 +245,7 @@ export async function executeAutomation(
         ? error.message
         : "Automation execution failed";
 
-    await supabase
+    const { error: executionFailureStatusError } = await supabase
       .from("automation_executions")
       .update({
         status: "failed",
@@ -249,10 +254,15 @@ export async function executeAutomation(
       })
       .eq("id", execution.id);
 
+    if (executionFailureStatusError) {
+      persistenceWarnings.push("The workflow failed, but its final failure status could not be saved.");
+    }
+
     return {
       success: false,
       executionId: execution.id,
       error: message,
+      ...(persistenceWarnings.length ? { warnings: persistenceWarnings } : {}),
     };
   }
 }
