@@ -98,13 +98,18 @@ export async function POST(request: Request) {
   if (!run.requires_approval) return NextResponse.json({ error: 'This run does not require approval.' }, { status: 409 })
   if (run.approval_status !== 'pending') return NextResponse.json({ error: 'This run is not awaiting approval.' }, { status: 409 })
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingLookupError } = await supabase
     .from('agent_approvals')
     .select('id')
     .eq('agent_run_id', agentRunId)
     .eq('organization_id', organizationId)
     .eq('status', 'pending')
     .maybeSingle()
+
+  // Do not create another approval when the duplicate check itself failed.
+  if (existingLookupError) {
+    return NextResponse.json({ error: 'Unable to verify whether an approval already exists.' }, { status: 500 })
+  }
 
   if (existing) return NextResponse.json({ approval: existing, message: 'Approval already exists.' })
 
