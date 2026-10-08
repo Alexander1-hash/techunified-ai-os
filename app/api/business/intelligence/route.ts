@@ -166,6 +166,7 @@ export async function GET() {
         verifiedLearningSignals: successfulEvaluations.length,
         outcomeEvidenceRequired: true,
         promotionRule: 'Only measured/attributed outcomes, verified execution evidence, or explicit human feedback may become durable learning.',
+        longitudinal: longitudinalLearning,
       },
       governance: {
         humanOversightRequired: true,
@@ -197,16 +198,13 @@ export async function GET() {
       ? previousCore.understanding as Record<string, any>
       : null
 
-    intelligenceCore.learning = {
-      ...intelligenceCore.learning,
-      longitudinal: {
-        priorSnapshotAvailable: Boolean(previousSnapshot),
-        priorSnapshotId: previousSnapshot?.id ?? null,
-        priorSnapshotCapturedAt: previousSnapshot?.captured_at ?? null,
-        verifiedLearningSignalsDelta: successfulEvaluations.length - Number(previousLearning?.verifiedLearningSignals ?? 0),
-        verifiedOutcomeCountDelta: verifiedOutcomes.length - Number(previousUnderstanding?.verifiedOutcomeCount ?? 0),
-        continuityRule: 'Use prior verified evidence as context, but never treat historical success as proof that a new execution path will succeed.',
-      },
+    const longitudinalLearning = {
+      priorSnapshotAvailable: Boolean(previousSnapshot),
+      priorSnapshotId: previousSnapshot?.id ?? null,
+      priorSnapshotCapturedAt: previousSnapshot?.captured_at ?? null,
+      verifiedLearningSignalsDelta: successfulEvaluations.length - Number(previousLearning?.verifiedLearningSignals ?? 0),
+      verifiedOutcomeCountDelta: verifiedOutcomes.length - Number(previousUnderstanding?.verifiedOutcomeCount ?? 0),
+      continuityRule: 'Use prior verified evidence as context, but never treat historical success as proof that a new execution path will succeed.',
     }
 
     const governance = {
