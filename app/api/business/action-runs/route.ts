@@ -133,6 +133,13 @@ export async function POST(request: Request) {
         .update({
           status: "failed",
           execution_id: result.executionId ?? null,
+          evidence: {
+            ...(decision.evidence && typeof decision.evidence === "object" && !Array.isArray(decision.evidence) ? decision.evidence : {}),
+            executionStatus: "failed",
+            executionId: result.executionId ?? null,
+            executionError: result.error ?? "Automation execution failed.",
+            executionCompletedAt: new Date().toISOString(),
+          },
           error_message: result.error ?? "Automation execution failed.",
           completed_at: new Date().toISOString(),
         })
@@ -155,6 +162,13 @@ export async function POST(request: Request) {
       .update({
         status: "completed",
         execution_id: result.executionId ?? null,
+        evidence: {
+          ...(decision.evidence && typeof decision.evidence === "object" && !Array.isArray(decision.evidence) ? decision.evidence : {}),
+          executionStatus: "completed",
+          executionId: result.executionId ?? null,
+          executionCompletedAt: new Date().toISOString(),
+          outputRecorded: true,
+        },
         output: result.output ?? {},
         completed_at: new Date().toISOString(),
       })
