@@ -179,7 +179,33 @@ export async function POST(request: Request) {
     .maybeSingle()
 
   if (!workflow || String(workflow.status).toLowerCase() !== 'active') {
-    return NextResponse.json({ error: 'Approved workflow is no longer active.' }, { status: 409 })
+    // The workflow may be deactivated after the earlier preflight check. Do not
+    // leave an approval marked approved when execution never started.
+    const { error: approvalResetError } = await supabase
+      .from('agent_approvals')
+      .update({ status: 'pending', reviewed_by: null, reviewer_note: null, reviewed_at: null })
+      .eq('id', approvalId)
+      .eq('organization_id', organizationId)
+      .eq('status', 'approved')
+
+    const { error: runResetError } = await supabase
+      .from('agent_runs')
+      .update({ approval_status: 'pending' })
+      .eq('id', approval.agent_run_id)
+      .eq('organization_id', organizationId)
+
+    if (approvalResetError || runResetError) {
+      return NextResponse.json({
+        error: 'Workflow is no longer active and approval state could not be restored. Please review the approval record.',
+        execution: 'not_started',
+      }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      error: 'Approved workflow is no longer active. Approval has been returned to pending.',
+      approvalStatus: 'pending',
+      execution: 'not_started',
+    }, { status: 409 })
   }
 
   const { data: linkedOrchestrationsForGate } = await supabase
