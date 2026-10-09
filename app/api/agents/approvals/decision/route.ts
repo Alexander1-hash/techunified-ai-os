@@ -161,15 +161,18 @@ export async function POST(request: Request) {
     ? 'Human reviewer rejected the proposed action. Do not treat this proposal as approved; reviewer note: ' + (reviewerNote || 'No reviewer note provided.')
     : 'Human reviewer approved the proposed action. Approval grants permission for the controlled path only; it does not itself prove business success.'
 
-  const { data: agentRun } = await supabase
+  const approvalMemoryWarnings: string[] = []
+  const { data: agentRun, error: agentRunLookupError } = await supabase
     .from('agent_runs')
     .select('agent_id')
     .eq('id', approval.agent_run_id)
     .eq('organization_id', organizationId)
     .maybeSingle()
 
-  if (agentRun?.agent_id) {
-    const { data: existingApprovalMemory } = await supabase.from('agent_memory')
+  if (agentRunLookupError) {
+    approvalMemoryWarnings.push('agent_run_lookup')
+  } else if (agentRun?.agent_id) {
+    const { data: existingApprovalMemory, error: existingApprovalMemoryError } = await supabase.from('agent_memory')
       .select('id,memory_type,content,confidence,evidence_status,source_type,source_id')
       .eq('organization_id', organizationId)
       .eq('agent_id', agentRun.agent_id)
@@ -180,11 +183,13 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle()
 
-    if (!existingApprovalMemory) {
-      await supabase.from('agent_memory').insert({
+    if (existingApprovalMemoryError) {
+      approvalMemoryWarnings.push('memory_lookup')
+    } else if (!existingApprovalMemory) {
+      const { error: approvalMemoryInsertError } = await supabase.from('agent_memory').insert({
         organization_id: organizationId,
         agent_id: agentRun.agent_id,
-          run_id: approval.agent_run_id,
+        run_id: approval.agent_run_id,
         memory_type: 'lesson',
         content: approvalLesson,
         importance: decision === 'rejected' ? 85 : 65,
@@ -192,8 +197,9 @@ export async function POST(request: Request) {
         evidence_status: 'explicit',
         source_type: 'human',
         source_id: approval.id,
-          metadata: { approvalId: approval.id, decision, reviewerId: userId, reviewerNote: reviewerNote || null, decisionIntelligence },
+        metadata: { approvalId: approval.id, decision, reviewerId: userId, reviewerNote: reviewerNote || null, decisionIntelligence },
       })
+      if (approvalMemoryInsertError) approvalMemoryWarnings.push('memory_insert')
     }
   }
 
@@ -204,6 +210,7 @@ export async function POST(request: Request) {
       agentRunId: approval.agent_run_id,
       status: decision,
       execution: 'not_started',
+      approvalMemoryWarnings,
       message: decision === 'rejected' ? 'Approval rejected. No execution was started.' : 'Proposal approved. No workflow execution was requested.',
     })
   }
@@ -484,7 +491,7 @@ export async function POST(request: Request) {
       }).eq('id', orchestration.id).eq('organization_id', organizationId)
     }
 
-    return NextResponse.json({ ok: false, approvalId, agentRunId: approval.agent_run_id, actionRunId: actionRun.id, executionId: result.executionId ?? null, error: 'Controlled workflow execution failed. Review the action run for details.' }, { status: 500 })
+    return NextResponse.json({ ok: false, approvalId, agentRunId: approval.agent_run_id, actionRunId: actionRun.id, executionId: result.executionId ?? null, approvalMemoryWarnings, error: 'Controlled workflow execution failed. Review the action run for details.' }, { status: 500 })
   }
 
   const { data: completedAction, error: actionUpdateError } = await supabase
@@ -577,6 +584,7 @@ export async function POST(request: Request) {
     status: 'approved',
     execution: 'completed',
     actionRun: completedAction,
+    approvalMemoryWarnings,
     evidenceSyncWarnings: evidenceSyncWarnings.length ? [...new Set(evidenceSyncWarnings)] : [],
     message: evidenceSyncWarnings.length
       ? 'Workflow executed successfully, but some related evidence records could not be synchronized.'
