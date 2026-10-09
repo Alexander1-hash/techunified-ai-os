@@ -17,7 +17,7 @@ export async function GET() {
       return NextResponse.json(
         {
           success: false,
-          error: authError.message,
+          error: "Authentication could not be verified.",
         },
         { status: 401 }
       );
@@ -43,10 +43,7 @@ export async function GET() {
       return NextResponse.json(
         {
           success: false,
-          error: profileError.message,
-          code: profileError.code,
-          details: profileError.details,
-          hint: profileError.hint,
+          error: "Unable to verify organization membership.",
         },
         { status: 500 }
       );
@@ -72,10 +69,7 @@ export async function GET() {
       return NextResponse.json(
         {
           success: false,
-          error: workflowError.message,
-          code: workflowError.code,
-          details: workflowError.details,
-          hint: workflowError.hint,
+          error: "Unable to load workflows.",
         },
         { status: 500 }
       );
@@ -114,10 +108,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to load workflows",
+        error: "Failed to load workflows.",
       },
       { status: 500 }
     );
