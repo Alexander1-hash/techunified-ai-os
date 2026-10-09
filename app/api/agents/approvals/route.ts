@@ -8,8 +8,10 @@ const MAX_REASON_LENGTH = 2000
 
 export async function GET() {
   const supabase = await createClient()
-  const { profile } = await getCurrentProfile(supabase)
-  if (!profile?.organization_id) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
+  const { profile, user, error: profileError } = await getCurrentProfile(supabase)
+  if (profileError && user) return NextResponse.json({ error: 'Unable to verify organization membership.' }, { status: 500 })
+  if (!user) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
+  if (!profile?.organization_id) return NextResponse.json({ error: 'Organization membership required.' }, { status: 403 })
 
   const { data, error } = await supabase
     .from('agent_approvals')
@@ -24,10 +26,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const { profile } = await getCurrentProfile(supabase)
+  const { profile, user, error: profileError } = await getCurrentProfile(supabase)
+  if (profileError && user) return NextResponse.json({ error: 'Unable to verify organization membership.' }, { status: 500 })
+  if (!user) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
   const organizationId = profile?.organization_id
-  const userId = profile?.id
-  if (!organizationId || !userId) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
+  const userId = user.id
+  if (!organizationId) return NextResponse.json({ error: 'Organization membership required.' }, { status: 403 })
 
   const contentLength = Number(request.headers.get('content-length') ?? 0)
   if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
