@@ -42,6 +42,10 @@ export async function POST(request: Request) {
   const payload = body as Record<string, unknown>
   const approvalId = typeof payload.approvalId === 'string' ? payload.approvalId.trim() : ''
   const decision = payload.decision === 'approved' || payload.decision === 'rejected' ? payload.decision : ''
+
+  if (payload.reviewerNote !== undefined && payload.reviewerNote !== null && typeof payload.reviewerNote !== 'string') {
+    return NextResponse.json({ error: 'Reviewer note must be text.' }, { status: 400 })
+  }
   const reviewerNote = typeof payload.reviewerNote === 'string' ? payload.reviewerNote.trim() : ''
 
   if (reviewerNote.length > MAX_REVIEWER_NOTE_CHARS) return NextResponse.json({ error: 'Reviewer note is too long.' }, { status: 400 })
