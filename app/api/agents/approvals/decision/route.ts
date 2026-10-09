@@ -129,13 +129,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'This approval has already been reviewed.' }, { status: 409 })
   }
 
-  const { error: runError } = await supabase
+  const { data: synchronizedRun, error: runError } = await supabase
     .from('agent_runs')
     .update({ approval_status: decision })
     .eq('id', approval.agent_run_id)
     .eq('organization_id', organizationId)
+    .select('id')
+    .maybeSingle()
 
-  if (runError) {
+  if (runError || !synchronizedRun) {
     // Keep the decision retryable if the linked agent run could not be synchronized.
     // This is a best-effort recovery because the two records are not updated in a DB transaction.
     const { error: approvalRecoveryError } = await supabase
@@ -148,12 +150,15 @@ export async function POST(request: Request) {
     if (approvalRecoveryError) {
       return NextResponse.json({
         error: 'Approval was updated, but agent run synchronization and approval recovery both failed. Please review the approval record.',
+        synchronizationFailure: runError ? 'database_error' : 'agent_run_not_found',
+        recoveryWarning: 'approval_reset_failed',
       }, { status: 500 })
     }
 
     return NextResponse.json({
       error: 'Agent run state could not be synchronized. Approval has been returned to pending.',
       approvalStatus: 'pending',
+      synchronizationFailure: runError ? 'database_error' : 'agent_run_not_found',
     }, { status: 500 })
   }
 
