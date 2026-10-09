@@ -75,7 +75,7 @@ export async function POST(request: Request) {
   const groundednessScore = score(body?.groundednessScore)
   const toolAccuracyScore = score(body?.toolAccuracyScore)
 
-  const { data: intelligenceSnapshot } = await supabase
+  const { data: intelligenceSnapshot, error: intelligenceError } = await supabase
     .from('company_intelligence_snapshots')
     .select('state,intelligence,captured_at')
     .eq('organization_id', organizationId)
@@ -83,6 +83,7 @@ export async function POST(request: Request) {
     .order('captured_at', { ascending: false })
     .limit(1)
     .maybeSingle()
+  if (intelligenceError) return NextResponse.json({ error: 'Unable to load company intelligence context.' }, { status: 500 })
 
   const intelligenceCore =
     intelligenceSnapshot?.state &&
@@ -115,8 +116,9 @@ export async function POST(request: Request) {
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
+  if (linkedActionError) return NextResponse.json({ error: 'Unable to verify linked action evidence.' }, { status: 500 })
 
-  const { data: linkedOutcome } = linkedAction
+  const { data: linkedOutcome, error: linkedOutcomeError } = linkedAction
     ? await supabase.from('business_outcomes')
         .select('id,title,evidence_status,action_run_id,hours_saved,cost_avoided,revenue_impact,currency')
         .eq('organization_id', organizationId)
@@ -125,7 +127,8 @@ export async function POST(request: Request) {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-    : { data: null }
+    : { data: null, error: null }
+  if (linkedOutcomeError) return NextResponse.json({ error: 'Unable to verify linked outcome evidence.' }, { status: 500 })
 
   const executionSuccess = linkedAction ? linkedAction.status === 'completed' : null
   const outcomeLinked = Boolean(linkedOutcome)
@@ -143,13 +146,14 @@ export async function POST(request: Request) {
     ? Math.round((relationshipEvidence.verifiedRelationships / relationshipEvidence.explicitRelationships) * 100)
     : null
 
-  const { data: linkedOrchestration } = await supabase
+  const { data: linkedOrchestration, error: linkedOrchestrationError } = await supabase
     .from('business_orchestration_runs')
     .select('id,objective_id,plan,result,evidence')
     .eq('organization_id', organizationId)
     .contains('agent_run_ids', [run.id])
     .limit(1)
     .maybeSingle()
+  if (linkedOrchestrationError) return NextResponse.json({ error: 'Unable to verify orchestration evidence.' }, { status: 500 })
   const orchestrationPlan = linkedOrchestration?.plan && typeof linkedOrchestration.plan === 'object'
     ? linkedOrchestration.plan as Record<string, unknown>
     : {}
