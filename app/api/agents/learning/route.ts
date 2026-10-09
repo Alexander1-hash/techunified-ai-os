@@ -66,6 +66,20 @@ export async function POST(request: Request) {
     reviewerNote?: string
   }
 
+  for (const field of ['humanFeedback', 'reviewerNote'] as const) {
+    if (body[field] !== undefined && body[field] !== null && typeof body[field] !== 'string') {
+      return NextResponse.json({ error: `${field} must be text.` }, { status: 400 })
+    }
+  }
+  for (const field of ['groundednessScore', 'toolAccuracyScore'] as const) {
+    const value = body[field]
+    if (value !== undefined && value !== null && (
+      typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 100
+    )) {
+      return NextResponse.json({ error: `${field} must be an integer between 0 and 100.` }, { status: 400 })
+    }
+  }
+
   const runId = typeof body.runId === 'string' ? body.runId.trim() : ''
   if (!runId || runId.length > MAX_RUN_ID_LENGTH) return NextResponse.json({ error: 'A valid runId is required.' }, { status: 400 })
   if (typeof body.humanFeedback === 'string' && body.humanFeedback.length > MAX_FEEDBACK_LENGTH) return NextResponse.json({ error: 'Human feedback is too long.' }, { status: 400 })
