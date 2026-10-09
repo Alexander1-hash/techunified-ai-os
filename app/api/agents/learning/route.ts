@@ -108,7 +108,7 @@ export async function POST(request: Request) {
   if (runError) return NextResponse.json({ error: 'Unable to verify the agent run.' }, { status: 500 })
   if (!run) return NextResponse.json({ error: 'Agent run not found.' }, { status: 404 })
 
-  const { data: linkedAction } = await supabase
+  const { data: linkedAction, error: linkedActionError } = await supabase
     .from('business_action_runs')
     .select('id,status,output')
     .eq('organization_id', organizationId)
