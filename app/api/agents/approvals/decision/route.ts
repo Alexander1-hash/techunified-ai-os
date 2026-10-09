@@ -215,12 +215,42 @@ export async function POST(request: Request) {
     })
   }
 
-  const { data: workflow } = await supabase
+  const { data: workflow, error: workflowLookupError } = await supabase
     .from('workflows')
     .select('id,name,status')
     .eq('id', workflowId)
     .eq('organization_id', organizationId)
     .maybeSingle()
+
+  if (workflowLookupError) {
+    // Do not proceed when workflow state cannot be verified. Restore the approval
+    // to pending because execution has not started.
+    const { error: approvalResetError } = await supabase
+      .from('agent_approvals')
+      .update({ status: 'pending', reviewed_by: null, reviewer_note: null, reviewed_at: null })
+      .eq('id', approvalId)
+      .eq('organization_id', organizationId)
+      .eq('status', 'approved')
+
+    const { error: runResetError } = await supabase
+      .from('agent_runs')
+      .update({ approval_status: 'pending' })
+      .eq('id', approval.agent_run_id)
+      .eq('organization_id', organizationId)
+
+    if (approvalResetError || runResetError) {
+      return NextResponse.json({
+        error: 'Workflow state could not be verified and approval recovery failed. Please review the approval record.',
+        execution: 'not_started',
+      }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      error: 'Unable to verify workflow state. Approval has been returned to pending.',
+      approvalStatus: 'pending',
+      execution: 'not_started',
+    }, { status: 500 })
+  }
 
   if (!workflow || String(workflow.status).toLowerCase() !== 'active') {
     // The workflow may be deactivated after the earlier preflight check. Do not
