@@ -56,7 +56,12 @@ export async function POST(request: Request) {
   const payload = body as Record<string, unknown>
   const agentRunId = typeof payload.agentRunId === 'string' ? payload.agentRunId.trim() : ''
   const title = typeof payload.title === 'string' ? payload.title.trim() : ''
+
+  if (payload.reason !== undefined && payload.reason !== null && typeof payload.reason !== 'string') {
+    return NextResponse.json({ error: 'Approval reason must be text.' }, { status: 400 })
+  }
   const reason = typeof payload.reason === 'string' ? payload.reason.trim() : ''
+
   if (payload.proposedAction !== undefined && (
     !payload.proposedAction ||
     typeof payload.proposedAction !== 'object' ||
