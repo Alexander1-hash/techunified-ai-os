@@ -32,6 +32,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ age
   let agent
   try { agent = await getServerAgent(agentId) } catch { return NextResponse.json({ error: 'This agent could not be found.' }, { status: 404 }) }
   if (!agent) return NextResponse.json({ error: 'This agent could not be found.' }, { status: 404 })
+  if (!['active', 'running'].includes(String(agent.status))) return NextResponse.json({ error: 'This agent is not active.' }, { status: 409 })
 
   const rawBody = await request.text()
   if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
