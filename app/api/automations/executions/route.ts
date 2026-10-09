@@ -26,12 +26,16 @@ export async function GET() {
       .eq("id", user.id)
       .maybeSingle();
 
-    if (profileError || !profile?.organization_id) {
+    if (profileError) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Organization not found",
-        },
+        { success: false, error: "Unable to verify organization membership" },
+        { status: 500 }
+      );
+    }
+
+    if (!profile?.organization_id) {
+      return NextResponse.json(
+        { success: false, error: "Organization membership required" },
         { status: 403 }
       );
     }
