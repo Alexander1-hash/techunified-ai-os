@@ -84,15 +84,23 @@ export async function GET() {
       .limit(1)
       .maybeSingle();
 
+    if (intelligenceError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unable to verify current company intelligence.",
+        },
+        { status: 500 }
+      );
+    }
+
     const intelligenceCore =
-      !intelligenceError &&
       intelligenceSnapshot?.state &&
       typeof intelligenceSnapshot.state === "object" &&
       intelligenceSnapshot.state.intelligenceCore &&
       typeof intelligenceSnapshot.state.intelligenceCore === "object"
         ? intelligenceSnapshot.state.intelligenceCore
-        : !intelligenceError &&
-            intelligenceSnapshot?.intelligence &&
+        : intelligenceSnapshot?.intelligence &&
             typeof intelligenceSnapshot.intelligence === "object" &&
             intelligenceSnapshot.intelligence.intelligenceCore &&
             typeof intelligenceSnapshot.intelligence.intelligenceCore === "object"
