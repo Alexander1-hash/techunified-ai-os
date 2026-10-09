@@ -183,10 +183,11 @@ export async function POST(request: Request) {
 
   let learnedMemory = null
   let explicitMemory = null
+  const persistenceWarnings: string[] = []
 
   if (body?.humanFeedback?.trim()) {
     const feedback = body.humanFeedback.trim().slice(0, 4000)
-    const { data: existingFeedback } = await supabase.from('agent_memory')
+    const { data: existingFeedback, error: existingFeedbackError } = await supabase.from('agent_memory')
       .select('id,memory_type,content,confidence,evidence_status,source_type,source_id')
       .eq('organization_id', organizationId)
       .eq('agent_id', run.agent_id)
@@ -197,10 +198,12 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle()
 
-    if (existingFeedback) {
+    if (existingFeedbackError) {
+      persistenceWarnings.push('Unable to check for existing reviewer-feedback memory.')
+    } else if (existingFeedback) {
       explicitMemory = existingFeedback
     } else {
-      const { data: memory } = await supabase.from('agent_memory').insert({
+      const { data: memory, error: memoryInsertError } = await supabase.from('agent_memory').insert({
         organization_id: organizationId,
         agent_id: run.agent_id,
         run_id: run.id,
@@ -214,6 +217,7 @@ export async function POST(request: Request) {
         metadata: { evaluationId: evaluation.id, reviewerId: user.id, orchestrationRunId: linkedOrchestration?.id ?? null, decisionIntelligence, relationshipEvidence: { ...relationshipEvidence, verifiedCoveragePercent: verifiedRelationshipCoverage } },
       }).select('id,memory_type,content,confidence,evidence_status,source_type,source_id').single()
       explicitMemory = memory ?? null
+      if (memoryInsertError || !memory) persistenceWarnings.push('Reviewer feedback was evaluated but could not be saved to agent memory.')
     }
   }
 
@@ -221,7 +225,7 @@ export async function POST(request: Request) {
     const content = 'Execution failure from agent run. Action run ' + linkedAction.id +
       ' failed. Review the execution output before proposing the same action again.'
 
-    const { data: existingFailure } = await supabase.from('agent_memory')
+    const { data: existingFailure, error: existingFailureError } = await supabase.from('agent_memory')
       .select('id,memory_type,content,confidence,evidence_status,source_type,source_id')
       .eq('organization_id', organizationId)
       .eq('agent_id', run.agent_id)
@@ -232,10 +236,12 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle()
 
-    if (existingFailure) {
+    if (existingFailureError) {
+      persistenceWarnings.push('Unable to check for an existing execution-failure lesson.')
+    } else if (existingFailure) {
       learnedMemory = existingFailure
     } else {
-      const { data: memory } = await supabase.from('agent_memory').insert({
+      const { data: memory, error: memoryInsertError } = await supabase.from('agent_memory').insert({
         organization_id: organizationId,
         agent_id: run.agent_id,
         run_id: run.id,
@@ -249,6 +255,7 @@ export async function POST(request: Request) {
         metadata: { actionRunId: linkedAction.id, executionFailure: true, output: linkedAction.output, orchestrationRunId: linkedOrchestration?.id ?? null, decisionIntelligence, relationshipEvidence: { ...relationshipEvidence, verifiedCoveragePercent: verifiedRelationshipCoverage } },
       }).select('id,memory_type,content,confidence,evidence_status,source_type,source_id').single()
       learnedMemory = memory ?? null
+      if (memoryInsertError || !memory) persistenceWarnings.push('Execution-failure evidence was found but its lesson could not be saved.')
     }
   }
 
@@ -257,7 +264,7 @@ export async function POST(request: Request) {
       '. Evidence status: ' + linkedOutcome.evidence_status +
       '. This outcome is linked to action run ' + linkedAction!.id + '.'
 
-    const { data: existingMemory } = await supabase.from('agent_memory')
+    const { data: existingMemory, error: existingMemoryError } = await supabase.from('agent_memory')
       .select('id,memory_type,content,confidence,evidence_status,source_type,source_id')
       .eq('organization_id', organizationId)
       .eq('agent_id', run.agent_id)
@@ -268,10 +275,12 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle()
 
-    if (existingMemory) {
+    if (existingMemoryError) {
+      persistenceWarnings.push('Unable to check for an existing outcome lesson.')
+    } else if (existingMemory) {
       learnedMemory = existingMemory
     } else {
-      const { data: memory } = await supabase.from('agent_memory').insert({
+      const { data: memory, error: memoryInsertError } = await supabase.from('agent_memory').insert({
       organization_id: organizationId,
       agent_id: run.agent_id,
       run_id: run.id,
@@ -295,12 +304,14 @@ export async function POST(request: Request) {
       },
     }).select('id,memory_type,content,confidence,evidence_status,source_type,source_id').single()
       learnedMemory = memory ?? null
+      if (memoryInsertError || !memory) persistenceWarnings.push('Verified outcome evidence was found but its lesson could not be saved.')
     }
   }
 
   return NextResponse.json({
     ok: true,
     evaluation,
+    persistenceWarnings,
     intelligenceCore: intelligenceCore ?? { available: false },
     learning: learnedMemory
       ? { status: 'promoted', memory: learnedMemory, reviewerFeedback: explicitMemory }
