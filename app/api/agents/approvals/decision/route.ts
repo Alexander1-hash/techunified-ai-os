@@ -469,20 +469,25 @@ export async function POST(request: Request) {
 
   if (!result.success) {
     const failedAt = new Date().toISOString()
-    await supabase.from('business_action_runs').update({
+    const failurePersistenceWarnings: string[] = []
+
+    const { error: failedActionUpdateError } = await supabase.from('business_action_runs').update({
       status: 'failed', execution_id: result.executionId ?? null,
       error_message: result.error ?? 'Automation execution failed.', completed_at: failedAt,
     }).eq('id', actionRun.id).eq('organization_id', organizationId)
+    if (failedActionUpdateError) failurePersistenceWarnings.push('action_run_status')
 
-    const { data: failedEvaluation } = await supabase.from('agent_evaluations')
+    const { data: failedEvaluation, error: failedEvaluationLookupError } = await supabase.from('agent_evaluations')
       .select('evidence')
       .eq('run_id', approval.agent_run_id)
       .eq('organization_id', organizationId)
       .maybeSingle()
+    if (failedEvaluationLookupError) failurePersistenceWarnings.push('evaluation_lookup')
+
     const failedEvidence = failedEvaluation?.evidence && typeof failedEvaluation.evidence === 'object'
       ? failedEvaluation.evidence as Record<string, unknown>
       : {}
-    await supabase.from('agent_evaluations').update({
+    const { error: failedEvaluationUpdateError } = await supabase.from('agent_evaluations').update({
       execution_success: false,
       outcome_linked: false,
       evidence: {
@@ -495,16 +500,18 @@ export async function POST(request: Request) {
         completedAt: failedAt,
       },
     }).eq('run_id', approval.agent_run_id).eq('organization_id', organizationId)
+    if (failedEvaluationUpdateError) failurePersistenceWarnings.push('evaluation_evidence')
 
-    const { data: failedOrchestrations } = await supabase
+    const { data: failedOrchestrations, error: failedOrchestrationLookupError } = await supabase
       .from('business_orchestration_runs')
       .select('id,objective_id,action_run_ids')
       .eq('organization_id', organizationId)
       .contains('agent_run_ids', [approval.agent_run_id])
+    if (failedOrchestrationLookupError) failurePersistenceWarnings.push('orchestration_lookup')
 
     for (const orchestration of failedOrchestrations ?? []) {
       const actionRunIds = Array.isArray(orchestration.action_run_ids) ? orchestration.action_run_ids : []
-      await supabase.from('business_orchestration_runs').update({
+      const { error: orchestrationUpdateError } = await supabase.from('business_orchestration_runs').update({
         status: 'failed',
         approval_status: 'approved',
         action_run_ids: Array.from(new Set([...actionRunIds, actionRun.id])),
@@ -519,9 +526,19 @@ export async function POST(request: Request) {
         error_message: result.error ?? 'Automation execution failed.',
         completed_at: failedAt,
       }).eq('id', orchestration.id).eq('organization_id', organizationId)
+      if (orchestrationUpdateError) failurePersistenceWarnings.push('orchestration_evidence')
     }
 
-    return NextResponse.json({ ok: false, approvalId, agentRunId: approval.agent_run_id, actionRunId: actionRun.id, executionId: result.executionId ?? null, approvalMemoryWarnings, error: 'Controlled workflow execution failed. Review the action run for details.' }, { status: 500 })
+    return NextResponse.json({
+      ok: false,
+      approvalId,
+      agentRunId: approval.agent_run_id,
+      actionRunId: actionRun.id,
+      executionId: result.executionId ?? null,
+      approvalMemoryWarnings,
+      failurePersistenceWarnings,
+      error: 'Controlled workflow execution failed. Review the action run for details.',
+    }, { status: 500 })
   }
 
   const { data: completedAction, error: actionUpdateError } = await supabase
