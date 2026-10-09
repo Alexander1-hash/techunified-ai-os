@@ -1,14 +1,21 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+const MAX_REQUEST_BYTES = 64 * 1024
+const MAX_AGENT_ID_LENGTH = 200
+const MAX_RUN_ID_LENGTH = 200
+const MAX_FEEDBACK_LENGTH = 4000
+
 export async function GET(request: Request) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 })
-  const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user.id).maybeSingle()
-  if (!profile?.organization_id) return NextResponse.json({ error: 'Organization required.' }, { status: 400 })
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 })
+  const { data: profile, error: profileError } = await supabase.from('profiles').select('organization_id').eq('id', user.id).maybeSingle()
+  if (profileError) return NextResponse.json({ error: 'Unable to verify organization membership.' }, { status: 500 })
+  if (!profile?.organization_id) return NextResponse.json({ error: 'Organization required.' }, { status: 403 })
   const agentId = new URL(request.url).searchParams.get('agentId')?.trim()
   if (!agentId) return NextResponse.json({ evaluations: [], memories: [] })
+  if (agentId.length > MAX_AGENT_ID_LENGTH) return NextResponse.json({ error: 'Agent ID is too long.' }, { status: 400 })
   const { data, error } = await supabase.from('agent_evaluations')
     .select('id,run_id,agent_id,groundedness_score,tool_accuracy_score,execution_success,outcome_linked,human_feedback,reviewer_note,evidence,created_at,updated_at')
     .eq('organization_id', profile.organization_id).eq('agent_id', agentId)
@@ -25,23 +32,45 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 })
+  const contentLength = Number(request.headers.get('content-length') ?? '0')
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json({ error: 'Evaluation request is too large.' }, { status: 413 })
+  }
 
-  const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user.id).maybeSingle()
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 })
+
+  const { data: profile, error: profileError } = await supabase.from('profiles').select('organization_id').eq('id', user.id).maybeSingle()
+  if (profileError) return NextResponse.json({ error: 'Unable to verify organization membership.' }, { status: 500 })
   const organizationId = profile?.organization_id
-  if (!organizationId) return NextResponse.json({ error: 'Organization required.' }, { status: 400 })
+  if (!organizationId) return NextResponse.json({ error: 'Organization required.' }, { status: 403 })
 
-  const body = await request.json().catch(() => null) as {
+  const rawBody = await request.text()
+  if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json({ error: 'Evaluation request is too large.' }, { status: 413 })
+  }
+  let parsedBody: unknown
+  try {
+    parsedBody = JSON.parse(rawBody)
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON request body.' }, { status: 400 })
+  }
+  if (!parsedBody || typeof parsedBody !== 'object' || Array.isArray(parsedBody)) {
+    return NextResponse.json({ error: 'Request body must be a JSON object.' }, { status: 400 })
+  }
+  const body = parsedBody as {
     runId?: string
     groundednessScore?: number
     toolAccuracyScore?: number
     humanFeedback?: string
     reviewerNote?: string
-  } | null
+  }
 
-  const runId = body?.runId?.trim()
-  if (!runId) return NextResponse.json({ error: 'runId is required.' }, { status: 400 })
+  const runId = typeof body.runId === 'string' ? body.runId.trim() : ''
+  if (!runId || runId.length > MAX_RUN_ID_LENGTH) return NextResponse.json({ error: 'A valid runId is required.' }, { status: 400 })
+  if (typeof body.humanFeedback === 'string' && body.humanFeedback.length > MAX_FEEDBACK_LENGTH) return NextResponse.json({ error: 'Human feedback is too long.' }, { status: 400 })
+  if (typeof body.reviewerNote === 'string' && body.reviewerNote.length > MAX_FEEDBACK_LENGTH) return NextResponse.json({ error: 'Reviewer note is too long.' }, { status: 400 })
 
   const score = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 100 ? value : null
   const groundednessScore = score(body?.groundednessScore)
@@ -69,13 +98,14 @@ export async function POST(request: Request) {
         ? intelligenceSnapshot.intelligence.intelligenceCore
         : null
 
-  const { data: run } = await supabase
+  const { data: run, error: runError } = await supabase
     .from('agent_runs')
     .select('id,agent_id,status,result,tool_calls')
     .eq('id', runId)
     .eq('organization_id', organizationId)
     .maybeSingle()
 
+  if (runError) return NextResponse.json({ error: 'Unable to verify the agent run.' }, { status: 500 })
   if (!run) return NextResponse.json({ error: 'Agent run not found.' }, { status: 404 })
 
   const { data: linkedAction } = await supabase
