@@ -431,12 +431,9 @@ export async function runAutomationStep(
       }
 
       if (!response.ok) {
-        throw new Error(
-          `Webhook returned ${response.status}: ${responseText.slice(
-            0,
-            500
-          )}`
-        );
+        // Do not persist arbitrary remote response bodies in execution errors:
+        // they may contain credentials, personal data, or internal diagnostics.
+        throw new Error(`Webhook returned HTTP ${response.status}.`);
       }
 
       let responseData: unknown = responseText;
@@ -449,11 +446,23 @@ export async function runAutomationStep(
         // Keep plain-text response.
       }
 
+      let safeDisplayUrl = url;
+      try {
+        const parsedUrl = new URL(url);
+        parsedUrl.search = "";
+        parsedUrl.hash = "";
+        safeDisplayUrl = parsedUrl.toString();
+      } catch {
+        // The URL was validated before the request; keep a safe fallback.
+        safeDisplayUrl = "[webhook URL redacted]";
+      }
+
       return {
         ...input,
         action: "call_webhook",
         webhook: {
-          url,
+          // Query strings and fragments often contain API keys or signed tokens.
+          url: safeDisplayUrl,
           method,
           status: response.status,
           response: responseData,
