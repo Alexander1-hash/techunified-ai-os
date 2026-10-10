@@ -466,6 +466,9 @@ export async function POST(request: Request) {
     }, { status: 500 })
   }
 
+  // Normalize unexpected engine exceptions into the same failure path so the
+  // action run and linked evidence are marked failed instead of being stranded
+  // as "running". The approval stays consumed to avoid unsafe automatic replay.
   const result = await executeAutomation(workflow.id, organizationId, {
     type: 'decision',
     input: {
@@ -474,7 +477,10 @@ export async function POST(request: Request) {
       approvalId,
       actionRunId: actionRun.id,
     },
-  })
+  }).catch(() => ({
+    success: false,
+    error: 'Automation execution failed unexpectedly.',
+  }))
 
   if (!result.success) {
     const failedAt = new Date().toISOString()
