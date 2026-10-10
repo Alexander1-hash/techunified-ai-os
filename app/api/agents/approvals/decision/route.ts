@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/repositories/profile'
-import { executeAutomation } from '@/lib/automation/engine'
+import { executeAutomation, type ExecutionResult } from '@/lib/automation/engine'
 
 const MAX_REQUEST_BYTES = 64 * 1024
 const MAX_REVIEWER_NOTE_CHARS = 2000
@@ -469,7 +469,7 @@ export async function POST(request: Request) {
   // Normalize unexpected engine exceptions into the same failure path so the
   // action run and linked evidence are marked failed instead of being stranded
   // as "running". The approval stays consumed to avoid unsafe automatic replay.
-  const result = await executeAutomation(workflow.id, organizationId, {
+  const result: ExecutionResult = await executeAutomation(workflow.id, organizationId, {
     type: 'decision',
     input: {
       ...actionInput,
@@ -477,7 +477,7 @@ export async function POST(request: Request) {
       approvalId,
       actionRunId: actionRun.id,
     },
-  }).catch(() => ({
+  }).catch((): ExecutionResult => ({
     success: false,
     error: 'Automation execution failed unexpectedly.',
   }))
