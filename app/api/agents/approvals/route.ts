@@ -141,7 +141,25 @@ export async function POST(request: Request) {
     .select('id,agent_run_id,status,action_type,title,reason,proposed_action,decision_evidence,requested_at')
     .single()
 
-  if (error) return NextResponse.json({ error: 'Unable to create approval request.' }, { status: 500 })
+  if (error) {
+    // If a database uniqueness constraint wins a concurrent duplicate-request race,
+    // return the existing pending approval instead of surfacing a generic server error.
+    if (error.code === '23505') {
+      const { data: concurrentApproval, error: concurrentLookupError } = await supabase
+        .from('agent_approvals')
+        .select('id,agent_run_id,status,action_type,title,reason,proposed_action,decision_evidence,requested_at')
+        .eq('agent_run_id', agentRunId)
+        .eq('organization_id', organizationId)
+        .eq('status', 'pending')
+        .maybeSingle()
 
-  return NextResponse.json({ approval }, { status: 201 })
+      if (!concurrentLookupError && concurrentApproval) {
+        return NextResponse.json({ approval: concurrentApproval, message: 'Approval already exists.' })
+      }
+    }
+
+    return NextResponse.json({ error: 'Unable to create approval request.' }, { status: 500 })
+  }
+
+  return NextResponse.json({ approval, message: 'Approval request created.' }, { status: 201 })
 }
