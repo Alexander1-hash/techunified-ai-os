@@ -193,7 +193,7 @@ export async function discoverTalent(
 
 function cleanOptional(value: string | undefined, maxLength: number): string | undefined {
   if (typeof value !== "string") return undefined;
-  const cleaned = value.replace(/[\\u0000-\\u001f\\u007f]/g, " ").replace(/\\s+/g, " ").trim();
+  const cleaned = value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
   return cleaned ? cleaned.slice(0, maxLength) : undefined;
 }
 
