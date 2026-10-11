@@ -122,7 +122,7 @@ export function buildOccupationalProfile(
 }
 
 function cleanText(value: string): string {
-  return value.trim().replace(/\\s+/g, " ");
+  return value.trim().replace(/\s+/g, " ");
 }
 
 function cleanList(values: string[]): string[] {
