@@ -126,6 +126,79 @@ export function assessCandidateMatch(
     };
   }
 
+  if (!candidate.candidateId.trim()) {
+    return {
+      candidateId: candidate.candidateId,
+      disposition: "not_assessed",
+      matchScore: null,
+      requiredCriteriaMet: 0,
+      requiredCriteriaTotal: countRequired(role),
+      requirementsNeedingReview: [],
+      unmetRequiredCriteria: [],
+      explanation: "Candidate assessment requires a stable, non-empty candidate identifier.",
+    };
+  }
+
+  if (!Array.isArray(candidate.evidence)) {
+    return {
+      candidateId: candidate.candidateId,
+      disposition: "not_assessed",
+      matchScore: null,
+      requiredCriteriaMet: 0,
+      requiredCriteriaTotal: countRequired(role),
+      requirementsNeedingReview: [],
+      unmetRequiredCriteria: [],
+      explanation: "Candidate evidence must be supplied as a valid list.",
+    };
+  }
+
+  const knownRequirementIds = new Set(role.requirements.map((item) => item.id));
+  const seenEvidenceIds = new Set<string>();
+  for (const item of candidate.evidence) {
+    if (
+      !item ||
+      typeof item.requirementId !== "string" ||
+      !item.requirementId.trim() ||
+      !["verified", "self_reported", "not_met", "unknown"].includes(item.status)
+    ) {
+      return {
+        candidateId: candidate.candidateId,
+        disposition: "not_assessed",
+        matchScore: null,
+        requiredCriteriaMet: 0,
+        requiredCriteriaTotal: countRequired(role),
+        requirementsNeedingReview: [],
+        unmetRequiredCriteria: [],
+        explanation: "Candidate evidence contains an invalid requirement reference or status.",
+      };
+    }
+    if (!knownRequirementIds.has(item.requirementId)) {
+      return {
+        candidateId: candidate.candidateId,
+        disposition: "not_assessed",
+        matchScore: null,
+        requiredCriteriaMet: 0,
+        requiredCriteriaTotal: countRequired(role),
+        requirementsNeedingReview: [],
+        unmetRequiredCriteria: [],
+        explanation: "Candidate evidence refers to a requirement that is not part of this role profile.",
+      };
+    }
+    if (seenEvidenceIds.has(item.requirementId)) {
+      return {
+        candidateId: candidate.candidateId,
+        disposition: "not_assessed",
+        matchScore: null,
+        requiredCriteriaMet: 0,
+        requiredCriteriaTotal: countRequired(role),
+        requirementsNeedingReview: [],
+        unmetRequiredCriteria: [],
+        explanation: "Candidate evidence contains duplicate entries for the same requirement.",
+      };
+    }
+    seenEvidenceIds.add(item.requirementId);
+  }
+
   const evidenceByRequirement = new Map(
     candidate.evidence.map((item) => [item.requirementId, item])
   );
