@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { BriefcaseBusiness, Globe2, LoaderCircle, MapPin, Plus, RefreshCw, ShieldCheck } from "lucide-react";
+import { BriefcaseBusiness, ExternalLink, Globe2, LoaderCircle, MapPin, Plus, RefreshCw, ShieldCheck, Users } from "lucide-react";
 
 type Vacancy = {
   id: string;
@@ -17,6 +17,19 @@ type Vacancy = {
   processing_authorized: boolean;
   status: string;
   created_at: string;
+};
+
+type CandidateLead = {
+  id: string;
+  source_id: string;
+  display_name: string | null;
+  profile_url: string | null;
+  location_text: string | null;
+  job_relevant_summary: string | null;
+  job_relevant_skills: string[];
+  evidence_status: string;
+  review_status: string;
+  retrieved_at: string;
 };
 
 const initialForm = {
@@ -49,6 +62,11 @@ export default function WorkforcePage() {
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [selectedVacancy, setSelectedVacancy] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<CandidateLead[]>([]);
+  const [candidateLoading, setCandidateLoading] = useState(false);
+  const [candidateMessage, setCandidateMessage] = useState("");
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
 
   const loadVacancies = useCallback(async () => {
     setLoading(true);
@@ -66,6 +84,52 @@ export default function WorkforcePage() {
   }, []);
 
   useEffect(() => { void loadVacancies(); }, [loadVacancies]);
+
+  async function openCandidates(vacancy: Vacancy) {
+    setSelectedVacancy(vacancy.id);
+    setCandidateLoading(true);
+    setCandidateMessage("");
+    setError("");
+    try {
+      const response = await fetch(`/api/workforce/candidates?vacancy_id=${encodeURIComponent(vacancy.id)}`, { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not load candidate leads.");
+      setCandidates(result.candidates ?? []);
+      setCandidateMessage(result.sourcing?.message ?? "");
+    } catch (cause) {
+      setCandidates([]);
+      setError(cause instanceof Error ? cause.message : "Could not load candidate leads.");
+    } finally {
+      setCandidateLoading(false);
+    }
+  }
+
+  async function updateCandidateReview(candidate: CandidateLead, reviewStatus: string) {
+    let reason = "";
+    if (reviewStatus === "not_progressing" || reviewStatus === "withdrawn") {
+      const entered = window.prompt("Enter a brief, job-related reason for the audit record.");
+      if (!entered || entered.trim().length < 3) return;
+      reason = entered.trim().slice(0, 1000);
+    }
+    setReviewingId(candidate.id);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/workforce/candidates", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ candidate_id: candidate.id, review_status: reviewStatus, reason }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not update candidate review.");
+      setCandidates((current) => current.map((item) => item.id === candidate.id ? { ...item, review_status: result.candidate.review_status } : item));
+      setNotice("Candidate review updated. This is a human review workflow, not an automated hiring decision.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not update candidate review.");
+    } finally {
+      setReviewingId(null);
+    }
+  }
 
   function update<K extends keyof typeof initialForm>(key: K, value: (typeof initialForm)[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -93,7 +157,7 @@ export default function WorkforcePage() {
       setVacancies((current) => [result.vacancy, ...current]);
       setForm(initialForm);
       setShowForm(false);
-      setNotice("Vacancy saved. Live candidate sourcing is a separate integration step and is not yet active.");
+      setNotice("Vacancy saved. Live candidate sourcing remains inactive until an authorized provider is configured.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not save vacancy.");
     } finally {
@@ -201,11 +265,52 @@ export default function WorkforcePage() {
                   <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-400">{vacancy.description}</p>
                   <div className="mt-4 flex flex-wrap gap-2">{(vacancy.requirements ?? []).slice(0, 5).map((item) => <span key={item} className="rounded-full bg-slate-800 px-2.5 py-1 text-xs text-slate-300">{item}</span>)}</div>
                   <div className="mt-4 border-t border-slate-800 pt-3 text-xs text-slate-500">{vacancy.processing_authorized ? "Authorization recorded" : "Draft — sourcing authorization not recorded"} · Created {new Date(vacancy.created_at).toLocaleDateString()}</div>
+                  <button type="button" onClick={() => void openCandidates(vacancy)} className="mt-4 inline-flex items-center gap-2 rounded-xl border border-cyan-900 bg-cyan-950/40 px-3 py-2 text-sm font-medium text-cyan-200 hover:bg-cyan-950">
+                    <Users size={16} /> {selectedVacancy === vacancy.id ? "Refresh candidate leads" : "View candidate leads"}
+                  </button>
                 </article>
               ))}
             </div>
           )}
         </section>
+
+        {selectedVacancy && (
+          <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Candidate pipeline</p><h2 className="mt-1 text-xl font-semibold">{vacancies.find((item) => item.id === selectedVacancy)?.title ?? "Selected vacancy"}</h2><p className="mt-1 text-sm text-slate-400">Review source provenance and job-related evidence. All progression remains human-controlled.</p></div>
+              <button type="button" onClick={() => { setSelectedVacancy(null); setCandidates([]); }} className="rounded-xl border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800">Close pipeline</button>
+            </div>
+            {candidateLoading ? <div className="mt-5 flex items-center gap-2 text-sm text-slate-400"><LoaderCircle size={17} className="animate-spin" /> Loading candidate leads…</div> : candidates.length === 0 ? (
+              <div className="mt-5 rounded-xl border border-dashed border-slate-700 p-5">
+                <p className="font-medium">No candidate leads recorded</p>
+                <p className="mt-2 text-sm leading-6 text-slate-400">{candidateMessage || "No leads have been saved for this vacancy."} The workspace will not fabricate candidate profiles. Once an approved source integration is configured, sourced leads can appear here with provenance and review controls.</p>
+              </div>
+            ) : (
+              <div className="mt-5 grid gap-3">
+                {candidates.map((candidate) => (
+                  <article key={candidate.id} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div><h3 className="font-semibold">{candidate.display_name || "Name not provided by source"}</h3><p className="mt-1 text-xs text-slate-500">Source: {candidate.source_id} · Retrieved {new Date(candidate.retrieved_at).toLocaleDateString()}</p></div>
+                      <div className="flex flex-wrap gap-2"><span className="rounded-full border border-slate-700 px-2.5 py-1 text-xs text-slate-300">{label(candidate.review_status)}</span><span className="rounded-full border border-amber-900 bg-amber-950/40 px-2.5 py-1 text-xs text-amber-200">Evidence: {label(candidate.evidence_status)}</span></div>
+                    </div>
+                    {candidate.location_text && <p className="mt-2 flex items-center gap-2 text-sm text-slate-300"><MapPin size={14} />{candidate.location_text}</p>}
+                    {candidate.job_relevant_summary && <p className="mt-3 text-sm leading-6 text-slate-400">{candidate.job_relevant_summary}</p>}
+                    {(candidate.job_relevant_skills ?? []).length > 0 && <div className="mt-3 flex flex-wrap gap-2">{candidate.job_relevant_skills.map((skill) => <span key={skill} className="rounded-full bg-slate-800 px-2.5 py-1 text-xs text-slate-300">{skill}</span>)}</div>}
+                    <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-800 pt-3">
+                      {candidate.profile_url && <a href={candidate.profile_url} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800">Open source profile <ExternalLink size={13} /></a>}
+                      <label className="sr-only" htmlFor={`review-${candidate.id}`}>Update candidate review status</label>
+                      <select id={`review-${candidate.id}`} disabled={reviewingId === candidate.id} value={candidate.review_status} onChange={(event) => void updateCandidateReview(candidate, event.target.value)} className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 disabled:opacity-50">
+                        <option value="new">New</option><option value="reviewing">Reviewing</option><option value="shortlisted">Shortlisted for human review</option><option value="not_progressing">Not progressing</option><option value="withdrawn">Withdrawn</option>
+                      </select>
+                      {reviewingId === candidate.id && <LoaderCircle size={15} className="animate-spin text-cyan-300" />}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+            <p className="mt-4 text-xs leading-5 text-slate-500">Do not treat a source profile as credential verification. Verify required licences and qualifications independently; do not use protected characteristics to assess candidates.</p>
+          </section>
+        )}
       </div>
     </main>
   );
