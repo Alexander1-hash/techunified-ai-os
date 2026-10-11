@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/repositories/profile";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 const REVIEW_STATUSES = ["new", "reviewing", "shortlisted", "not_progressing", "withdrawn"] as const;
 type ReviewStatus = (typeof REVIEW_STATUSES)[number];
@@ -104,39 +103,23 @@ export async function PATCH(request: Request) {
       .maybeSingle();
     if (vacancyError || !vacancy) return NextResponse.json({ error: "Vacancy access could not be verified." }, { status: 403 });
 
-    const { data: updated, error: updateError } = await supabase
-      .from("workforce_candidate_leads")
-      .update({ review_status: nextStatus })
-      .eq("id", candidateId)
-      .eq("organization_id", profile.organization_id)
-      .select("id,review_status,updated_at")
-      .single();
+    const { data, error: reviewError } = await supabase.rpc("review_workforce_candidate_lead", {
+      p_candidate_id: candidateId,
+      p_review_status: nextStatus,
+      p_reason: reason || null,
+    });
 
-    if (updateError) {
-      console.error("workforce_candidate_review_update_failed", updateError.code);
-      return NextResponse.json({ error: "Unable to save review. Confirm the workforce migration has been applied." }, { status: 503 });
+    if (reviewError) {
+      console.error("workforce_candidate_review_rpc_failed", reviewError.code);
+      if (reviewError.code === "P0002") return NextResponse.json({ error: "Candidate lead not found in your organization." }, { status: 404 });
+      if (reviewError.code === "42501") return NextResponse.json({ error: "Your organization access could not be verified." }, { status: 403 });
+      if (reviewError.code === "22023") return NextResponse.json({ error: "A valid review status and job-related reason are required." }, { status: 400 });
+      return NextResponse.json({ error: "Unable to save review. Confirm the workforce security migration has been applied." }, { status: 503 });
     }
 
-    // Audit is best-effort if the server-only service key is configured; never expose it to the client.
-    try {
-      const admin = createAdminClient();
-      const { error: auditError } = await admin.from("workforce_recruitment_events").insert({
-        organization_id: profile.organization_id,
-        vacancy_id: current.vacancy_id,
-        candidate_lead_id: candidateId,
-        actor_id: profile.id,
-        event_type: "candidate_review_status_changed",
-        from_status: current.review_status,
-        to_status: nextStatus,
-        reason: reason || null,
-        metadata: { review_surface: "workforce_workspace" },
-      });
-      if (auditError) console.error("workforce_candidate_review_audit_failed", auditError.code);
-    } catch {
-      console.warn("workforce_candidate_review_audit_unavailable");
-    }
-
-    return NextResponse.json({ success: true, candidate: updated, audit: "best_effort" });
+    const updated = Array.isArray(data) ? data[0] : data;
+    if (!updated) return NextResponse.json({ error: "Candidate review was not updated." }, { status: 503 });
+    return NextResponse.json({ success: true, candidate: updated, audit: "recorded_atomically" });
   } catch {
     return NextResponse.json({ error: "Unable to update candidate review." }, { status: 500 });
   }
