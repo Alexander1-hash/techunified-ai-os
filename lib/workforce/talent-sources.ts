@@ -61,7 +61,7 @@ export interface TalentDiscoverySourceStatus {
 }
 
 export interface TalentDiscoveryResult {
-  status: "completed" | "not_authorized" | "no_approved_sources";
+  status: "completed" | "not_authorized" | "no_approved_sources" | "invalid_request";
   candidates: Array<TalentSourceCandidate & {
     sourceId: string;
     sourceDisplayName: string;
@@ -102,7 +102,7 @@ export async function discoverTalent(
   const query = input.request.query.trim();
   if (!query || query.length > MAX_QUERY_LENGTH) {
     return {
-      status: "no_approved_sources",
+      status: "invalid_request",
       candidates: [],
       sources: [],
       explanation: "Provide a job-related search query of 1 to 500 characters.",
@@ -121,7 +121,7 @@ export async function discoverTalent(
       candidates: [],
       sources: input.sources.map((source) => ({
         sourceId: source.id,
-        status: "skipped",
+        status: "skipped" as const,
         candidateCount: 0,
         message: "Source is disabled, not organization-approved, or lacks authorized access.",
       })),
