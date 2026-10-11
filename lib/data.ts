@@ -126,6 +126,7 @@ export const navGroups: NavigationGroup[] = [
       { label: 'Departments', href: '/departments', icon: Building2 },
       { label: 'Services', href: '/services', icon: BriefcaseBusiness },
       { label: 'Customers', href: '/customers', icon: Users },
+      { label: 'Recruitment', href: '/workforce', icon: BriefcaseBusiness },
       { label: 'Sales', href: '/sales', icon: ShoppingCart },
       { label: 'Business Outcomes', href: '/business-outcomes', icon: Target },
       { label: 'Commercial Validation', href: '/pilot-validation', icon: Target },
