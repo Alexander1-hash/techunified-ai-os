@@ -1,8 +1,7 @@
 -- Tighten workforce lead ingestion and review permissions.
--- Candidate provenance is server-owned; authenticated users may only change review_status.
+-- Candidate provenance and review state are server-owned; review changes must use the audited RPC.
 revoke insert, delete on table public.workforce_candidate_leads from anon, authenticated;
 revoke update on table public.workforce_candidate_leads from anon, authenticated;
-grant update (review_status) on table public.workforce_candidate_leads to authenticated;
 
 revoke insert, update, delete on table public.workforce_recruitment_events from anon, authenticated;
 revoke all on table public.workforce_candidate_leads from anon;
@@ -21,7 +20,7 @@ create or replace function public.review_workforce_candidate_lead(
 returns table(candidate_id uuid, review_status text, updated_at timestamptz)
 language plpgsql
 security definer
-set search_path = public, auth
+set search_path = ''
 as $function$
 declare
   v_actor uuid := auth.uid();
