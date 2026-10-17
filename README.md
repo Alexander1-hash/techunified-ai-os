@@ -31,3 +31,39 @@ Credits are checked server-side, generation ownership is filtered by authenticat
 ### Supabase Auth URL configuration
 
 For email confirmation and password recovery, configure the Supabase Auth Site URL as `https://techunified-ai-os.vercel.app` and allow the redirect URL `https://techunified-ai-os.vercel.app/auth/callback`. Set `NEXT_PUBLIC_SITE_URL=https://techunified-ai-os.vercel.app` in production. Signup and password reset then use `https://techunified-ai-os.vercel.app/auth/callback`. In development, when `NEXT_PUBLIC_SITE_URL` is unset, they use the current browser origin (for example `http://localhost:3000/auth/callback`). Production fails safely instead of generating a localhost or other development-host callback when the site URL is missing or invalid. Sessions are stored in Supabase SSR cookies; passwords and service-role credentials are never handled by the browser.
+
+
+## Recruitment workspace: trusted candidate ingestion
+
+The `/workforce` workspace and organization-scoped vacancy/review APIs provide the recruitment foundation. Live search is **not enabled by default**: an approved provider adapter must be implemented and configured separately. Do not describe the product as searching all online profiles until a real provider is connected and tested.
+
+The server-only `POST /api/workforce/providers/ingest` endpoint is the controlled handoff for a permitted provider adapter:
+
+- Set `WORKFORCE_INGESTION_SECRET` in Vercel to a unique random secret of at least 32 characters. Keep it server-side and do not prefix it with `NEXT_PUBLIC_`.
+- Set `WORKFORCE_APPROVED_SOURCE_IDS` to a comma-separated allowlist of source IDs approved for use, for example `approved_provider_a,approved_provider_b`. These are identifiers, not provider integrations or credentials.
+- The provider adapter must send `Authorization: Bearer <WORKFORCE_INGESTION_SECRET>` and JSON shaped like the example below. Send no more than 50 candidates and 128 KB per request.
+- The vacancy must already be open and have documented processing authorization. `authorization_reference` must exactly match the value stored on that vacancy.
+- Every ingested lead is stored as `unverified`; provider payloads cannot mark credentials as verified. Source candidate IDs are used for deduplication, and a 90-day retention review is set on ingestion.
+- The endpoint writes ingestion audit events. A response with HTTP 202 means candidate rows were saved but audit insertion failed; investigate before treating the audit trail as complete.
+
+Example request body (use fictitious sample data only in tests):
+
+```json
+{
+  "vacancy_id": "00000000-0000-4000-8000-000000000001",
+  "source_id": "approved_provider_a",
+  "authorization_reference": "internal-authorization-record-123",
+  "candidates": [
+    {
+      "source_candidate_id": "provider-stable-id-456",
+      "display_name": "Sample Candidate",
+      "profile_url": "https://example.com/profile/sample",
+      "location_text": "Toronto, Canada",
+      "summary": "Experience relevant to the published vacancy requirements.",
+      "skills": ["licensed practice", "client communication"]
+    }
+  ]
+}
+```
+
+This endpoint does not discover candidates by itself. A provider integration must use an approved API/access method, follow source terms and applicable privacy/employment law, minimize collected personal data, and never scrape behind access controls. The database migrations in `supabase/migrations/` must be applied and validated in the intended Supabase project before production use; a successful Vercel deployment alone does not apply migrations.
