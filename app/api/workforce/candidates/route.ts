@@ -46,10 +46,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unable to load candidate leads. Confirm the workforce migration has been applied." }, { status: 503 });
     }
 
-    const approvedSourceIds = (process.env.WORKFORCE_APPROVED_SOURCE_IDS ?? "")
+    const { data: auditEvents, error: auditError } = await supabase
+      .from("workforce_recruitment_events")
+      .select("id,event_type,from_status,to_status,reason,metadata,occurred_at,actor_id,candidate_lead_id")
+      .eq("organization_id", profile.organization_id)
+      .eq("vacancy_id", vacancyId)
+      .order("occurred_at", { ascending: false })
+      .limit(100);
+
+    if (auditError) {
+      console.error("workforce_recruitment_audit_read_failed", auditError.code);
+    }
+
+    const approvedSourceIds = [...new Set((process.env.WORKFORCE_APPROVED_SOURCE_IDS ?? "")
       .split(",")
       .map((source) => source.trim())
-      .filter(Boolean);
+      .filter(Boolean))];
     const ingestionSecretConfigured = (process.env.WORKFORCE_INGESTION_SECRET ?? "").length >= 32;
     const ingestionConfigured = ingestionSecretConfigured && approvedSourceIds.length > 0;
 
@@ -57,6 +69,8 @@ export async function GET(request: Request) {
       success: true,
       vacancy: { id: vacancy.id, title: vacancy.title, status: vacancy.status, processing_authorized: vacancy.processing_authorized },
       candidates: data ?? [],
+      auditEvents: auditEvents ?? [],
+      auditAvailable: !auditError,
       sourcing: {
         ingestionConfigured,
         ingestionEndpoint: "/api/workforce/providers/ingest",
