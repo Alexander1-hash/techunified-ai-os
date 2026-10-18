@@ -19,6 +19,17 @@ type Vacancy = {
   created_at: string;
 };
 
+type RecruitmentEvent = {
+  id: string;
+  event_type: string;
+  from_status: string | null;
+  to_status: string | null;
+  reason: string | null;
+  occurred_at: string;
+  actor_id: string | null;
+  candidate_lead_id: string | null;
+};
+
 type SourcingStatus = {
   ingestionConfigured: boolean;
   ingestionEndpoint: string;
@@ -75,6 +86,8 @@ export default function WorkforcePage() {
   const [candidateLoading, setCandidateLoading] = useState(false);
   const [candidateMessage, setCandidateMessage] = useState("");
   const [sourcingStatus, setSourcingStatus] = useState<SourcingStatus | null>(null);
+  const [auditEvents, setAuditEvents] = useState<RecruitmentEvent[]>([]);
+  const [auditAvailable, setAuditAvailable] = useState(true);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
 
   const loadVacancies = useCallback(async () => {
@@ -104,10 +117,14 @@ export default function WorkforcePage() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not load candidate leads.");
       setCandidates(result.candidates ?? []);
+      setAuditEvents(result.auditEvents ?? []);
+      setAuditAvailable(result.auditAvailable !== false);
       setSourcingStatus(result.sourcing ?? null);
       setCandidateMessage(result.sourcing?.message ?? "");
     } catch (cause) {
       setCandidates([]);
+      setAuditEvents([]);
+      setAuditAvailable(false);
       setSourcingStatus(null);
       setError(cause instanceof Error ? cause.message : "Could not load candidate leads.");
     } finally {
@@ -289,7 +306,32 @@ export default function WorkforcePage() {
           <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Candidate pipeline</p><h2 className="mt-1 text-xl font-semibold">{vacancies.find((item) => item.id === selectedVacancy)?.title ?? "Selected vacancy"}</h2><p className="mt-1 text-sm text-slate-400">Review source provenance and job-related evidence. All progression remains human-controlled.</p></div>
-              <button type="button" onClick={() => { setSelectedVacancy(null); setCandidates([]); }} className="rounded-xl border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800">Close pipeline</button>
+              <button type="button" onClick={() => { setSelectedVacancy(null); setCandidates([]); setAuditEvents([]); setSourcingStatus(null); }} className="rounded-xl border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800">Close pipeline</button>
+            </div>
+            <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-semibold">Recruitment audit history</h3>
+                <span className="text-xs text-slate-500">{auditAvailable ? auditEvents.length + " recent event(s)" : "Audit history temporarily unavailable"}</span>
+              </div>
+              {!auditAvailable ? (
+                <p className="mt-2 text-sm text-amber-200">The audit history could not be loaded. Do not treat the timeline as complete until the database and permissions are checked.</p>
+              ) : auditEvents.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-400">No recruitment events recorded for this vacancy yet.</p>
+              ) : (
+                <ol className="mt-3 space-y-3">
+                  {auditEvents.map((event) => (
+                    <li key={event.id} className="border-l-2 border-slate-700 pl-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-sm font-medium text-slate-200">{label(event.event_type)}</span>
+                        <time className="text-xs text-slate-500">{new Date(event.occurred_at).toLocaleString()}</time>
+                      </div>
+                      {(event.from_status || event.to_status) && <p className="mt-1 text-xs text-slate-400">{event.from_status ? label(event.from_status) : "Start"} → {event.to_status ? label(event.to_status) : "Recorded"}</p>}
+                      {event.reason && <p className="mt-1 text-sm text-slate-400">Reason: {event.reason}</p>}
+                    </li>
+                  ))}
+                </ol>
+              )}
+              <p className="mt-3 text-xs leading-5 text-slate-500">Events are scoped to this organization and vacancy. This view shows the latest 100 records.</p>
             </div>
             {sourcingStatus && (
               <div className={"mt-5 rounded-xl border p-4 " + (sourcingStatus.liveSearchConnected ? "border-emerald-900 bg-emerald-950/30" : "border-amber-900 bg-amber-950/30")}>
