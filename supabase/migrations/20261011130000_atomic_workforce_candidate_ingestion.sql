@@ -26,9 +26,11 @@ begin
     raise exception 'invalid_ingestion_request' using errcode = '22023';
   end if;
 
-  if jsonb_typeof(p_candidates) <> 'array'
-     or jsonb_array_length(p_candidates) < 1
-     or jsonb_array_length(p_candidates) > 50 then
+  if jsonb_typeof(p_candidates) is distinct from 'array' then
+    raise exception 'candidate_batch_must_be_an_array' using errcode = '22023';
+  end if;
+
+  if jsonb_array_length(p_candidates) < 1 or jsonb_array_length(p_candidates) > 50 then
     raise exception 'candidate_batch_must_contain_1_to_50_items' using errcode = '22023';
   end if;
 
