@@ -100,6 +100,7 @@ export default function WorkforcePage() {
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [candidateQuery, setCandidateQuery] = useState("");
   const [reviewFilter, setReviewFilter] = useState("all");
+  const [transitioningVacancyId, setTransitioningVacancyId] = useState<string | null>(null);
 
   const loadVacancies = useCallback(async () => {
     setLoading(true);
@@ -178,6 +179,41 @@ export default function WorkforcePage() {
       setError(cause instanceof Error ? cause.message : "Could not update candidate review.");
     } finally {
       setReviewingId(null);
+    }
+  }
+
+  async function updateVacancyStatus(vacancy: Vacancy, status: string) {
+    let reason = "";
+    if (["draft", "paused", "filled", "cancelled"].includes(status)) {
+      const entered = window.prompt(`Why are you changing this vacancy to "${label(status)}"? This will be recorded in the audit history.`);
+      if (!entered || entered.trim().length < 3) return;
+      reason = entered.trim().slice(0, 1000);
+    }
+    setTransitioningVacancyId(vacancy.id);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/workforce/vacancies", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vacancy_id: vacancy.id, status, reason }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not update vacancy status.");
+      setVacancies((current) => current.map((item) => item.id === vacancy.id ? { ...item, status: result.vacancy.status } : item));
+      if (selectedVacancy === vacancy.id) {
+        const refreshed = await fetch(`/api/workforce/candidates?vacancy_id=${encodeURIComponent(vacancy.id)}`, { cache: "no-store" });
+        if (refreshed.ok) {
+          const refreshedResult = await refreshed.json();
+          setAuditEvents(refreshedResult.auditEvents ?? []);
+          setAuditAvailable(refreshedResult.auditAvailable !== false);
+        }
+      }
+      setNotice(`Vacancy status changed to ${label(result.vacancy.status)} and the audit event was recorded.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not update vacancy status.");
+    } finally {
+      setTransitioningVacancyId(null);
     }
   }
 
@@ -327,9 +363,23 @@ export default function WorkforcePage() {
                   <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-400">{vacancy.description}</p>
                   <div className="mt-4 flex flex-wrap gap-2">{(vacancy.requirements ?? []).slice(0, 5).map((item) => <span key={item} className="rounded-full bg-slate-800 px-2.5 py-1 text-xs text-slate-300">{item}</span>)}</div>
                   <div className="mt-4 border-t border-slate-800 pt-3 text-xs text-slate-500">{vacancy.processing_authorized ? "Authorization recorded" : "Draft — sourcing authorization not recorded"} · Created {new Date(vacancy.created_at).toLocaleDateString()}</div>
-                  <button type="button" onClick={() => void openCandidates(vacancy)} className="mt-4 inline-flex items-center gap-2 rounded-xl border border-cyan-900 bg-cyan-950/40 px-3 py-2 text-sm font-medium text-cyan-200 hover:bg-cyan-950">
-                    <Users size={16} /> {selectedVacancy === vacancy.id ? "Refresh candidate leads" : "View candidate leads"}
-                  </button>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button type="button" onClick={() => void openCandidates(vacancy)} className="inline-flex items-center gap-2 rounded-xl border border-cyan-900 bg-cyan-950/40 px-3 py-2 text-sm font-medium text-cyan-200 hover:bg-cyan-950">
+                      <Users size={16} /> {selectedVacancy === vacancy.id ? "Refresh candidate leads" : "View candidate leads"}
+                    </button>
+                    {vacancy.status === "open" && (
+                      <>
+                        <button type="button" disabled={transitioningVacancyId === vacancy.id} onClick={() => void updateVacancyStatus(vacancy, "paused")} className="rounded-xl border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800 disabled:opacity-50">{transitioningVacancyId === vacancy.id ? "Saving…" : "Pause sourcing"}</button>
+                        <button type="button" disabled={transitioningVacancyId === vacancy.id} onClick={() => void updateVacancyStatus(vacancy, "filled")} className="rounded-xl border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800 disabled:opacity-50">Mark filled</button>
+                      </>
+                    )}
+                    {(vacancy.status === "draft" || vacancy.status === "paused") && vacancy.processing_authorized && (
+                      <button type="button" disabled={transitioningVacancyId === vacancy.id} onClick={() => void updateVacancyStatus(vacancy, "open")} className="rounded-xl border border-emerald-900 px-3 py-2 text-sm text-emerald-200 hover:bg-emerald-950/50 disabled:opacity-50">Open for sourcing</button>
+                    )}
+                    {!["filled", "cancelled"].includes(vacancy.status) && (
+                      <button type="button" disabled={transitioningVacancyId === vacancy.id} onClick={() => void updateVacancyStatus(vacancy, "cancelled")} className="rounded-xl border border-rose-900/70 px-3 py-2 text-sm text-rose-200 hover:bg-rose-950/40 disabled:opacity-50">Cancel vacancy</button>
+                    )}
+                  </div>
                 </article>
               ))}
             </div>
