@@ -16,13 +16,16 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { profile } = await getCurrentProfile(supabase);
     if (!profile?.organization_id) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    if (!["owner", "admin", "organization_admin", "recruiter", "hiring_manager"].includes(profile.role)) {
+      return NextResponse.json({ error: "Your account role does not have permission to view candidate information." }, { status: 403 });
+    }
 
     const vacancyId = new URL(request.url).searchParams.get("vacancy_id")?.trim() ?? "";
     if (!vacancyId || vacancyId.length > 80) return NextResponse.json({ error: "A valid vacancy_id is required." }, { status: 400 });
 
     const { data: vacancy, error: vacancyError } = await supabase
       .from("workforce_vacancies")
-      .select("id,title,status,processing_authorized,authorization_reference,organization_id")
+      .select("id,title,status,processing_authorized,authorization_reference,organization_id,requirements,required_licences")
       .eq("id", vacancyId)
       .eq("organization_id", profile.organization_id)
       .maybeSingle();
@@ -65,10 +68,33 @@ export async function GET(request: Request) {
     const ingestionSecretConfigured = (process.env.WORKFORCE_INGESTION_SECRET ?? "").length >= 32;
     const ingestionConfigured = ingestionSecretConfigured && approvedSourceIds.length > 0;
 
+    const requirements = Array.isArray(vacancy.requirements)
+      ? vacancy.requirements.filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, 80)
+      : [];
+    const requiredLicences = Array.isArray(vacancy.required_licences)
+      ? vacancy.required_licences.filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, 30)
+      : [];
+    const assessedCandidates = (data ?? []).map((candidate) => {
+      const evidenceText = [candidate.job_relevant_summary ?? "", ...(Array.isArray(candidate.job_relevant_skills) ? candidate.job_relevant_skills : [])].join(" ").toLocaleLowerCase();
+      const matchedRequirements = requirements.filter((requirement) => evidenceText.includes(requirement.toLocaleLowerCase()));
+      return {
+        ...candidate,
+        requirementCoverage: {
+          matchedCount: matchedRequirements.length,
+          totalCount: requirements.length,
+          matchedRequirements,
+          missingRequirements: requirements.filter((requirement) => !matchedRequirements.includes(requirement)),
+          method: "literal_keyword_overlap",
+        },
+        requiredLicences,
+        licencesRequireIndependentVerification: requiredLicences.length > 0,
+      };
+    });
+
     return NextResponse.json({
       success: true,
       vacancy: { id: vacancy.id, title: vacancy.title, status: vacancy.status, processing_authorized: vacancy.processing_authorized },
-      candidates: data ?? [],
+      candidates: assessedCandidates,
       auditEvents: auditEvents ?? [],
       auditAvailable: !auditError,
       sourcing: {
