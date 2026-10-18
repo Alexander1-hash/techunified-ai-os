@@ -44,11 +44,26 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unable to load candidate leads. Confirm the workforce migration has been applied." }, { status: 503 });
     }
 
+    const approvedSourceIds = (process.env.WORKFORCE_APPROVED_SOURCE_IDS ?? "")
+      .split(",")
+      .map((source) => source.trim())
+      .filter(Boolean);
+    const ingestionSecretConfigured = (process.env.WORKFORCE_INGESTION_SECRET ?? "").length >= 32;
+    const ingestionConfigured = ingestionSecretConfigured && approvedSourceIds.length > 0;
+
     return NextResponse.json({
       success: true,
       vacancy: { id: vacancy.id, title: vacancy.title, status: vacancy.status, processing_authorized: vacancy.processing_authorized },
       candidates: data ?? [],
-      sourcing: { configured: false, message: "No authorized live talent-source provider is connected. No candidates have been invented or searched." },
+      sourcing: {
+        ingestionConfigured,
+        ingestionEndpoint: "/api/workforce/providers/ingest",
+        liveSearchConnected: false,
+        approvedSourceCount: approvedSourceIds.length,
+        message: ingestionConfigured
+          ? "Trusted ingestion is configured for approved source IDs, but live search is not connected until a real authorized provider adapter is implemented and tested."
+          : "Trusted ingestion is not fully configured. Set a server-only WORKFORCE_INGESTION_SECRET of at least 32 characters and WORKFORCE_APPROVED_SOURCE_IDS. Live search still requires a real authorized provider adapter.",
+      },
     });
   } catch {
     return NextResponse.json({ error: "Unable to load candidate leads." }, { status: 500 });
