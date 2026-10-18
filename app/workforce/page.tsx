@@ -19,6 +19,14 @@ type Vacancy = {
   created_at: string;
 };
 
+type SourcingStatus = {
+  ingestionConfigured: boolean;
+  ingestionEndpoint: string;
+  liveSearchConnected: boolean;
+  approvedSourceCount: number;
+  message: string;
+};
+
 type CandidateLead = {
   id: string;
   source_id: string;
@@ -66,6 +74,7 @@ export default function WorkforcePage() {
   const [candidates, setCandidates] = useState<CandidateLead[]>([]);
   const [candidateLoading, setCandidateLoading] = useState(false);
   const [candidateMessage, setCandidateMessage] = useState("");
+  const [sourcingStatus, setSourcingStatus] = useState<SourcingStatus | null>(null);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
 
   const loadVacancies = useCallback(async () => {
@@ -95,9 +104,11 @@ export default function WorkforcePage() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not load candidate leads.");
       setCandidates(result.candidates ?? []);
+      setSourcingStatus(result.sourcing ?? null);
       setCandidateMessage(result.sourcing?.message ?? "");
     } catch (cause) {
       setCandidates([]);
+      setSourcingStatus(null);
       setError(cause instanceof Error ? cause.message : "Could not load candidate leads.");
     } finally {
       setCandidateLoading(false);
@@ -280,6 +291,19 @@ export default function WorkforcePage() {
               <div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Candidate pipeline</p><h2 className="mt-1 text-xl font-semibold">{vacancies.find((item) => item.id === selectedVacancy)?.title ?? "Selected vacancy"}</h2><p className="mt-1 text-sm text-slate-400">Review source provenance and job-related evidence. All progression remains human-controlled.</p></div>
               <button type="button" onClick={() => { setSelectedVacancy(null); setCandidates([]); }} className="rounded-xl border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800">Close pipeline</button>
             </div>
+            {sourcingStatus && (
+              <div className={"mt-5 rounded-xl border p-4 " + (sourcingStatus.liveSearchConnected ? "border-emerald-900 bg-emerald-950/30" : "border-amber-900 bg-amber-950/30")}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={"rounded-full px-2.5 py-1 text-xs font-semibold " + (sourcingStatus.liveSearchConnected ? "bg-emerald-900/60 text-emerald-200" : "bg-amber-900/60 text-amber-200")}>
+                    {sourcingStatus.liveSearchConnected ? "Live search connected" : "Live search not connected"}
+                  </span>
+                  <span className="text-xs text-slate-400">{sourcingStatus.approvedSourceCount} approved source ID(s) configured</span>
+                  <span className="text-xs text-slate-500">Ingestion endpoint: {sourcingStatus.ingestionEndpoint}</span>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-300">{sourcingStatus.message}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">A configured ingestion endpoint is not the same as a connected search provider. Candidate leads remain unverified until independently checked.</p>
+              </div>
+            )}
             {candidateLoading ? <div className="mt-5 flex items-center gap-2 text-sm text-slate-400"><LoaderCircle size={17} className="animate-spin" /> Loading candidate leads…</div> : candidates.length === 0 ? (
               <div className="mt-5 rounded-xl border border-dashed border-slate-700 p-5">
                 <p className="font-medium">No candidate leads recorded</p>
