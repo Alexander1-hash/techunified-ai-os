@@ -44,7 +44,8 @@ The server-only `POST /api/workforce/providers/ingest` endpoint is the controlle
 - The provider adapter must send `Authorization: Bearer <WORKFORCE_INGESTION_SECRET>` and JSON shaped like the example below. Send no more than 50 candidates and 128 KB per request.
 - The vacancy must already be open and have documented processing authorization. `authorization_reference` must exactly match the value stored on that vacancy.
 - Every ingested lead is stored as `unverified`; provider payloads cannot mark credentials as verified. Source candidate IDs are used for deduplication, and a 90-day retention review is set on ingestion.
-- The endpoint writes ingestion audit events. A response with HTTP 202 means candidate rows were saved but audit insertion failed; investigate before treating the audit trail as complete.
+- The API delegates persistence to `ingest_workforce_candidate_leads`, a `SECURITY DEFINER` database function executable only by `service_role`. Candidate upserts and corresponding audit events commit in one transaction; if the audit insert fails, the candidate changes roll back too.
+- Apply `supabase/migrations/20261011130000_atomic_workforce_candidate_ingestion.sql` before using the revised ingestion endpoint. Until that migration is applied, ingestion returns a safe service-unavailable response rather than falling back to non-atomic writes.
 
 Example request body (use fictitious sample data only in tests):
 
