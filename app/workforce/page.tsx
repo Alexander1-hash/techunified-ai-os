@@ -120,6 +120,8 @@ export default function WorkforcePage() {
 
   async function openCandidates(vacancy: Vacancy) {
     setSelectedVacancy(vacancy.id);
+    setCandidateQuery("");
+    setReviewFilter("all");
     setCandidateLoading(true);
     setCandidateMessage("");
     setError("");
@@ -162,7 +164,16 @@ export default function WorkforcePage() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not update candidate review.");
       setCandidates((current) => current.map((item) => item.id === candidate.id ? { ...item, review_status: result.candidate.review_status } : item));
-      setNotice("Candidate review updated. This is a human review workflow, not an automated hiring decision.");
+      if (selectedVacancy) {
+        const refreshed = await fetch(`/api/workforce/candidates?vacancy_id=${encodeURIComponent(selectedVacancy)}`, { cache: "no-store" });
+        if (refreshed.ok) {
+          const refreshedResult = await refreshed.json();
+          setCandidates(refreshedResult.candidates ?? []);
+          setAuditEvents(refreshedResult.auditEvents ?? []);
+          setAuditAvailable(refreshedResult.auditAvailable !== false);
+        }
+      }
+      setNotice("Candidate review updated and audit history refreshed. This is a human review workflow, not an automated hiring decision.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not update candidate review.");
     } finally {
