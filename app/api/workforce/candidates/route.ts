@@ -75,6 +75,9 @@ export async function PATCH(request: Request) {
     const supabase = await createClient();
     const { profile } = await getCurrentProfile(supabase);
     if (!profile?.organization_id || !profile.id) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    if (!["owner", "admin", "organization_admin", "recruiter", "hiring_manager"].includes(profile.role)) {
+      return NextResponse.json({ error: "Your account role does not have permission to review candidates." }, { status: 403 });
+    }
 
     let body: Record<string, unknown>;
     try {
