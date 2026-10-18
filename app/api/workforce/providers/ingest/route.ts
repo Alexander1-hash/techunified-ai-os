@@ -119,9 +119,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "The ingestion authorization reference does not match the vacancy record." }, { status: 403 });
     }
 
-    const retrievedAt = new Date().toISOString();
-    const retentionReviewAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
-    const rows: Array<Record<string, unknown>> = [];
+    const normalized: Array<Record<string, unknown>> = [];
     const seen = new Set<string>();
 
     for (const item of body.candidates as IncomingCandidate[]) {
@@ -129,60 +127,50 @@ export async function POST(request: Request) {
       const sourceCandidateId = clean(item.source_candidate_id, 240);
       if (!sourceCandidateId || seen.has(sourceCandidateId)) continue;
       seen.add(sourceCandidateId);
-      const skills = safeSkills(item.skills);
-      rows.push({
-        organization_id: vacancy.organization_id,
-        vacancy_id: vacancy.id,
-        source_id: sourceId,
+      normalized.push({
         source_candidate_id: sourceCandidateId,
         display_name: clean(item.display_name, 200) || null,
         profile_url: safeProfileUrl(item.profile_url),
         location_text: clean(item.location_text, 240) || null,
         job_relevant_summary: clean(item.summary, 1200) || null,
-        job_relevant_skills: skills,
-        // Provider payloads cannot assert credential verification.
-        evidence_status: "unverified",
-        retrieved_at: retrievedAt,
-        retention_review_at: retentionReviewAt,
+        job_relevant_skills: safeSkills(item.skills),
       });
     }
 
-    if (rows.length === 0) {
+    if (normalized.length === 0) {
       return NextResponse.json({ error: "No candidates with valid source_candidate_id values were supplied." }, { status: 400 });
     }
 
-    const { data: saved, error: upsertError } = await admin
-      .from("workforce_candidate_leads")
-      .upsert(rows, { onConflict: "organization_id,vacancy_id,source_id,source_candidate_id" })
-      .select("id,vacancy_id,source_id,source_candidate_id,display_name,profile_url,location_text,job_relevant_summary,job_relevant_skills,evidence_status,review_status,retrieved_at,retention_review_at");
+    // The database RPC writes the leads and matching audit events atomically.
+    // If either operation fails, the transaction rolls back both.
+    const { data, error: ingestionError } = await admin.rpc("ingest_workforce_candidate_leads", {
+      p_vacancy_id: vacancy.id,
+      p_source_id: sourceId,
+      p_authorization_reference: authorizationReference,
+      p_candidates: normalized,
+    });
 
-    if (upsertError || !saved) {
-      console.error("workforce_candidate_ingestion_upsert_failed", upsertError?.code);
-      return NextResponse.json({ error: "Candidate ingestion failed. Confirm workforce migrations and server configuration." }, { status: 503 });
+    if (ingestionError || !data || typeof data !== "object") {
+      console.error("workforce_candidate_atomic_ingestion_failed", ingestionError?.code);
+      if (ingestionError?.code === "P0002") {
+        return NextResponse.json({ error: "Vacancy not found." }, { status: 404 });
+      }
+      if (ingestionError?.code === "42501") {
+        return NextResponse.json({ error: "The ingestion authorization reference could not be verified." }, { status: 403 });
+      }
+      if (ingestionError?.code === "22023") {
+        return NextResponse.json({ error: "The vacancy is not eligible for ingestion or the candidate batch is invalid." }, { status: 409 });
+      }
+      return NextResponse.json({ error: "Candidate ingestion failed. Confirm the atomic ingestion migration is applied." }, { status: 503 });
     }
 
-    const events = saved.map((candidate) => ({
-      organization_id: vacancy.organization_id,
-      vacancy_id: vacancy.id,
-      candidate_lead_id: candidate.id,
-      actor_id: null,
-      event_type: "candidate_lead_ingested",
-      from_status: null,
-      to_status: candidate.review_status,
-      reason: null,
-      metadata: { source_id: sourceId, ingestion_surface: "trusted_provider_api" },
-    }));
-    const { error: auditError } = await admin.from("workforce_recruitment_events").insert(events);
-    if (auditError) {
-      console.error("workforce_candidate_ingestion_audit_failed", auditError.code);
-      return NextResponse.json({
-        success: true,
-        candidates: saved,
-        warning: "Candidates were saved, but ingestion audit events could not be written. Investigate before relying on this audit trail.",
-      }, { status: 202 });
-    }
-
-    return NextResponse.json({ success: true, count: saved.length, candidates: saved, audit: "recorded" }, { status: 201 });
+    const result = data as { count?: number; candidates?: unknown[]; audit?: string };
+    return NextResponse.json({
+      success: true,
+      count: result.count ?? 0,
+      candidates: result.candidates ?? [],
+      audit: result.audit ?? "recorded_atomically",
+    }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Workforce ingestion is not configured or could not be completed." }, { status: 503 });
   }
