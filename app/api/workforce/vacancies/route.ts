@@ -143,3 +143,56 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unable to create vacancy." }, { status: 500 });
   }
 }
+
+export async function PATCH(request: Request) {
+  try {
+    const supabase = await createClient();
+    const { profile } = await getCurrentProfile(supabase);
+    if (!profile?.organization_id || !profile.id) {
+      return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    }
+    if (!["owner", "admin", "organization_admin", "recruiter", "hiring_manager"].includes(profile.role)) {
+      return NextResponse.json({ error: "Your account role does not have permission to manage vacancies." }, { status: 403 });
+    }
+
+    let body: Record<string, unknown>;
+    try {
+      const parsed: unknown = await request.json();
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return NextResponse.json({ error: "A vacancy status transition is required." }, { status: 400 });
+      }
+      body = parsed as Record<string, unknown>;
+    } catch {
+      return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
+    }
+
+    const vacancyId = text(body.vacancy_id, 80);
+    const nextStatus = text(body.status, 20);
+    const reason = text(body.reason, 1000);
+    if (!vacancyId || !VACANCY_STATUSES.includes(nextStatus as (typeof VACANCY_STATUSES)[number])) {
+      return NextResponse.json({ error: "Provide a vacancy ID and valid target status." }, { status: 400 });
+    }
+    if (["draft", "paused", "filled", "cancelled"].includes(nextStatus) && reason.length < 3) {
+      return NextResponse.json({ error: "A short operational reason is required for this status change." }, { status: 400 });
+    }
+
+    const { data, error } = await supabase.rpc("transition_workforce_vacancy_status", {
+      p_vacancy_id: vacancyId,
+      p_next_status: nextStatus,
+      p_reason: reason || null,
+    });
+    if (error) {
+      console.error("workforce_vacancy_transition_failed", error.code);
+      if (error.code === "P0002") return NextResponse.json({ error: "Vacancy not found in your organization." }, { status: 404 });
+      if (error.code === "42501") return NextResponse.json({ error: "Your role or documented sourcing authorization does not permit this transition." }, { status: 403 });
+      if (error.code === "22023") return NextResponse.json({ error: "The requested status transition is invalid or requires a reason." }, { status: 400 });
+      return NextResponse.json({ error: "Unable to update vacancy. Confirm the vacancy lifecycle migration has been applied." }, { status: 503 });
+    }
+
+    const updated = Array.isArray(data) ? data[0] : data;
+    if (!updated) return NextResponse.json({ error: "Vacancy status was not updated." }, { status: 503 });
+    return NextResponse.json({ success: true, vacancy: updated, audit: "recorded_atomically" });
+  } catch {
+    return NextResponse.json({ error: "Unable to update vacancy status." }, { status: 500 });
+  }
+}
