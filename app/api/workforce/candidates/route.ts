@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/repositories/profile";
 
+export const dynamic = "force-dynamic";
+
 const REVIEW_STATUSES = ["new", "reviewing", "shortlisted", "not_progressing", "withdrawn"] as const;
 type ReviewStatus = (typeof REVIEW_STATUSES)[number];
 
