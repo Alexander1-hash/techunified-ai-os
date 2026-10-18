@@ -68,3 +68,16 @@ Example request body (use fictitious sample data only in tests):
 ```
 
 This endpoint does not discover candidates by itself. A provider integration must use an approved API/access method, follow source terms and applicable privacy/employment law, minimize collected personal data, and never scrape behind access controls. The database migrations in `supabase/migrations/` must be applied and validated in the intended Supabase project before production use; a successful Vercel deployment alone does not apply migrations.
+
+
+## Recruitment operations and candidate evidence
+
+The recruitment workspace now supports local filtering of candidate leads by free-text terms and review status, plus a transparent literal-keyword coverage summary against vacancy requirements. This coverage is deliberately not a suitability score: it only shows whether exact requirement phrases appear in the source summary or listed skills. Missing mentions are not proof that a candidate lacks the skill. Required licences and credentials must be independently verified.
+
+Candidate profile and audit access is restricted to designated recruitment roles in the application API. Candidate responses are organization/vacancy scoped and should be served without shared caching. The UI keeps human review in control; no candidate is automatically hired or rejected.
+
+### Vacancy lifecycle
+
+Apply `supabase/migrations/20261011140000_workforce_vacancy_lifecycle.sql` before using vacancy status actions. The `transition_workforce_vacancy_status` database RPC checks organization membership and recruitment role, requires documented processing authorization before opening a vacancy, rejects terminal-state transitions, and records the status change in the recruitment audit table within the same transaction.
+
+The workspace supports pausing sourcing, reopening an authorized draft/paused vacancy, marking a role filled, and cancelling a role. Status-change reasons are recorded for pause, draft, filled and cancelled transitions. The lifecycle migration is committed to GitHub; it is not evidence that the migration has been applied to the connected Supabase database.
