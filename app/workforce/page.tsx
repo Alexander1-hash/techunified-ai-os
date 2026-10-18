@@ -49,6 +49,15 @@ type CandidateLead = {
   evidence_status: string;
   review_status: string;
   retrieved_at: string;
+  requirementCoverage?: {
+    matchedCount: number;
+    totalCount: number;
+    matchedRequirements: string[];
+    missingRequirements: string[];
+    method: string;
+  };
+  requiredLicences?: string[];
+  licencesRequireIndependentVerification?: boolean;
 };
 
 const initialForm = {
@@ -89,6 +98,8 @@ export default function WorkforcePage() {
   const [auditEvents, setAuditEvents] = useState<RecruitmentEvent[]>([]);
   const [auditAvailable, setAuditAvailable] = useState(true);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [candidateQuery, setCandidateQuery] = useState("");
+  const [reviewFilter, setReviewFilter] = useState("all");
 
   const loadVacancies = useCallback(async () => {
     setLoading(true);
@@ -192,6 +203,18 @@ export default function WorkforcePage() {
       setSaving(false);
     }
   }
+
+  const filteredCandidates = candidates.filter((candidate) => {
+    const query = candidateQuery.trim().toLocaleLowerCase();
+    const searchable = [
+      candidate.display_name ?? "",
+      candidate.source_id,
+      candidate.location_text ?? "",
+      candidate.job_relevant_summary ?? "",
+      ...(candidate.job_relevant_skills ?? []),
+    ].join(" ").toLocaleLowerCase();
+    return (!query || searchable.includes(query)) && (reviewFilter === "all" || candidate.review_status === reviewFilter);
+  });
 
   const fieldClass = "w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none transition focus:border-cyan-500";
   const labelClass = "mb-1.5 block text-sm font-medium text-slate-300";
@@ -352,8 +375,22 @@ export default function WorkforcePage() {
                 <p className="mt-2 text-sm leading-6 text-slate-400">{candidateMessage || "No leads have been saved for this vacancy."} The workspace will not fabricate candidate profiles. Once an approved source integration is configured, sourced leads can appear here with provenance and review controls.</p>
               </div>
             ) : (
-              <div className="mt-5 grid gap-3">
-                {candidates.map((candidate) => (
+              <div className="mt-5">
+                <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_220px]">
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs font-medium text-slate-400">Search candidate leads</span>
+                    <input value={candidateQuery} onChange={(event) => setCandidateQuery(event.target.value)} className={fieldClass} placeholder="Name, skills, location, summary or source" />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs font-medium text-slate-400">Review status</span>
+                    <select value={reviewFilter} onChange={(event) => setReviewFilter(event.target.value)} className={fieldClass}>
+                      <option value="all">All statuses</option><option value="new">New</option><option value="reviewing">Reviewing</option><option value="shortlisted">Shortlisted</option><option value="not_progressing">Not progressing</option><option value="withdrawn">Withdrawn</option>
+                    </select>
+                  </label>
+                </div>
+                {filteredCandidates.length === 0 && <div className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-400">No candidates match these filters. Try a different search or status.</div>}
+                <div className="grid gap-3">
+                {filteredCandidates.map((candidate) => (
                   <article key={candidate.id} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div><h3 className="font-semibold">{candidate.display_name || "Name not provided by source"}</h3><p className="mt-1 text-xs text-slate-500">Source: {candidate.source_id} · Retrieved {new Date(candidate.retrieved_at).toLocaleDateString()}</p></div>
@@ -361,6 +398,17 @@ export default function WorkforcePage() {
                     </div>
                     {candidate.location_text && <p className="mt-2 flex items-center gap-2 text-sm text-slate-300"><MapPin size={14} />{candidate.location_text}</p>}
                     {candidate.job_relevant_summary && <p className="mt-3 text-sm leading-6 text-slate-400">{candidate.job_relevant_summary}</p>}
+                    {candidate.requirementCoverage && candidate.requirementCoverage.totalCount > 0 && (
+                      <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-xs font-medium text-slate-300">Literal requirement mentions</span>
+                          <span className="text-xs text-cyan-200">{candidate.requirementCoverage.matchedCount} of {candidate.requirementCoverage.totalCount} mentioned</span>
+                        </div>
+                        {candidate.requirementCoverage.missingRequirements.length > 0 && <p className="mt-2 text-xs leading-5 text-slate-400">Not found in supplied summary/skills: {candidate.requirementCoverage.missingRequirements.join(", ")}</p>}
+                        <p className="mt-2 text-[11px] leading-4 text-amber-200/80">This is keyword coverage only—not a suitability score, proof of experience, or hiring recommendation.</p>
+                      </div>
+                    )}
+                    {candidate.licencesRequireIndependentVerification && <p className="mt-2 text-xs leading-5 text-amber-200">Required credential(s) to verify independently: {(candidate.requiredLicences ?? []).join(", ")}.</p>}
                     {(candidate.job_relevant_skills ?? []).length > 0 && <div className="mt-3 flex flex-wrap gap-2">{candidate.job_relevant_skills.map((skill) => <span key={skill} className="rounded-full bg-slate-800 px-2.5 py-1 text-xs text-slate-300">{skill}</span>)}</div>}
                     <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-800 pt-3">
                       {candidate.profile_url && <a href={candidate.profile_url} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800">Open source profile <ExternalLink size={13} /></a>}
@@ -372,6 +420,7 @@ export default function WorkforcePage() {
                     </div>
                   </article>
                 ))}
+                </div>
               </div>
             )}
             <p className="mt-4 text-xs leading-5 text-slate-500">Do not treat a source profile as credential verification. Verify required licences and qualifications independently; do not use protected characteristics to assess candidates.</p>
