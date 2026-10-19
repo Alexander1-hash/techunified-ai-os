@@ -302,14 +302,43 @@ export async function POST(request: Request) {
     )
   }
 
-  const {
-    data: records,
-    error: recordsError,
-  } = await supabase
-    .from('business_source_records')
-    .select('id,payload,recorded_at')
-    .eq('source_id', source.id)
-    .eq('organization_id', organizationId)
+  // Supabase/PostgREST commonly caps an unpaginated response at 1,000 rows.
+  // Page deterministically so KPI calculations don't silently ignore imported history.
+  const recordPageSize = 1000
+  const maxAnalysisRecords = 20000
+  const records: any[] = []
+  let recordsError: any = null
+  let offset = 0
+
+  while (true) {
+    const { data: page, error } = await supabase
+      .from('business_source_records')
+      .select('id,payload,recorded_at')
+      .eq('source_id', source.id)
+      .eq('organization_id', organizationId)
+      .order('id', { ascending: true })
+      .range(offset, offset + recordPageSize - 1)
+
+    if (error) {
+      recordsError = error
+      break
+    }
+
+    const batch = page ?? []
+    if (records.length + batch.length > maxAnalysisRecords) {
+      return NextResponse.json(
+        {
+          error: `This source contains more than ${maxAnalysisRecords.toLocaleString()} records. Narrow the source or split the dataset before mapping KPIs so the analyst does not report partial totals.`,
+          maxRecords: maxAnalysisRecords,
+        },
+        { status: 413 },
+      )
+    }
+
+    records.push(...batch)
+    if (batch.length < recordPageSize) break
+    offset += batch.length
+  }
 
   if (recordsError) {
     return NextResponse.json(
@@ -321,9 +350,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const sample = (records ?? []).map(
-    (record: any) => record.payload,
-  )
+  const sample = records.map((record: any) => record.payload)
 
   const availableFields = new Set(
     sample.flatMap((record: any) =>
