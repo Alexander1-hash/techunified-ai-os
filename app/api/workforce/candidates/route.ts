@@ -119,9 +119,9 @@ export async function GET(request: Request) {
           ? "Trusted ingestion is configured for approved source IDs, but live search is not connected until a real authorized provider adapter is implemented and tested."
           : "Trusted ingestion is not fully configured. Set a server-only WORKFORCE_INGESTION_SECRET of at least 32 characters and WORKFORCE_APPROVED_SOURCE_IDS. Live search still requires a real authorized provider adapter.",
       },
-    });
+    }, { headers: { "Cache-Control": "private, no-store, max-age=0", "Vary": "Cookie" } });
   } catch {
-    return NextResponse.json({ error: "Unable to load candidate leads." }, { status: 500 });
+    return NextResponse.json({ error: "Unable to load candidate leads." }, { status: 500, headers: { "Cache-Control": "private, no-store, max-age=0" } });
   }
 }
 
