@@ -37,7 +37,7 @@ function parseMetricNumber(raw: unknown): number | null {
 
   const negativeByParentheses = /^\(.*\)$/.test(value)
   if (negativeByParentheses) value = value.slice(1, -1).trim()
-  value = value.replace(/[,$£€₦¥%\s]/g, '')
+  value = value.replace(/[$£€₦¥%\s]/g, '')
   if (!/^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/.test(value)) return null
   // Commas were validated as thousands separators before removal.
   const parsed = Number(value.replace(/,/g, ''))
