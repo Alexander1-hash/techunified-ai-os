@@ -95,7 +95,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ source: data, connected: false }, { status: existing?.id ? 200 : 201 })
   }
 
-  const form = await request.formData()
+  let form: FormData
+  try {
+    form = await request.formData()
+  } catch {
+    return NextResponse.json({ error: 'Send a valid multipart form with a CSV or XLSX file.' }, { status: 400 })
+  }
   const file = form.get('file')
   const provider = String(form.get('provider') ?? '')
   if (provider === 'supabase') {
@@ -110,12 +115,27 @@ export async function POST(request: Request) {
   const extension = file.name.toLowerCase().split('.').pop() ?? ''
   if (!allowed.has(extension)) return NextResponse.json({ error: 'Only .csv and .xlsx files are supported.' }, { status: 415 })
   if (file.size > MAX_BYTES) return NextResponse.json({ error: 'Files must be 10 MB or smaller.' }, { status: 413 })
+  if (file.size === 0) return NextResponse.json({ error: 'The selected file is empty.' }, { status: 422 })
   const buffer = Buffer.from(await file.arrayBuffer())
-  const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true, sheetRows: MAX_ROWS + 1 })
+  if (extension === 'xlsx' && !(buffer[0] === 0x50 && buffer[1] === 0x4b)) {
+    return NextResponse.json({ error: 'The file does not look like a valid XLSX workbook.' }, { status: 415 })
+  }
+  if (extension === 'csv' && buffer.includes(0)) {
+    return NextResponse.json({ error: 'The CSV contains binary data. Export it as a UTF-8 CSV and try again.' }, { status: 415 })
+  }
+  let workbook: XLSX.WorkBook
+  try {
+    workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true, sheetRows: MAX_ROWS + 1 })
+  } catch {
+    return NextResponse.json({ error: 'The file could not be parsed. Check that it is a valid CSV or XLSX file.' }, { status: 422 })
+  }
   const sheetName = String(form.get('sheet') || workbook.SheetNames[0] || '')
   if (!sheetName || !workbook.Sheets[sheetName]) return NextResponse.json({ error: 'Select a valid workbook sheet.' }, { status: 400 })
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[sheetName], { defval: '' }).slice(0, MAX_ROWS)
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[sheetName], { defval: '' })
   if (!rows.length) return NextResponse.json({ error: 'The file contains no data rows.' }, { status: 422 })
+  if (rows.length > MAX_ROWS) {
+    return NextResponse.json({ error: `This file contains more than the ${MAX_ROWS.toLocaleString()}-row import limit. Split it into smaller files so no records are silently omitted.` }, { status: 413 })
+  }
   const quality = inspect(rows)
   const seenRows = new Set<string>()
   const uniqueRows = rows.filter((row) => {
