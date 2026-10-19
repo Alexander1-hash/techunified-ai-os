@@ -29,6 +29,22 @@ const units: Record<string, string> = {
 
 const VERIFIED_OUTCOME_STATUSES = new Set(['measured', 'attributed'])
 
+function parseMetricNumber(raw: unknown): number | null {
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null
+  if (typeof raw !== 'string') return null
+  let value = raw.trim()
+  if (!value) return null
+
+  const negativeByParentheses = /^\(.*\)$/.test(value)
+  if (negativeByParentheses) value = value.slice(1, -1).trim()
+  value = value.replace(/[,$£€₦¥%\s]/g, '')
+  if (!/^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/.test(value)) return null
+  // Commas were validated as thousands separators before removal.
+  const parsed = Number(value.replace(/,/g, ''))
+  if (!Number.isFinite(parsed)) return null
+  return negativeByParentheses ? -Math.abs(parsed) : parsed
+}
+
 function outcomeNumber(value: unknown) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
@@ -260,10 +276,15 @@ export async function POST(request: Request) {
     )
   }
 
+  const contentLength = Number(request.headers.get('content-length') ?? 0)
+  if (contentLength > 256 * 1024) {
+    return NextResponse.json({ error: 'The KPI mapping request is too large.' }, { status: 413 })
+  }
   const body = await request.json().catch(() => null)
 
   if (
     !body?.sourceId ||
+    typeof body.sourceId !== 'string' ||
     !Array.isArray(body.mappings)
   ) {
     return NextResponse.json(
@@ -360,25 +381,23 @@ export async function POST(request: Request) {
     ),
   )
 
-  const valid = body.mappings
-    .map((m: any) => ({
-      fieldName:
-        typeof m.fieldName === 'string'
-          ? m.fieldName.trim().slice(0, 200)
-          : typeof m.column === 'string'
-            ? m.column.trim().slice(0, 200)
-            : '',
-      metricName:
-        typeof m.metricName === 'string'
-          ? m.metricName
-          : typeof m.metric === 'string'
-            ? m.metric
-            : '',
-      unit:
-        typeof m.unit === 'string'
-          ? m.unit
-          : undefined,
-    }))
+  const normalizedMappings = body.mappings.map((m: any) => ({
+    fieldName:
+      typeof m?.fieldName === 'string'
+        ? m.fieldName.trim().slice(0, 200)
+        : typeof m?.column === 'string'
+          ? m.column.trim().slice(0, 200)
+          : '',
+    metricName:
+      typeof m?.metricName === 'string'
+        ? m.metricName
+        : typeof m?.metric === 'string'
+          ? m.metric
+          : '',
+    unit: typeof m?.unit === 'string' ? m.unit.trim().slice(0, 40) : undefined,
+  }))
+
+  const valid = normalizedMappings
     .filter(
       (m: any) =>
         m.fieldName.length > 0 &&
@@ -388,6 +407,20 @@ export async function POST(request: Request) {
     .filter((m: any, index: number, all: any[]) =>
       all.findIndex((candidate: any) => candidate.fieldName === m.fieldName) === index,
     )
+
+  const duplicateMetrics = [...new Set(
+    valid
+      .filter((mapping: any, index: number, all: any[]) =>
+        all.findIndex((candidate: any) => candidate.metricName === mapping.metricName) !== index,
+      )
+      .map((mapping: any) => mapping.metricName),
+  )]
+  if (duplicateMetrics.length) {
+    return NextResponse.json(
+      { error: `Each KPI can only be mapped once per analysis. Duplicate metrics: ${duplicateMetrics.join(', ')}. Choose one source column for each metric.` },
+      { status: 422 },
+    )
+  }
 
   if (!valid.length) {
     return NextResponse.json(
@@ -404,22 +437,8 @@ export async function POST(request: Request) {
   for (const mapping of valid) {
     const values = sample
       .map((record: any) => record?.[mapping.fieldName])
-      .filter((raw: unknown) =>
-        raw !== null &&
-        raw !== undefined &&
-        !(typeof raw === 'string' && raw.trim() === ''),
-      )
-      .map((raw: unknown) => {
-        if (typeof raw === 'number') return raw
-        const text = String(raw).trim()
-        const parenthesizedNegative = /^\(.*\)$/.test(text)
-        const normalized = text
-          .replace(/[,$£€₦¥%\s]/g, '')
-          .replace(/[()]/g, '')
-        const parsed = Number(normalized)
-        return parenthesizedNegative ? -parsed : parsed
-      })
-      .filter((value: number) => Number.isFinite(value))
+      .map((raw: unknown) => parseMetricNumber(raw))
+      .filter((value: number | null): value is number => value !== null)
 
     if (!values.length) {
       continue
