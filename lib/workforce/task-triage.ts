@@ -17,12 +17,12 @@ export interface WorkforceTaskInput {
   requiresEmpathyOrNegotiation?: boolean;
 }
 
-export interface WorkforceTaskAssessment {
+export interface WorkforceWorkflowStep {\n  stage: string;\n  owner: "AI_assistance" | "human" | "shared";\n  action: string;\n  approvalRequired: boolean;\n  acceptanceCriteria: string;\n}\n\nexport interface WorkforceTaskAssessment {
   recommendation: WorkforceRecommendation;
   confidence: "limited";
   risk: TaskRisk;
   summary: string;
-  suitableForAutomation: string[];
+  suitableForAutomation: string[];\n  workflowPlan: WorkforceWorkflowStep[];
   humanResponsibilities: string[];
   prerequisites: string[];
   validationGates: string[];
@@ -65,7 +65,7 @@ export function assessWorkforceTask(input: WorkforceTaskInput): WorkforceTaskAss
         ? "automate_candidate"
         : "hybrid";
 
-  const suitableForAutomation = signals.repetitive
+  const workflowPlan: WorkforceWorkflowStep[] = [\n    { stage: "Define and prepare", owner: "shared", action: "Document inputs, expected output, process owner, and permitted tools.", approvalRequired: true, acceptanceCriteria: "A process owner confirms the task scope, data access, and success criteria." },\n    { stage: "Prepare information", owner: signals.repetitive && !highRisk ? "AI_assistance" : "shared", action: "Gather only approved inputs and prepare a draft, summary, checklist, or structured result where useful.", approvalRequired: sensitive || impact === "high", acceptanceCriteria: "Inputs are traceable, relevant, and limited to the approved scope." },\n    { stage: "Verify and handle exceptions", owner: "shared", action: "Check outputs against source evidence, rules, and edge cases; route uncertainty to the responsible person.", approvalRequired: true, acceptanceCriteria: "Checks pass and exceptions are recorded for human review." },\n    { stage: "Approve consequential action", owner: "human", action: "A named human approves external, financial, access-changing, regulated, or irreversible actions before execution.", approvalRequired: true, acceptanceCriteria: "Explicit approval is recorded; otherwise the action remains blocked." },\n    { stage: "Measure and improve", owner: "shared", action: "Compare quality, completion time, error rate, and exceptions against a human baseline during a limited pilot.", approvalRequired: true, acceptanceCriteria: "Results are reviewed by the process owner before scope is expanded." },\n  ];\n\n  const suitableForAutomation = signals.repetitive
     ? ["Prepare drafts, summaries, classifications, or structured records for review.", "Run repeatable checks and flag exceptions using approved rules."]
     : ["Explore bounded assistance such as information retrieval, first drafts, checklists, or routing—not unsupervised final decisions."];
   const humanResponsibilities = [
@@ -98,7 +98,7 @@ export function assessWorkforceTask(input: WorkforceTaskInput): WorkforceTaskAss
       : recommendation === "human_led"
         ? "Keep a qualified person responsible for the core task. AI may assist with preparation or administration but should not replace required human judgment."
         : "A hybrid workflow is the prudent starting point: automate bounded support tasks and retain human ownership of decisions and exceptions.",
-    suitableForAutomation,
+    suitableForAutomation,\n    workflowPlan,
     humanResponsibilities,
     prerequisites: [...new Set(prerequisites)],
     validationGates,
