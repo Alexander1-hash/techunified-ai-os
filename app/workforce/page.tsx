@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { BriefcaseBusiness, ExternalLink, Globe2, LoaderCircle, MapPin, Plus, RefreshCw, ShieldCheck, Users, BrainCircuit, ClipboardCheck } from "lucide-react";
+import { BriefcaseBusiness, ExternalLink, Globe2, LoaderCircle, MapPin, Plus, RefreshCw, ShieldCheck, Users, BrainCircuit, ClipboardCheck, Download } from "lucide-react";
 import type { WorkforceTaskAssessment } from "@/lib/workforce/task-triage";
 
 type Vacancy = {
@@ -132,6 +132,48 @@ export default function WorkforcePage() {
   }, []);
 
   useEffect(() => { void loadVacancies(); }, [loadVacancies]);
+
+  function exportTaskBlueprint() {
+    if (!taskAssessment) return;
+    const blueprint = {
+      schemaVersion: "techunified.workforce-blueprint.v1",
+      generatedAt: new Date().toISOString(),
+      status: "planning_only",
+      executionReady: false,
+      requiresRevalidationBeforeExecution: true,
+      input: {
+        task: taskDescription.trim(),
+        industry: taskIndustry.trim() || null,
+        frequency: taskFrequency,
+        dataSensitivity: taskSensitivity,
+        errorImpact: taskImpact,
+        requiresPhysicalPresence: taskPhysical,
+        requiresLicensedJudgment: taskLicensed,
+        requiresEmpathyOrNegotiation: taskEmpathy,
+      },
+      assessment: taskAssessment,
+      executionControls: {
+        mode: "dry_run_only",
+        humanApprovalRequiredForConsequentialActions: true,
+        failClosedOnValidationOrPermissionFailure: true,
+        useLeastPrivilege: true,
+        requiresProcessOwner: true,
+        requiresBaselineAndLimitedPilot: true,
+        integrationsVerified: false,
+        executionImplementedByThisBlueprint: false,
+      },
+    };
+    const blob = new Blob([JSON.stringify(blueprint, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "techunified-workforce-blueprint.json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setNotice("Blueprint exported. It is a planning artifact, not an executable workflow.");
+  }
 
   async function assessTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -379,6 +421,7 @@ export default function WorkforcePage() {
               {([["Potential AI support","suitableForAutomation"],["Automation boundaries","automationBoundary"],["Required capabilities and controls","capabilityRequirements"],["Human responsibilities","humanResponsibilities"],["Prerequisites","prerequisites"],["Validation gates","validationGates"],["Pilot measurement plan","measurementPlan"],["Failure modes to handle","failureModes"],["Recommended next steps","nextSteps"],["Important limitations","limitations"]] as const).map(([title,key])=><div key={key} className="rounded-xl border border-slate-800 p-3"><h4 className="font-medium text-slate-200">{title}</h4><ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-5 text-slate-400">{taskAssessment[key].map((item:string,i:number)=><li key={i}>{item}</li>)}</ul></div>)}
             </div>
             <div className="rounded-xl border border-amber-900/70 bg-amber-950/20 p-4"><h4 className="font-semibold text-amber-100">Human fallback and stop condition</h4><p className="mt-2 text-sm leading-6 text-amber-100/80">{taskAssessment.humanFallback}</p></div>
+            <div className="flex flex-wrap items-center gap-3"><button type="button" onClick={exportTaskBlueprint} className="inline-flex items-center gap-2 rounded-xl border border-cyan-800 px-4 py-2 text-sm font-medium text-cyan-200 hover:bg-cyan-950/40"><Download size={16} /> Export implementation blueprint (JSON)</button><span className="text-xs text-slate-500">Includes task inputs, workflow stages, control gates, and measurement requirements.</span></div>
             <p className="text-xs leading-5 text-amber-200/90">Planning assessment only: this result is rule-based, not a live capability test. No job was executed, no integration was checked, and no savings or ROI are claimed.</p>
           </div>}
         </section>
