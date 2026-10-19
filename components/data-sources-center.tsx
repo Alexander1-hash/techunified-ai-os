@@ -863,11 +863,11 @@ export function DataSourcesCenter() {
                   {importQuality && (
                     <div className="grid gap-3 sm:grid-cols-3" aria-label="Import quality summary">
                       <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                        <p className="text-xs text-slate-500">Rows imported</p>
+                        <p className="text-xs text-slate-500">Rows detected</p>
                         <p className="mt-1 text-xl font-semibold text-slate-950">{importQuality.rowCount.toLocaleString()}</p>
                       </div>
                       <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                        <p className="text-xs text-slate-500">Duplicate rows detected</p>
+                        <p className="text-xs text-slate-500">Duplicate rows excluded from analysis</p>
                         <p className="mt-1 text-xl font-semibold text-slate-950">{importQuality.duplicateRows.toLocaleString()}</p>
                       </div>
                       <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">

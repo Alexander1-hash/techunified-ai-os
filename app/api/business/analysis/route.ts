@@ -382,9 +382,16 @@ export async function POST(request: Request) {
         raw !== undefined &&
         !(typeof raw === 'string' && raw.trim() === ''),
       )
-      .map((raw: unknown) =>
-        typeof raw === 'number' ? raw : Number(String(raw).replace(/,/g, '')),
-      )
+      .map((raw: unknown) => {
+        if (typeof raw === 'number') return raw
+        const text = String(raw).trim()
+        const parenthesizedNegative = /^\(.*\)$/.test(text)
+        const normalized = text
+          .replace(/[,$£€₦¥%\s]/g, '')
+          .replace(/[()]/g, '')
+        const parsed = Number(normalized)
+        return parenthesizedNegative ? -parsed : parsed
+      })
       .filter((value: number) => Number.isFinite(value))
 
     if (!values.length) {
