@@ -103,7 +103,16 @@ export default function WorkforcePage() {
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [candidateQuery, setCandidateQuery] = useState("");
   const [reviewFilter, setReviewFilter] = useState("all");
-  const [transitioningVacancyId, setTransitioningVacancyId] = useState<string | null>(null);\n  const [taskDescription, setTaskDescription] = useState("");\n  const [taskIndustry, setTaskIndustry] = useState("");\n  const [taskFrequency, setTaskFrequency] = useState("daily");\n  const [taskSensitivity, setTaskSensitivity] = useState("internal");\n  const [taskImpact, setTaskImpact] = useState("medium");\n  const [taskPhysical, setTaskPhysical] = useState(false);\n  const [taskLicensed, setTaskLicensed] = useState(false);\n  const [taskAssessing, setTaskAssessing] = useState(false);\n  const [taskAssessment, setTaskAssessment] = useState<any>(null);
+  const [transitioningVacancyId, setTransitioningVacancyId] = useState<string | null>(null);
+  const [taskDescription, setTaskDescription] = useState("");
+  const [taskIndustry, setTaskIndustry] = useState("");
+  const [taskFrequency, setTaskFrequency] = useState("daily");
+  const [taskSensitivity, setTaskSensitivity] = useState("internal");
+  const [taskImpact, setTaskImpact] = useState("medium");
+  const [taskPhysical, setTaskPhysical] = useState(false);
+  const [taskLicensed, setTaskLicensed] = useState(false);
+  const [taskAssessing, setTaskAssessing] = useState(false);
+  const [taskAssessment, setTaskAssessment] = useState<any>(null);
 
   const loadVacancies = useCallback(async () => {
     setLoading(true);
@@ -122,7 +131,21 @@ export default function WorkforcePage() {
 
   useEffect(() => { void loadVacancies(); }, [loadVacancies]);
 
-  async function assessTask(event: FormEvent<HTMLFormElement>) {\n    event.preventDefault();\n    setTaskAssessing(true);\n    setTaskAssessment(null);\n    setError("");\n    setNotice("");\n    try {\n      const response = await fetch("/api/workforce/task-assessment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ task: taskDescription, industry: taskIndustry, frequency: taskFrequency, dataSensitivity: taskSensitivity, errorImpact: taskImpact, requiresPhysicalPresence: taskPhysical, requiresLicensedJudgment: taskLicensed }) });\n      const result = await response.json();\n      if (!response.ok) throw new Error(result.error || "Task assessment failed.");\n      setTaskAssessment(result.assessment);\n    } catch (cause) { setError(cause instanceof Error ? cause.message : "Task assessment failed."); } finally { setTaskAssessing(false); }\n  }\n\n  async function openCandidates(vacancy: Vacancy) {
+  async function assessTask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setTaskAssessing(true);
+    setTaskAssessment(null);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/workforce/task-assessment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ task: taskDescription, industry: taskIndustry, frequency: taskFrequency, dataSensitivity: taskSensitivity, errorImpact: taskImpact, requiresPhysicalPresence: taskPhysical, requiresLicensedJudgment: taskLicensed }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Task assessment failed.");
+      setTaskAssessment(result.assessment);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Task assessment failed."); } finally { setTaskAssessing(false); }
+  }
+
+  async function openCandidates(vacancy: Vacancy) {
     setSelectedVacancy(vacancy.id);
     setCandidateQuery("");
     setReviewFilter("all");
