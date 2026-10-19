@@ -86,7 +86,7 @@ export async function POST(request: Request) {
       configuration_metadata: { setup: safeSetup, setup_saved_at: new Date().toISOString(), connection_verified: false },
       last_synced_at: null,
     }
-    const { data: existing } = await supabase.from('business_data_sources').select('id').eq('organization_id', profile.organization_id).eq('provider', provider).eq('category', 'integration').maybeSingle()
+    const { data: existing } = await supabase.from('business_data_sources').select('id').eq('organization_id', profile.organization_id).eq('provider', provider).eq('category', 'integration').order('updated_at', { ascending: false }).limit(1).maybeSingle()
     const query = existing?.id
       ? supabase.from('business_data_sources').update(payload).eq('id', existing.id)
       : supabase.from('business_data_sources').insert(payload)
@@ -126,8 +126,29 @@ export async function POST(request: Request) {
   })
   const { data, error } = await supabase.from('business_data_sources').insert({ organization_id: profile.organization_id, name: file.name, provider: extension === 'xlsx' ? 'excel' : 'csv', category: 'file', status: 'connected', configuration_metadata: { file_name: file.name, sheet: sheetName, quality, rowCount: rows.length, uniqueRowCount: uniqueRows.length, duplicatesExcluded: quality.duplicateRows, columns: quality.columns, sample: uniqueRows.slice(0, 10), mappings: [], imported_at: new Date().toISOString() }, last_synced_at: new Date().toISOString() }).select('id,name,provider,category,status,configuration_metadata,last_synced_at').single()
   if (error || !data) return NextResponse.json({ error: 'The file was validated but could not be saved. Confirm the Brain data migration is applied.' }, { status: 500 })
-  const records = uniqueRows.map((row, index) => ({ organization_id: profile.organization_id, source_id: data.id, record_key: `${file.name}:${sheetName}:${index}`, payload: row, recorded_at: typeof row.date === 'string' ? row.date : null }))
+  const records = uniqueRows.map((row, index) => {
+    const dateKey = Object.keys(row).find((key) => /^(date|timestamp|recorded_at|created_at|transaction_date|order_date)$/i.test(key))
+    const rawDate = dateKey ? row[dateKey] : null
+    const parsedDate = rawDate instanceof Date
+      ? rawDate.getTime()
+      : typeof rawDate === 'string' && rawDate.trim()
+        ? Date.parse(rawDate)
+        : Number.NaN
+    return {
+      organization_id: profile.organization_id,
+      source_id: data.id,
+      record_key: `${file.name}:${sheetName}:${index}`,
+      payload: row,
+      recorded_at: Number.isFinite(parsedDate) ? new Date(parsedDate).toISOString() : null,
+    }
+  })
   const { error: recordsError } = await supabase.from('business_source_records').upsert(records, { onConflict: 'source_id,record_key' })
-  if (recordsError) return NextResponse.json({ error: 'The source was saved but normalized records could not be persisted.' }, { status: 500 })
+  if (recordsError) {
+    await supabase.from('business_data_sources').update({
+      status: 'sync_failed',
+      configuration_metadata: { ...(data.configuration_metadata ?? {}), ingestion_status: 'failed', ingestion_error: 'Normalized record persistence failed.' },
+    }).eq('id', data.id).eq('organization_id', profile.organization_id)
+    return NextResponse.json({ error: 'The source was validated but its records could not be saved. Check the Company Brain database migration and try importing again.' }, { status: 500 })
+  }
   return NextResponse.json({ source: data, quality, columns: quality.columns, recordsPersisted: records.length })
 }

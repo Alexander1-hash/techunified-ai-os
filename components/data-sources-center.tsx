@@ -197,7 +197,12 @@ export function DataSourcesCenter() {
 
   function openSetup(provider: Provider) {
     resetFeedback()
-    setSetupFields({})
+    const existing = sources.find((source) => source.provider === provider && source.category === 'integration')
+    const savedSetup = existing?.configuration_metadata?.setup
+    setSetupFields({
+      ...(savedSetup && typeof savedSetup === 'object' && !Array.isArray(savedSetup) ? savedSetup as Record<string, string> : {}),
+      ...(existing?.name ? { name: existing.name } : {}),
+    })
     setActive(provider)
 
     window.setTimeout(() => {
