@@ -498,19 +498,16 @@ export function DataSourcesCenter() {
                   <Icon className="h-5 w-5" />
                 </div>
 
-                {connected &&
-                  source.supported && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Connected
-                    </span>
-                  )}
-
-                {!source.supported && (
+                {connected ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Connected
+                  </span>
+                ) : !source.supported ? (
                   <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
                     Setup available
                   </span>
-                )}
+                ) : null}
 
               </div>
 
