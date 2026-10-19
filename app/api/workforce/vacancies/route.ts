@@ -49,7 +49,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unable to load vacancies. Confirm the workforce database migration has been applied." }, { status: 503 });
     }
 
-    return NextResponse.json({ success: true, vacancies: data ?? [] });
+    return NextResponse.json(
+      { success: true, vacancies: data ?? [] },
+      { headers: { "Cache-Control": "private, no-store, max-age=0", "Vary": "Cookie" } }
+    );
   } catch {
     return NextResponse.json({ error: "Unable to load vacancies." }, { status: 500 });
   }
