@@ -33,7 +33,7 @@ type Column = {
   missing: number
 }
 
-type Provider = 'supabase' | 'csv' | 'excel' | null
+type Provider = 'supabase' | 'csv' | 'excel' | 'google-sheets' | 'postgresql' | 'crm' | 'accounting' | 'analytics' | null
 
 const sourceOptions = [
   {
@@ -507,8 +507,8 @@ export function DataSourcesCenter() {
                   )}
 
                 {!source.supported && (
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
-                    Coming soon
+                  <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+                    Setup available
                   </span>
                 )}
 
@@ -524,27 +524,13 @@ export function DataSourcesCenter() {
 
               <div className="mt-5">
 
-                {source.supported ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openSetup(source.id as Provider)
-                    }
-                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-[0.99]"
-                  >
-                    {connected
-                      ? 'Manage source'
-                      : 'Open setup'}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    className="inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-400"
-                  >
-                    Coming soon
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => openSetup(source.id as Provider)}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-[0.99]"
+                >
+                  {connected ? 'Manage source' : source.supported ? 'Open setup' : 'Configure integration'}
+                </button>
 
               </div>
 
@@ -596,8 +582,7 @@ export function DataSourcesCenter() {
               </p>
 
               <p className="mt-1 text-sm text-slate-500">
-                Connect Supabase or upload a
-                CSV/Excel file to begin.
+                Open any connector above to begin setup, or import a CSV/Excel file. External providers appear here after a real connection and data sync are verified.
               </p>
 
             </div>
@@ -671,15 +656,19 @@ export function DataSourcesCenter() {
                     ? 'Verify Supabase'
                     : active === 'csv'
                       ? 'Import CSV'
-                      : 'Import Excel'}
+                      : active === 'excel'
+                        ? 'Import Excel'
+                        : `Configure ${sourceOptions.find((source) => source.id === active)?.name ?? 'integration'}`}
 
                 </h2>
 
                 <p className="mt-1 text-sm leading-6 text-slate-600">
 
                   {active === 'supabase'
-                    ? 'Verify the organization database connection and make it available to the Business Analyst.'
-                    : 'Upload your business data and let TechUnified inspect the columns before KPI mapping.'}
+                    ? 'Check authenticated access to this organization’s TechUnifedAIOS database and register it as a data source.'
+                    : active === 'csv' || active === 'excel'
+                      ? 'Upload business data, inspect its columns, and map verified fields to business KPIs.'
+                      : 'Start the integration setup for this provider. Connection is only marked complete after credentials, permissions, and a real data sync have been verified.'}
 
                 </p>
 
@@ -708,9 +697,10 @@ export function DataSourcesCenter() {
                     </p>
 
                     <p className="mt-1 text-sm text-slate-600">
-                      TechUnified will verify the current
-                      authenticated Supabase organization
-                      connection.
+                      This checks authenticated access to the current
+                      organization database and registers the source.
+                      It does not automatically discover every table
+                      or import records from external systems.
                     </p>
 
                   </div>
@@ -736,6 +726,37 @@ export function DataSourcesCenter() {
 
                 </div>
 
+              </div>
+            )}
+
+            {active && !['supabase', 'csv', 'excel'].includes(active) && (
+              <div className="mt-6 space-y-5">
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                  <p className="font-semibold text-blue-950">Integration setup is open</p>
+                  <p className="mt-2 text-sm leading-6 text-blue-900">
+                    This provider is available to configure, but it is not connected yet. To protect your company data, TechUnifedAIOS will not mark it as connected or request passwords and API secrets in this screen.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 p-4">
+                  <h3 className="font-semibold text-slate-950">Setup checklist</h3>
+                  <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-600">
+                    <li>Choose the exact provider and confirm the business account that is authorized to connect.</li>
+                    <li>Create or select the provider’s official API/OAuth application and grant only the required read permissions.</li>
+                    <li>Configure credentials as server-side environment variables or in an approved secrets manager. Never put secrets in browser code or ordinary source metadata.</li>
+                    <li>Enable the provider adapter and secure callback/webhook routes in the deployment.</li>
+                    <li>Run a test connection, preview the available data, and verify organization scope before importing records.</li>
+                    <li>Complete a sync and validate row counts, timestamps, and KPI mappings before the Business Analyst uses the data.</li>
+                  </ol>
+                </div>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="font-semibold text-amber-950">Provider adapter required</p>
+                  <p className="mt-1 text-sm leading-6 text-amber-900">
+                    This setup guide does not pretend a live connector is installed. The provider-specific OAuth/API adapter, credentials, scopes, sync logic, and error handling must be implemented and tested before a connection can be verified.
+                  </p>
+                </div>
+                <p className="text-xs leading-5 text-slate-500">
+                  Supported setup paths: Google Sheets (OAuth and selected spreadsheet), PostgreSQL (TLS-protected read-only connection), CRM (provider-specific OAuth/API), Accounting (least-privilege financial read access), and Analytics (provider-specific reporting API).
+                </p>
               </div>
             )}
 
