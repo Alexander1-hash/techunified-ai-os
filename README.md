@@ -104,3 +104,5 @@ Before implementing any recommended automation, map the current process, select 
 
 
 The task assessment also returns a proposed five-stage workflow plan (define, prepare, verify, human approval, measure) with a responsible owner, approval gate, and acceptance criteria for each stage. This is a planning artifact only: it is not persisted, scheduled, or executable, and it does not imply any connector is installed.
+
+The assessment now also provides an implementation control plan: explicit automation boundaries, required capabilities and controls, a pilot measurement plan, common failure modes, and a human fallback/stop condition. This makes the recommendation a more actionable design brief while keeping it honest about what has and has not been integrated. It remains deterministic planning guidance; it does not test a model, inspect installed connectors, execute tasks, persist assessment inputs, or claim savings.
