@@ -10,7 +10,7 @@ const IMPACTS = ["low", "medium", "high"] as const;
 const MAX_BODY_BYTES = 12_288;
 
 function isOneOf<T extends readonly string[]>(value: unknown, allowed: T): value is T[number] {
-  return typeof value === "string" && allowed.includes(value);
+  return typeof value === "string" && (allowed as readonly string[]).includes(value);
 }
 
 function isOptionalBoolean(value: unknown): boolean {
