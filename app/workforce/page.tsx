@@ -185,6 +185,46 @@ export default function WorkforcePage() {
     }
   }
 
+  async function recordRetentionReview(candidate: CandidateLead) {
+    const enteredReason = window.prompt("Record the job-related/legal or policy reason for retaining this candidate record. Do not include unnecessary sensitive personal data.");
+    if (!enteredReason || enteredReason.trim().length < 3) return;
+    const enteredInterval = window.prompt("Schedule the next retention review in days: 30, 60, 90, or 180.", "90");
+    if (!enteredInterval || !["30", "60", "90", "180"].includes(enteredInterval.trim())) {
+      setError("Choose a review interval of 30, 60, 90, or 180 days.");
+      return;
+    }
+    setReviewingId(candidate.id);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/workforce/candidates/retention-review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          candidate_id: candidate.id,
+          reason: enteredReason.trim().slice(0, 1000),
+          review_interval_days: Number(enteredInterval),
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not record retention review.");
+      if (selectedVacancy) {
+        const refreshed = await fetch(`/api/workforce/candidates?vacancy_id=${encodeURIComponent(selectedVacancy)}`, { cache: "no-store" });
+        if (refreshed.ok) {
+          const refreshedResult = await refreshed.json();
+          setCandidates(refreshedResult.candidates ?? []);
+          setAuditEvents(refreshedResult.auditEvents ?? []);
+          setAuditAvailable(refreshedResult.auditAvailable !== false);
+        }
+      }
+      setNotice(`Retention decision recorded and audited. The next review is scheduled for ${new Date(result.review.retention_review_at).toLocaleDateString()}.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not record retention review.");
+    } finally {
+      setReviewingId(null);
+    }
+  }
+
   async function updateVacancyStatus(vacancy: Vacancy, status: string) {
     let reason = "";
     if (["draft", "paused", "filled", "cancelled"].includes(status)) {
@@ -478,6 +518,7 @@ export default function WorkforcePage() {
                     {(candidate.job_relevant_skills ?? []).length > 0 && <div className="mt-3 flex flex-wrap gap-2">{candidate.job_relevant_skills.map((skill) => <span key={skill} className="rounded-full bg-slate-800 px-2.5 py-1 text-xs text-slate-300">{skill}</span>)}</div>}
                     <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-800 pt-3">
                       {candidate.profile_url && <a href={candidate.profile_url} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800">Open source profile <ExternalLink size={13} /></a>}
+                      <button type="button" disabled={reviewingId === candidate.id} onClick={() => void recordRetentionReview(candidate)} className="rounded-lg border border-cyan-900 px-3 py-2 text-xs text-cyan-200 hover:bg-cyan-950/40 disabled:opacity-50">Record retention review</button>
                       <label className="sr-only" htmlFor={`review-${candidate.id}`}>Update candidate review status</label>
                       <select id={`review-${candidate.id}`} disabled={reviewingId === candidate.id} value={candidate.review_status} onChange={(event) => void updateCandidateReview(candidate, event.target.value)} className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 disabled:opacity-50">
                         <option value="new">New</option><option value="reviewing">Reviewing</option><option value="shortlisted">Shortlisted for human review</option><option value="not_progressing">Not progressing</option><option value="withdrawn">Withdrawn</option>
