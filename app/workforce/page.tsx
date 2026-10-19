@@ -49,6 +49,9 @@ type CandidateLead = {
   evidence_status: string;
   review_status: string;
   retrieved_at: string;
+  retention_review_at: string;
+  retentionStatus?: "overdue" | "due_soon" | "scheduled" | "unknown";
+  daysUntilRetentionReview?: number | null;
   requirementCoverage?: {
     matchedCount: number;
     totalCount: number;
@@ -455,9 +458,11 @@ export default function WorkforcePage() {
                   <article key={candidate.id} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div><h3 className="font-semibold">{candidate.display_name || "Name not provided by source"}</h3><p className="mt-1 text-xs text-slate-500">Source: {candidate.source_id} · Retrieved {new Date(candidate.retrieved_at).toLocaleDateString()}</p></div>
-                      <div className="flex flex-wrap gap-2"><span className="rounded-full border border-slate-700 px-2.5 py-1 text-xs text-slate-300">{label(candidate.review_status)}</span><span className="rounded-full border border-amber-900 bg-amber-950/40 px-2.5 py-1 text-xs text-amber-200">Evidence: {label(candidate.evidence_status)}</span></div>
+                      <div className="flex flex-wrap gap-2"><span className="rounded-full border border-slate-700 px-2.5 py-1 text-xs text-slate-300">{label(candidate.review_status)}</span><span className="rounded-full border border-amber-900 bg-amber-950/40 px-2.5 py-1 text-xs text-amber-200">Evidence: {label(candidate.evidence_status)}</span>{candidate.retentionStatus === "overdue" && <span className="rounded-full border border-red-900 bg-red-950/40 px-2.5 py-1 text-xs text-red-200">Retention review overdue</span>}{candidate.retentionStatus === "due_soon" && <span className="rounded-full border border-amber-800 bg-amber-950/40 px-2.5 py-1 text-xs text-amber-200">Retention review due soon</span>}</div>
                     </div>
                     {candidate.location_text && <p className="mt-2 flex items-center gap-2 text-sm text-slate-300"><MapPin size={14} />{candidate.location_text}</p>}
+                    {candidate.retentionStatus === "overdue" && <p className="mt-2 text-xs leading-5 text-red-200">The scheduled data-retention review date has passed. Review whether continued retention is necessary under your organization's policy and applicable law.</p>}
+                    {candidate.retentionStatus === "due_soon" && <p className="mt-2 text-xs leading-5 text-amber-200">A data-retention review is due within 14 days. Confirm the lawful retention period and document the decision.</p>}
                     {candidate.job_relevant_summary && <p className="mt-3 text-sm leading-6 text-slate-400">{candidate.job_relevant_summary}</p>}
                     {candidate.requirementCoverage && candidate.requirementCoverage.totalCount > 0 && (
                       <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
