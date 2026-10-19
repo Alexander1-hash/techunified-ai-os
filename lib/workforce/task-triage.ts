@@ -42,12 +42,12 @@ export function assessWorkforceTask(input: WorkforceTaskInput): WorkforceTaskAss
   const signals = {
     repetitive: /report|summari[sz]|classif|categor|extract|transcrib|schedule|invoice|data entry|routine|reconcil|format|monitor|draft|respond to common|faq/.test(normalized),
     decisionHeavy: /diagnos|prescrib|legal advice|approve|fire|hire|disciplin|invest|trade|safety-critical|emergency|surgery|treatment/.test(normalized),
-    peopleFacing: /negotia|conflict|complaint|counsel|therapy|caregiving|customer escalation|relationship|interview/.test(normalized),
+    peopleFacing: Boolean(input.requiresEmpathyOrNegotiation) || /negotia|conflict|complaint|counsel|therapy|caregiving|customer escalation|relationship|interview/.test(normalized),
     physical: Boolean(input.requiresPhysicalPresence) || /repair|install|drive|deliver|clean|operate machinery|physical inspection|hands-on/.test(normalized),
     licensed: Boolean(input.requiresLicensedJudgment) || /licensed|certified professional|medical|clinical|legal judgment|engineering sign.?off/.test(normalized),
   };
   const sensitive = sensitivity === "regulated" || sensitivity === "confidential";
-  const highRisk = impact === "high" || signals.decisionHeavy || signals.licensed || sensitivity === "regulated";
+  const highRisk = impact === "high" || signals.decisionHeavy || signals.licensed || sensitivity === "regulated" || sensitivity === "confidential";
   const prerequisites = [
     "Connect only the approved systems and data sources required for this task; none are connected by this assessment.",
     "Define an accountable owner, allowed actions, access permissions, and a way to stop or reverse changes.",
