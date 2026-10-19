@@ -32,6 +32,11 @@ export interface WorkforceTaskAssessment {
   summary: string;
   suitableForAutomation: string[];
   workflowPlan: WorkforceWorkflowStep[];
+  automationBoundary: string[];
+  capabilityRequirements: string[];
+  measurementPlan: string[];
+  failureModes: string[];
+  humanFallback: string;
   humanResponsibilities: string[];
   prerequisites: string[];
   validationGates: string[];
@@ -117,6 +122,37 @@ export function assessWorkforceTask(input: WorkforceTaskInput): WorkforceTaskAss
         : "A hybrid workflow is the prudent starting point: automate bounded support tasks and retain human ownership of decisions and exceptions.",
     suitableForAutomation,
     workflowPlan,
+    automationBoundary: [
+      recommendation === "automate_candidate"
+        ? "Limit automation to repeatable preparation and checks; keep external, financial, irreversible, or access-changing actions behind explicit human approval."
+        : recommendation === "human_led"
+          ? "Do not automate the core physical, licensed, or consequential judgment. Restrict AI to bounded administrative support approved by the process owner."
+          : "Automate only clearly separable low-risk steps; keep judgment, exceptions, and consequential actions with an accountable person.",
+      "Do not use protected traits or unrelated personal data. Use only task-relevant information authorized for this workflow.",
+      "No production action is permitted until required integrations, permissions, tests, monitoring, and rollback are verified.",
+    ],
+    capabilityRequirements: [
+      ...(signals.repetitive ? ["A validated model or deterministic service for extraction, drafting, classification, or repeatable checks appropriate to the task."] : ["A documented capability test showing the proposed tool can perform the specific bounded subtask at acceptable quality."]),
+      "Approved source data and a traceable method to verify generated outputs against authoritative evidence.",
+      "Least-privilege connectors, access controls, audit logs, rate/error handling, and an operator-controlled disable switch.",
+      ...(signals.peopleFacing ? ["A safe escalation path for sensitive conversations and a human owner for customer or stakeholder outcomes."] : []),
+      ...(signals.licensed ? ["A qualified professional and jurisdiction-specific credential checks for all regulated judgment or sign-off."] : []),
+      ...(signals.physical ? ["A capable human or separately validated physical system for the physical portion of the task."] : []),
+    ],
+    measurementPlan: [
+      "Record a representative pre-automation baseline for completion time, quality/error rate, exception rate, and human review effort.",
+      "Run a limited pilot on a defined task sample and compare results using the same measurement definitions.",
+      "Track unsafe outputs, missed exceptions, rework, user overrides, and operational cost alongside speed.",
+      "Expand only after the process owner reviews evidence and approves a documented go/no-go decision.",
+    ],
+    failureModes: [
+      "Incorrect, incomplete, stale, or fabricated output: verify against source evidence and reject unsupported claims.",
+      "Missing or malformed inputs: stop the workflow and route the case to the owner instead of guessing.",
+      "Connector, permission, or service outage: fail closed for consequential actions and preserve an auditable error state.",
+      "Prompt injection or untrusted source content: treat retrieved content as data, not instructions, and enforce server-side permissions.",
+      "Unexpected or high-impact case: pause automation, alert the owner, and use the human fallback.",
+    ],
+    humanFallback: "If a validation check fails, a source is unavailable, confidence is insufficient, or the case falls outside the approved scope, stop automated action, preserve the evidence and error record, notify the named owner, and route the task to the existing human process. Resume only after review.",
     humanResponsibilities,
     prerequisites: [...new Set(prerequisites)],
     validationGates,
