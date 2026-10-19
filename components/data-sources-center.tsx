@@ -33,6 +33,11 @@ type Column = {
   missing: number
 }
 
+type ImportQuality = {
+  rowCount: number
+  duplicateRows: number
+}
+
 type Provider = 'supabase' | 'csv' | 'excel' | 'google-sheets' | 'postgresql' | 'crm' | 'accounting' | 'analytics' | null
 
 const sourceOptions = [
@@ -126,6 +131,7 @@ export function DataSourcesCenter() {
   const [error, setError] = useState('')
   const [result, setResult] = useState<Source | null>(null)
   const [columns, setColumns] = useState<Column[]>([])
+  const [importQuality, setImportQuality] = useState<ImportQuality | null>(null)
   const [mapping, setMapping] = useState<Record<string, string>>({})
   const [setupFields, setSetupFields] = useState<Record<string, string>>({})
   const fileRef = useRef<HTMLInputElement | null>(null)
@@ -185,6 +191,7 @@ export function DataSourcesCenter() {
     setError('')
     setResult(null)
     setColumns([])
+    setImportQuality(null)
     setMapping({})
   }
 
@@ -325,6 +332,11 @@ export function DataSourcesCenter() {
         Array.isArray(data?.columns)
           ? data.columns
           : [],
+      )
+      setImportQuality(
+        data?.quality && typeof data.quality.rowCount === 'number'
+          ? { rowCount: data.quality.rowCount, duplicateRows: Number(data.quality.duplicateRows) || 0 }
+          : null,
       )
 
       setMessage(
@@ -847,6 +859,23 @@ export function DataSourcesCenter() {
             {columns.length > 0 &&
               result && (
                 <div className="mt-6 space-y-5">
+
+                  {importQuality && (
+                    <div className="grid gap-3 sm:grid-cols-3" aria-label="Import quality summary">
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <p className="text-xs text-slate-500">Rows imported</p>
+                        <p className="mt-1 text-xl font-semibold text-slate-950">{importQuality.rowCount.toLocaleString()}</p>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <p className="text-xs text-slate-500">Duplicate rows detected</p>
+                        <p className="mt-1 text-xl font-semibold text-slate-950">{importQuality.duplicateRows.toLocaleString()}</p>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <p className="text-xs text-slate-500">Detected fields</p>
+                        <p className="mt-1 text-xl font-semibold text-slate-950">{columns.length.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
 
                   <div>
 

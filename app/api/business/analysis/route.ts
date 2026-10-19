@@ -275,7 +275,7 @@ export async function POST(request: Request) {
   const { data: source } = await supabase
     .from('business_data_sources')
     .select(
-      'id,name,configuration_metadata',
+      'id,name,status,configuration_metadata',
     )
     .eq('id', body.sourceId)
     .eq('organization_id', organizationId)
@@ -285,6 +285,20 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: 'Source not found.' },
       { status: 404 },
+    )
+  }
+
+  if (source.status !== 'connected') {
+    return NextResponse.json(
+      { error: 'This source is not connected yet. Complete a real connection and sync before mapping KPIs.' },
+      { status: 409 },
+    )
+  }
+
+  if (body.mappings.length > 50) {
+    return NextResponse.json(
+      { error: 'Map no more than 50 fields in one request.' },
+      { status: 400 },
     )
   }
 
@@ -311,13 +325,21 @@ export async function POST(request: Request) {
     (record: any) => record.payload,
   )
 
+  const availableFields = new Set(
+    sample.flatMap((record: any) =>
+      record && typeof record === 'object' && !Array.isArray(record)
+        ? Object.keys(record)
+        : [],
+    ),
+  )
+
   const valid = body.mappings
     .map((m: any) => ({
       fieldName:
         typeof m.fieldName === 'string'
-          ? m.fieldName
+          ? m.fieldName.trim().slice(0, 200)
           : typeof m.column === 'string'
-            ? m.column
+            ? m.column.trim().slice(0, 200)
             : '',
       metricName:
         typeof m.metricName === 'string'
@@ -333,7 +355,11 @@ export async function POST(request: Request) {
     .filter(
       (m: any) =>
         m.fieldName.length > 0 &&
+        availableFields.has(m.fieldName) &&
         METRICS.includes(m.metricName),
+    )
+    .filter((m: any, index: number, all: any[]) =>
+      all.findIndex((candidate: any) => candidate.fieldName === m.fieldName) === index,
     )
 
   if (!valid.length) {
@@ -350,19 +376,25 @@ export async function POST(request: Request) {
 
   for (const mapping of valid) {
     const values = sample
-      .map((r: any) =>
-        Number(r[mapping.fieldName]),
+      .map((record: any) => record?.[mapping.fieldName])
+      .filter((raw: unknown) =>
+        raw !== null &&
+        raw !== undefined &&
+        !(typeof raw === 'string' && raw.trim() === ''),
       )
-      .filter(Number.isFinite)
+      .map((raw: unknown) =>
+        typeof raw === 'number' ? raw : Number(String(raw).replace(/,/g, '')),
+      )
+      .filter((value: number) => Number.isFinite(value))
 
     if (!values.length) {
       continue
     }
 
-    const value = values.reduce(
-      (a: number, b: number) => a + b,
-      0,
-    )
+    const isRateMetric = ['Conversion Rate', 'Churn', 'Retention'].includes(mapping.metricName)
+    const value = isRateMetric
+      ? values.reduce((sum: number, current: number) => sum + current, 0) / values.length
+      : values.reduce((sum: number, current: number) => sum + current, 0)
 
     const { data: existingKpi } =
       await supabase
@@ -370,6 +402,8 @@ export async function POST(request: Request) {
         .select('id,value,previous_value')
         .eq('organization_id', organizationId)
         .eq('name', mapping.metricName)
+        .order('recorded_at', { ascending: false })
+        .limit(1)
         .maybeSingle()
 
     const kpiPayload = {
@@ -453,5 +487,6 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     persistedKpis,
+    aggregation: 'Sum for additive metrics; average for conversion rate, churn, and retention.',
   })
 }
