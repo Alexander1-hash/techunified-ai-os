@@ -149,7 +149,7 @@ export function transitionRecruitment(
     }
   }
 
-  if (action === "mark_hired" && !record.mandatoryCredentialsVerified) {
+  if (action === "send_offer" && !record.humanHiringApproval) {\n    return { ok: false, code: "missing_evidence", message: "A hiring manager or organization administrator must explicitly approve the offer before it can be sent." };\n  }\n\n  if (action === "mark_hired" && !record.mandatoryCredentialsVerified) {
     return { ok: false, code: "missing_evidence", message: "Mandatory credentials must be verified by an authorized human before marking a candidate hired." };
   }
 
