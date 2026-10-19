@@ -75,10 +75,23 @@ export async function GET(request: Request) {
       ? vacancy.required_licences.filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, 30)
       : [];
     const assessedCandidates = (data ?? []).map((candidate) => {
+      const retentionReviewAt = new Date(candidate.retention_review_at).getTime();
+      const daysUntilRetentionReview = Number.isFinite(retentionReviewAt)
+        ? Math.ceil((retentionReviewAt - Date.now()) / (24 * 60 * 60 * 1000))
+        : null;
+      const retentionStatus = daysUntilRetentionReview === null
+        ? "unknown"
+        : daysUntilRetentionReview < 0
+          ? "overdue"
+          : daysUntilRetentionReview <= 14
+            ? "due_soon"
+            : "scheduled";
       const evidenceText = [candidate.job_relevant_summary ?? "", ...(Array.isArray(candidate.job_relevant_skills) ? candidate.job_relevant_skills : [])].join(" ").toLocaleLowerCase();
       const matchedRequirements = requirements.filter((requirement) => evidenceText.includes(requirement.toLocaleLowerCase()));
       return {
         ...candidate,
+        retentionStatus,
+        daysUntilRetentionReview,
         requirementCoverage: {
           matchedCount: matchedRequirements.length,
           totalCount: requirements.length,
