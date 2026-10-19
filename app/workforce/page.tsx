@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { BriefcaseBusiness, ExternalLink, Globe2, LoaderCircle, MapPin, Plus, RefreshCw, ShieldCheck, Users, BrainCircuit, ClipboardCheck } from "lucide-react";
+import type { WorkforceTaskAssessment } from "@/lib/workforce/task-triage";
 
 type Vacancy = {
   id: string;
@@ -112,7 +113,7 @@ export default function WorkforcePage() {
   const [taskPhysical, setTaskPhysical] = useState(false);
   const [taskLicensed, setTaskLicensed] = useState(false);
   const [taskAssessing, setTaskAssessing] = useState(false);
-  const [taskAssessment, setTaskAssessment] = useState<any>(null);
+  const [taskAssessment, setTaskAssessment] = useState<WorkforceTaskAssessment | null>(null);
 
   const loadVacancies = useCallback(async () => {
     setLoading(true);
@@ -371,6 +372,7 @@ export default function WorkforcePage() {
           </form>
           {taskAssessment && <div className="mt-5 space-y-4 rounded-xl border border-slate-700 bg-slate-950/80 p-4 sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs uppercase tracking-wider text-slate-500">Recommendation</p><h3 className="mt-1 text-xl font-semibold text-cyan-200">{taskAssessment.recommendation === "automate_candidate" ? "Automation candidate" : taskAssessment.recommendation === "human_led" ? "Human-led work" : taskAssessment.recommendation === "hybrid" ? "Hybrid: AI + human" : taskAssessment.recommendation}</h3><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">{taskAssessment.summary}</p></div><div className="flex gap-2"><span className="rounded-full border border-amber-800 px-3 py-1 text-xs text-amber-200">Risk: {taskAssessment.risk}</span><span className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300">Confidence: limited</span></div></div>
+            <div className="rounded-xl border border-cyan-900/60 p-4"><h4 className="font-semibold text-slate-100">Proposed workflow with approval gates</h4><p className="mt-1 text-xs leading-5 text-slate-500">A plan for human review—not an executable workflow.</p><ol className="mt-3 space-y-3">{taskAssessment.workflowPlan.map((step,index)=><li key={step.stage} className="grid gap-2 rounded-lg border border-slate-800 p-3 sm:grid-cols-[auto_1fr]"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800 text-xs">{index+1}</span><div><div className="flex flex-wrap items-center gap-2"><strong className="text-sm text-slate-200">{step.stage}</strong><span className="rounded-full border border-slate-700 px-2 py-0.5 text-[11px] text-cyan-200">{step.owner === "AI_assistance" ? "AI assistance" : step.owner === "human" ? "Human owner" : "Shared responsibility"}</span>{step.approvalRequired && <span className="rounded-full border border-amber-900 px-2 py-0.5 text-[11px] text-amber-200">Approval gate</span>}</div><p className="mt-1 text-sm leading-5 text-slate-400">{step.action}</p><p className="mt-1 text-xs leading-5 text-slate-500">Acceptance: {step.acceptanceCriteria}</p></div></li>)}</ol></div>
             <div className="grid gap-4 md:grid-cols-2">
               {([["Potential AI support","suitableForAutomation"],["Human responsibilities","humanResponsibilities"],["Prerequisites","prerequisites"],["Validation gates","validationGates"],["Recommended next steps","nextSteps"],["Important limitations","limitations"]] as const).map(([title,key])=><div key={key} className="rounded-xl border border-slate-800 p-3"><h4 className="font-medium text-slate-200">{title}</h4><ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-5 text-slate-400">{(taskAssessment[key] as string[]).map((item:string,i:number)=><li key={i}>{item}</li>)}</ul></div>)}
             </div>
