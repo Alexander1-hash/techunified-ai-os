@@ -94,6 +94,10 @@ export async function POST(request: Request) {
   if (profileError || !profile?.organization_id) return NextResponse.json({ error: 'Organization context is required.' }, { status: 401 })
   const contentType = request.headers.get('content-type') ?? ''
   if (contentType.includes('application/json')) {
+    const contentLength = Number(request.headers.get('content-length') ?? 0)
+    if (contentLength > 64 * 1024) {
+      return NextResponse.json({ error: 'Integration setup is too large. Keep setup details under 64 KB and never include database passwords or API secrets.' }, { status: 413 })
+    }
     const body = await request.json().catch(() => null)
     const provider = typeof body?.provider === 'string' ? body.provider : ''
     const allowedProviders = new Set(['google-sheets', 'postgresql', 'crm', 'accounting', 'analytics'])
