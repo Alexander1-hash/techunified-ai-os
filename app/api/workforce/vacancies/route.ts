@@ -65,6 +65,9 @@ export async function POST(request: Request) {
     if (!organizationId || !userId) {
       return NextResponse.json({ error: "Authentication required." }, { status: 401 });
     }
+    if (!["owner", "admin", "organization_admin", "recruiter", "hiring_manager"].includes(profile.role)) {
+      return NextResponse.json({ error: "Your account role does not have permission to create vacancies." }, { status: 403 });
+    }
 
     let body: Record<string, unknown>;
     try {
