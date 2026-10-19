@@ -106,3 +106,20 @@ Before implementing any recommended automation, map the current process, select 
 The task assessment also returns a proposed five-stage workflow plan (define, prepare, verify, human approval, measure) with a responsible owner, approval gate, and acceptance criteria for each stage. This is a planning artifact only: it is not persisted, scheduled, or executable, and it does not imply any connector is installed.
 
 The assessment now also provides an implementation control plan: explicit automation boundaries, required capabilities and controls, a pilot measurement plan, common failure modes, and a human fallback/stop condition. This makes the recommendation a more actionable design brief while keeping it honest about what has and has not been integrated. It remains deterministic planning guidance; it does not test a model, inspect installed connectors, execute tasks, persist assessment inputs, or claim savings.
+
+## Workforce automation readiness contract
+
+`lib/workforce/execution-readiness.ts` defines a fail-closed, typed state and gate contract for any future workflow runner. It is a policy/domain layer only: it does not execute tasks, invoke an integration, persist approvals, or grant access.
+
+The workflow states are `draft`, `validation_required`, `awaiting_approval`, `ready_for_pilot`, `running`, `completed`, `failed`, and `stopped`. Terminal states cannot be resumed directly. A running transition is rejected unless a process owner is assigned and integration verification, least-privilege verification, a baseline, approved pilot scope, validation, and explicit human approval are all recorded. Evidence must include a valid timestamp and configuration fingerprint; evidence older than 24 hours is rejected and must be revalidated.
+
+Important safety boundary: the readiness report deliberately returns `executionPermitted: false`. A future runner must independently re-check the gates immediately before execution, enforce organization authorization in the server/data layer, persist state changes and audit events transactionally, and stop safely on permission, validation, or integration failures. A readiness report is not evidence that the application has an execution engine or a verified provider integration.
+
+### Current workforce limitations
+
+- Task assessment is deterministic rule-based planning, not an AI model's validated capability evaluation.
+- The blueprint JSON export is a planning artifact and cannot run workflows.
+- Live candidate discovery is not connected; the ingestion endpoint is only a controlled provider handoff.
+- Recruitment and workforce migrations in the repository still require application and verification in the intended Supabase project.
+- Production deployment and runtime status must be verified in the authorized Vercel project; a GitHub commit alone does not prove production deployment.
+
