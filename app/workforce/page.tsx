@@ -112,6 +112,7 @@ export default function WorkforcePage() {
   const [taskImpact, setTaskImpact] = useState("medium");
   const [taskPhysical, setTaskPhysical] = useState(false);
   const [taskLicensed, setTaskLicensed] = useState(false);
+  const [taskEmpathy, setTaskEmpathy] = useState(false);
   const [taskAssessing, setTaskAssessing] = useState(false);
   const [taskAssessment, setTaskAssessment] = useState<WorkforceTaskAssessment | null>(null);
 
@@ -139,7 +140,7 @@ export default function WorkforcePage() {
     setError("");
     setNotice("");
     try {
-      const response = await fetch("/api/workforce/task-assessment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ task: taskDescription, industry: taskIndustry, frequency: taskFrequency, dataSensitivity: taskSensitivity, errorImpact: taskImpact, requiresPhysicalPresence: taskPhysical, requiresLicensedJudgment: taskLicensed }) });
+      const response = await fetch("/api/workforce/task-assessment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ task: taskDescription, industry: taskIndustry, frequency: taskFrequency, dataSensitivity: taskSensitivity, errorImpact: taskImpact, requiresPhysicalPresence: taskPhysical, requiresLicensedJudgment: taskLicensed, requiresEmpathyOrNegotiation: taskEmpathy }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Task assessment failed.");
       setTaskAssessment(result.assessment);
@@ -367,6 +368,7 @@ export default function WorkforcePage() {
             <div className="sm:col-span-2 flex flex-wrap gap-5">
               <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={taskPhysical} onChange={e=>setTaskPhysical(e.target.checked)} className="accent-cyan-400" /> Requires physical presence</label>
               <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={taskLicensed} onChange={e=>setTaskLicensed(e.target.checked)} className="accent-cyan-400" /> Requires licensed professional judgment</label>
+              <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={taskEmpathy} onChange={e=>setTaskEmpathy(e.target.checked)} className="accent-cyan-400" /> Requires empathy, negotiation, or sensitive human interaction</label>
             </div>
             <div className="sm:col-span-2"><button disabled={taskAssessing} className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-60" type="submit">{taskAssessing ? <LoaderCircle size={16} className="animate-spin" /> : <ClipboardCheck size={16} />}{taskAssessing ? "Assessing…" : "Assess task and workforce options"}</button></div>
           </form>
