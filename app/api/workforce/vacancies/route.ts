@@ -115,33 +115,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Provide the authorization reference or leave processing authorization disabled." }, { status: 400 });
     }
 
-    const { data, error } = await supabase
-      .from("workforce_vacancies")
-      .insert({
-        organization_id: organizationId,
-        created_by: userId,
-        title,
-        industry,
-        jurisdiction,
-        location_text: locationText,
-        location_mode: locationMode,
-        employment_type: employmentType,
-        description,
-        requirements,
-        required_licences: requiredLicences,
-        processing_authorized: processingAuthorized,
-        authorization_reference: processingAuthorized ? authorizationReference : null,
-        status,
-      })
-      .select("id,organization_id,created_by,title,industry,jurisdiction,location_text,location_mode,employment_type,description,requirements,required_licences,processing_authorized,status,created_at,updated_at")
-      .single();
+    const { data, error } = await supabase.rpc("create_workforce_vacancy", {
+      p_title: title,
+      p_industry: industry,
+      p_jurisdiction: jurisdiction,
+      p_location_text: locationText,
+      p_location_mode: locationMode,
+      p_employment_type: employmentType,
+      p_description: description,
+      p_requirements: requirements,
+      p_required_licences: requiredLicences,
+      p_processing_authorized: processingAuthorized,
+      p_authorization_reference: processingAuthorized ? authorizationReference : null,
+      p_status: status,
+    });
 
     if (error) {
-      console.error("workforce_vacancy_create_failed", error.code);
-      return NextResponse.json({ error: "Unable to save vacancy. Confirm the workforce database migration has been applied and your organization profile is configured." }, { status: 503 });
+      console.error("workforce_vacancy_create_rpc_failed", error.code);
+      if (error.code === "42501") {
+        return NextResponse.json({ error: "Your role or documented processing authorization does not permit this vacancy creation." }, { status: 403 });
+      }
+      if (error.code === "22023") {
+        return NextResponse.json({ error: "Vacancy fields or authorization details are invalid." }, { status: 400 });
+      }
+      return NextResponse.json({ error: "Unable to save vacancy. Confirm the atomic vacancy creation migration has been applied." }, { status: 503 });
     }
 
-    return NextResponse.json({ success: true, vacancy: data }, { status: 201 });
+    const vacancy = Array.isArray(data) ? data[0] : data;
+    if (!vacancy) return NextResponse.json({ error: "Vacancy creation returned no record." }, { status: 503 });
+    return NextResponse.json({ success: true, vacancy, audit: "recorded_atomically" }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Unable to create vacancy." }, { status: 500 });
   }
