@@ -205,7 +205,7 @@ export async function GET() {
   )
 
   const hasConnectedSource =
-    Boolean(sources.data?.length) &&
+    Boolean((sources.data ?? []).some((source: any) => source.status === 'connected')) &&
     Boolean(mappings.data?.length)
 
   let nextAction =

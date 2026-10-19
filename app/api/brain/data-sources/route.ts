@@ -59,6 +59,12 @@ export async function POST(request: Request) {
     for (const key of urlFields) {
       const value = clean(key, 1000)
       if (!value) continue
+      if (key === 'spreadsheetUrl' && !value.includes('://')) {
+        if (!/^[A-Za-z0-9_-]{20,200}$/.test(value)) {
+          return NextResponse.json({ error: 'Enter a valid Google Sheets URL or spreadsheet ID.' }, { status: 400 })
+        }
+        continue
+      }
       try {
         const parsed = new URL(value)
         if (parsed.protocol !== 'https:' || parsed.username || parsed.password) throw new Error()
