@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { BriefcaseBusiness, ExternalLink, Globe2, LoaderCircle, MapPin, Plus, RefreshCw, ShieldCheck, Users } from "lucide-react";
+import { BriefcaseBusiness, ExternalLink, Globe2, LoaderCircle, MapPin, Plus, RefreshCw, ShieldCheck, Users, BrainCircuit, ClipboardCheck } from "lucide-react";
 
 type Vacancy = {
   id: string;
@@ -103,7 +103,7 @@ export default function WorkforcePage() {
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [candidateQuery, setCandidateQuery] = useState("");
   const [reviewFilter, setReviewFilter] = useState("all");
-  const [transitioningVacancyId, setTransitioningVacancyId] = useState<string | null>(null);
+  const [transitioningVacancyId, setTransitioningVacancyId] = useState<string | null>(null);\n  const [taskDescription, setTaskDescription] = useState("");\n  const [taskIndustry, setTaskIndustry] = useState("");\n  const [taskFrequency, setTaskFrequency] = useState("daily");\n  const [taskSensitivity, setTaskSensitivity] = useState("internal");\n  const [taskImpact, setTaskImpact] = useState("medium");\n  const [taskPhysical, setTaskPhysical] = useState(false);\n  const [taskLicensed, setTaskLicensed] = useState(false);\n  const [taskAssessing, setTaskAssessing] = useState(false);\n  const [taskAssessment, setTaskAssessment] = useState<any>(null);
 
   const loadVacancies = useCallback(async () => {
     setLoading(true);
@@ -122,7 +122,7 @@ export default function WorkforcePage() {
 
   useEffect(() => { void loadVacancies(); }, [loadVacancies]);
 
-  async function openCandidates(vacancy: Vacancy) {
+  async function assessTask(event: FormEvent<HTMLFormElement>) {\n    event.preventDefault();\n    setTaskAssessing(true);\n    setTaskAssessment(null);\n    setError("");\n    setNotice("");\n    try {\n      const response = await fetch("/api/workforce/task-assessment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ task: taskDescription, industry: taskIndustry, frequency: taskFrequency, dataSensitivity: taskSensitivity, errorImpact: taskImpact, requiresPhysicalPresence: taskPhysical, requiresLicensedJudgment: taskLicensed }) });\n      const result = await response.json();\n      if (!response.ok) throw new Error(result.error || "Task assessment failed.");\n      setTaskAssessment(result.assessment);\n    } catch (cause) { setError(cause instanceof Error ? cause.message : "Task assessment failed."); } finally { setTaskAssessing(false); }\n  }\n\n  async function openCandidates(vacancy: Vacancy) {
     setSelectedVacancy(vacancy.id);
     setCandidateQuery("");
     setReviewFilter("all");
@@ -331,6 +331,29 @@ export default function WorkforcePage() {
             </button>
           </div>
         </div>
+
+        <section className="mt-6 rounded-2xl border border-cyan-900/70 bg-slate-900/80 p-4 sm:p-6">
+          <div className="flex items-start gap-3"><div className="rounded-xl bg-cyan-950 p-3 text-cyan-300"><BrainCircuit size={22} /></div><div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">AI Workforce Intelligence Engine · Planning mode</p><h2 className="mt-1 text-xl font-semibold">Should AI do this work, a person, or both?</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Describe a real business task to receive a transparent first-pass recommendation, prerequisites, human responsibilities, and validation gates. This assessment does not execute tasks or access company systems.</p></div></div>
+          <form onSubmit={assessTask} className="mt-5 grid gap-4 sm:grid-cols-2">
+            <label className="block sm:col-span-2"><span className={labelClass}>Task / responsibility *</span><textarea required minLength={10} maxLength={3000} rows={3} value={taskDescription} onChange={e=>setTaskDescription(e.target.value)} className={fieldClass} placeholder="Example: Every Friday, compile sales data from our CRM, summarize performance, and flag unusual changes for the sales manager." /></label>
+            <label className="block"><span className={labelClass}>Industry (optional)</span><input maxLength={120} value={taskIndustry} onChange={e=>setTaskIndustry(e.target.value)} className={fieldClass} placeholder="e.g. Retail, law, healthcare" /></label>
+            <label className="block"><span className={labelClass}>Frequency</span><select value={taskFrequency} onChange={e=>setTaskFrequency(e.target.value)} className={fieldClass}><option value="once">One-time</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>
+            <label className="block"><span className={labelClass}>Data sensitivity</span><select value={taskSensitivity} onChange={e=>setTaskSensitivity(e.target.value)} className={fieldClass}><option value="public">Public</option><option value="internal">Internal business data</option><option value="confidential">Confidential</option><option value="regulated">Regulated / highly sensitive</option></select></label>
+            <label className="block"><span className={labelClass}>Impact if an error occurs</span><select value={taskImpact} onChange={e=>setTaskImpact(e.target.value)} className={fieldClass}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High / consequential</option></select></label>
+            <div className="sm:col-span-2 flex flex-wrap gap-5">
+              <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={taskPhysical} onChange={e=>setTaskPhysical(e.target.checked)} className="accent-cyan-400" /> Requires physical presence</label>
+              <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={taskLicensed} onChange={e=>setTaskLicensed(e.target.checked)} className="accent-cyan-400" /> Requires licensed professional judgment</label>
+            </div>
+            <div className="sm:col-span-2"><button disabled={taskAssessing} className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-60" type="submit">{taskAssessing ? <LoaderCircle size={16} className="animate-spin" /> : <ClipboardCheck size={16} />}{taskAssessing ? "Assessing…" : "Assess task and workforce options"}</button></div>
+          </form>
+          {taskAssessment && <div className="mt-5 space-y-4 rounded-xl border border-slate-700 bg-slate-950/80 p-4 sm:p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs uppercase tracking-wider text-slate-500">Recommendation</p><h3 className="mt-1 text-xl font-semibold text-cyan-200">{({automate_candidate:"Automation candidate",human_led:"Human-led work",hybrid:"Hybrid: AI + human"})[taskAssessment.recommendation as string] || taskAssessment.recommendation}</h3><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">{taskAssessment.summary}</p></div><div className="flex gap-2"><span className="rounded-full border border-amber-800 px-3 py-1 text-xs text-amber-200">Risk: {taskAssessment.risk}</span><span className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300">Confidence: limited</span></div></div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {([["Potential AI support","suitableForAutomation"],["Human responsibilities","humanResponsibilities"],["Prerequisites","prerequisites"],["Validation gates","validationGates"],["Recommended next steps","nextSteps"],["Important limitations","limitations"]] as const).map(([title,key])=><div key={key} className="rounded-xl border border-slate-800 p-3"><h4 className="font-medium text-slate-200">{title}</h4><ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-5 text-slate-400">{(taskAssessment[key] as string[]).map((item:string,i:number)=><li key={i}>{item}</li>)}</ul></div>)}
+            </div>
+            <p className="text-xs leading-5 text-amber-200/90">Planning assessment only: this result is rule-based, not a live capability test. No job was executed, no integration was checked, and no savings or ROI are claimed.</p>
+          </div>}
+        </section>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
