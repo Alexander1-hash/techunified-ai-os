@@ -7,6 +7,64 @@ const MAX_BYTES = 10 * 1024 * 1024
 const MAX_ROWS = 5000
 const allowed = new Set(['csv', 'xlsx'])
 
+function parseCsv(text: string): Record<string, unknown>[] {
+  const input = text.replace(/^\uFEFF/, '')
+  const rows: string[][] = []
+  let row: string[] = []
+  let field = ''
+  let quoted = false
+
+  for (let i = 0; i < input.length; i += 1) {
+    const char = input[i]
+    if (quoted) {
+      if (char === '"') {
+        if (input[i + 1] === '"') {
+          field += '"'
+          i += 1
+        } else {
+          quoted = false
+        }
+      } else {
+        field += char
+      }
+      continue
+    }
+
+    if (char === '"' && field.length === 0) {
+      quoted = true
+    } else if (char === ',') {
+      row.push(field)
+      field = ''
+    } else if (char === '\n' || char === '\r') {
+      if (char === '\r' && input[i + 1] === '\n') i += 1
+      row.push(field)
+      field = ''
+      if (row.some((value) => value.trim() !== '')) rows.push(row)
+      row = []
+      if (rows.length > MAX_ROWS + 1) break
+    } else {
+      field += char
+    }
+  }
+
+  if (quoted) throw new Error('The CSV contains an unclosed quoted field.')
+  if (field.length || row.length) {
+    row.push(field)
+    if (row.some((value) => value.trim() !== '')) rows.push(row)
+  }
+  if (!rows.length) return []
+
+  const headers = rows[0].map((header) => header.trim())
+  if (headers.some((header) => !header)) throw new Error('Every CSV column must have a non-empty header.')
+  if (new Set(headers).size !== headers.length) throw new Error('CSV column headers must be unique.')
+  if (rows.length - 1 > MAX_ROWS) throw new Error(`This file contains more than the ${MAX_ROWS.toLocaleString()}-row import limit. Split it into smaller files so no records are silently omitted.`)
+
+  return rows.slice(1).map((values) => {
+    if (values.length > headers.length) throw new Error('A CSV row contains more values than the header row.')
+    return Object.fromEntries(headers.map((header, index) => [header, values[index] ?? '']))
+  })
+}
+
 function inspect(rows: Record<string, unknown>[]) {
   const columns = Object.keys(rows[0] ?? {})
   const details = columns.map((name) => {
@@ -123,15 +181,32 @@ export async function POST(request: Request) {
   if (extension === 'csv' && buffer.includes(0)) {
     return NextResponse.json({ error: 'The CSV contains binary data. Export it as a UTF-8 CSV and try again.' }, { status: 415 })
   }
-  let workbook: XLSX.WorkBook
-  try {
-    workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true, sheetRows: MAX_ROWS + 1 })
-  } catch {
-    return NextResponse.json({ error: 'The file could not be parsed. Check that it is a valid CSV or XLSX file.' }, { status: 422 })
+  let rows: Record<string, unknown>[]
+  let sheetName = 'CSV'
+  if (extension === 'csv') {
+    let text: string
+    try {
+      text = new TextDecoder('utf-8', { fatal: true }).decode(buffer)
+      rows = parseCsv(text)
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : ''
+      const tooManyRows = detail.includes('row import limit')
+      return NextResponse.json(
+        { error: detail || 'The CSV could not be decoded as UTF-8.' },
+        { status: tooManyRows ? 413 : 422 },
+      )
+    }
+  } else {
+    let workbook: XLSX.WorkBook
+    try {
+      workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true, sheetRows: MAX_ROWS + 1 })
+    } catch {
+      return NextResponse.json({ error: 'The workbook could not be parsed. Check that it is a valid XLSX file.' }, { status: 422 })
+    }
+    sheetName = String(form.get('sheet') || workbook.SheetNames[0] || '')
+    if (!sheetName || !workbook.Sheets[sheetName]) return NextResponse.json({ error: 'Select a valid workbook sheet.' }, { status: 400 })
+    rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[sheetName], { defval: '' })
   }
-  const sheetName = String(form.get('sheet') || workbook.SheetNames[0] || '')
-  if (!sheetName || !workbook.Sheets[sheetName]) return NextResponse.json({ error: 'Select a valid workbook sheet.' }, { status: 400 })
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[sheetName], { defval: '' })
   if (!rows.length) return NextResponse.json({ error: 'The file contains no data rows.' }, { status: 422 })
   if (rows.length > MAX_ROWS) {
     return NextResponse.json({ error: `This file contains more than the ${MAX_ROWS.toLocaleString()}-row import limit. Split it into smaller files so no records are silently omitted.` }, { status: 413 })
@@ -144,7 +219,7 @@ export async function POST(request: Request) {
     seenRows.add(key)
     return true
   })
-  const { data, error } = await supabase.from('business_data_sources').insert({ organization_id: profile.organization_id, name: file.name, provider: extension === 'xlsx' ? 'excel' : 'csv', category: 'file', status: 'connected', configuration_metadata: { file_name: file.name, sheet: sheetName, quality, rowCount: rows.length, uniqueRowCount: uniqueRows.length, duplicatesExcluded: quality.duplicateRows, columns: quality.columns, sample: uniqueRows.slice(0, 10), mappings: [], imported_at: new Date().toISOString() }, last_synced_at: new Date().toISOString() }).select('id,name,provider,category,status,configuration_metadata,last_synced_at').single()
+  const { data, error } = await supabase.from('business_data_sources').insert({ organization_id: profile.organization_id, name: file.name, provider: extension === 'xlsx' ? 'excel' : 'csv', category: 'file', status: 'connected', configuration_metadata: { file_name: file.name, sheet: sheetName, quality, rowCount: rows.length, uniqueRowCount: uniqueRows.length, duplicatesExcluded: quality.duplicateRows, columns: quality.columns, mappings: [], imported_at: new Date().toISOString() }, last_synced_at: new Date().toISOString() }).select('id,name,provider,category,status,configuration_metadata,last_synced_at').single()
   if (error || !data) return NextResponse.json({ error: 'The file was validated but could not be saved. Confirm the Brain data migration is applied.' }, { status: 500 })
   const records = uniqueRows.map((row, index) => {
     const dateKey = Object.keys(row).find((key) => /^(date|timestamp|recorded_at|created_at|transaction_date|order_date)$/i.test(key))
@@ -162,13 +237,25 @@ export async function POST(request: Request) {
       recorded_at: Number.isFinite(parsedDate) ? new Date(parsedDate).toISOString() : null,
     }
   })
-  const { error: recordsError } = await supabase.from('business_source_records').upsert(records, { onConflict: 'source_id,record_key' })
+  // Keep payloads bounded and roll back partial writes so a failed import cannot leave
+  // a source that appears usable while containing only some of its rows.
+  let recordsError: { message?: string } | null = null
+  const recordBatchSize = 500
+  for (let start = 0; start < records.length; start += recordBatchSize) {
+    const batch = records.slice(start, start + recordBatchSize)
+    const { error } = await supabase.from('business_source_records').upsert(batch, { onConflict: 'source_id,record_key' })
+    if (error) {
+      recordsError = error
+      break
+    }
+  }
   if (recordsError) {
+    await supabase.from('business_source_records').delete().eq('source_id', data.id).eq('organization_id', profile.organization_id)
     await supabase.from('business_data_sources').update({
       status: 'sync_failed',
-      configuration_metadata: { ...(data.configuration_metadata ?? {}), ingestion_status: 'failed', ingestion_error: 'Normalized record persistence failed.' },
+      configuration_metadata: { ...(data.configuration_metadata ?? {}), ingestion_status: 'failed', ingestion_error: 'Normalized record persistence failed; partial records were cleaned up.' },
     }).eq('id', data.id).eq('organization_id', profile.organization_id)
-    return NextResponse.json({ error: 'The source was validated but its records could not be saved. Check the Company Brain database migration and try importing again.' }, { status: 500 })
+    return NextResponse.json({ error: 'The source could not be fully saved. Any partial records were removed; check the Company Brain database migration and try importing again.' }, { status: 500 })
   }
   return NextResponse.json({ source: data, quality, columns: quality.columns, recordsPersisted: records.length })
 }
