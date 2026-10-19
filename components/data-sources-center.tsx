@@ -127,12 +127,13 @@ export function DataSourcesCenter() {
   const [result, setResult] = useState<Source | null>(null)
   const [columns, setColumns] = useState<Column[]>([])
   const [mapping, setMapping] = useState<Record<string, string>>({})
+  const [setupFields, setSetupFields] = useState<Record<string, string>>({})
   const fileRef = useRef<HTMLInputElement | null>(null)
 
   const connectedProviders = useMemo(
     () =>
       new Set(
-        sources.map((source) => source.provider),
+        sources.filter((source) => source.status === 'connected').map((source) => source.provider),
       ),
     [sources],
   )
@@ -189,6 +190,7 @@ export function DataSourcesCenter() {
 
   function openSetup(provider: Provider) {
     resetFeedback()
+    setSetupFields({})
     setActive(provider)
 
     window.setTimeout(() => {
@@ -203,7 +205,36 @@ export function DataSourcesCenter() {
 
   function closeSetup() {
     resetFeedback()
+    setSetupFields({})
     setActive(null)
+  }
+
+  async function saveExternalSetup() {
+    if (!active || ['supabase', 'csv', 'excel'].includes(active)) return
+    const name = (setupFields.name ?? '').trim()
+    if (!name) {
+      setError('Give this integration a recognizable name before saving.')
+      return
+    }
+    setBusy(true)
+    setMessage('')
+    setError('')
+    try {
+      const response = await fetch('/api/brain/data-sources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: active, setup: setupFields }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.error || 'Integration setup could not be saved.')
+      setResult(data?.source ?? null)
+      setMessage('Setup details saved. This source is pending provider authentication and a real test sync; it is not connected yet.')
+      await loadSources()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Integration setup could not be saved.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function verifySupabase() {
@@ -544,11 +575,11 @@ export function DataSourcesCenter() {
           <div>
 
             <h2 className="text-lg font-semibold text-slate-950">
-              Connected sources
+              Data source registry
             </h2>
 
             <p className="mt-1 text-sm text-slate-600">
-              Sources available to the Business Analyst.
+              Connected sources and saved integration setups for this organization.
             </p>
 
           </div>
@@ -601,8 +632,8 @@ export function DataSourcesCenter() {
                         {source.name}
                       </h3>
 
-                      <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium capitalize text-emerald-700">
-                        {source.status}
+                      <span className={`rounded-full px-2 py-1 text-xs font-medium capitalize ${source.status === 'connected' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>
+                        {source.status === 'connected' ? 'Connected' : source.status.replaceAll('_', ' ')}
                       </span>
 
                     </div>
@@ -727,34 +758,42 @@ export function DataSourcesCenter() {
             )}
 
             {active && !['supabase', 'csv', 'excel'].includes(active) && (
-              <div className="mt-6 space-y-5">
+              <form className="mt-6 space-y-5" onSubmit={(event) => { event.preventDefault(); void saveExternalSetup() }}>
                 <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-                  <p className="font-semibold text-blue-950">Integration setup is open</p>
-                  <p className="mt-2 text-sm leading-6 text-blue-900">
-                    This provider is available to configure, but it is not connected yet. To protect your company data, TechUnifedAIOS will not mark it as connected or request passwords and API secrets in this screen.
-                  </p>
+                  <p className="font-semibold text-blue-950">Integration setup details</p>
+                  <p className="mt-2 text-sm leading-6 text-blue-900">Save non-secret details needed to prepare this connector. Never enter passwords, API keys, or OAuth tokens here. Saving records a setup request only; it does not connect or sync the provider.</p>
                 </div>
-                <div className="rounded-xl border border-slate-200 p-4">
-                  <h3 className="font-semibold text-slate-950">Setup checklist</h3>
-                  <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-600">
-                    <li>Choose the exact provider and confirm the business account that is authorized to connect.</li>
-                    <li>Create or select the provider’s official API/OAuth application and grant only the required read permissions.</li>
-                    <li>Configure credentials as server-side environment variables or in an approved secrets manager. Never put secrets in browser code or ordinary source metadata.</li>
-                    <li>Enable the provider adapter and secure callback/webhook routes in the deployment.</li>
-                    <li>Run a test connection, preview the available data, and verify organization scope before importing records.</li>
-                    <li>Complete a sync and validate row counts, timestamps, and KPI mappings before the Business Analyst uses the data.</li>
-                  </ol>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block text-sm font-medium text-slate-800 sm:col-span-2">Integration name
+                    <input required value={setupFields.name ?? ''} onChange={(event) => setSetupFields((current) => ({ ...current, name: event.target.value }))} placeholder={sourceOptions.find((source) => source.id === active)?.name ?? 'Integration'} className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" />
+                  </label>
+                  {active === 'google-sheets' && <label className="block text-sm font-medium text-slate-800 sm:col-span-2">Spreadsheet URL or ID
+                    <input value={setupFields.spreadsheetUrl ?? ''} onChange={(event) => setSetupFields((current) => ({ ...current, spreadsheetUrl: event.target.value }))} placeholder="https://docs.google.com/spreadsheets/d/…" className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" inputMode="url" />
+                  </label>}
+                  {active === 'postgresql' && <>
+                    <label className="block text-sm font-medium text-slate-800">Host<input required value={setupFields.host ?? ''} onChange={(event) => setSetupFields((current) => ({ ...current, host: event.target.value }))} placeholder="db.example.com" className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" /></label>
+                    <label className="block text-sm font-medium text-slate-800">Port<input required type="number" min="1" max="65535" value={setupFields.port ?? '5432'} onChange={(event) => setSetupFields((current) => ({ ...current, port: event.target.value }))} className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" /></label>
+                    <label className="block text-sm font-medium text-slate-800">Database<input required value={setupFields.database ?? ''} onChange={(event) => setSetupFields((current) => ({ ...current, database: event.target.value }))} className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" /></label>
+                    <label className="block text-sm font-medium text-slate-800">Schema<input value={setupFields.schema ?? 'public'} onChange={(event) => setSetupFields((current) => ({ ...current, schema: event.target.value }))} className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" /></label>
+                    <label className="block text-sm font-medium text-slate-800 sm:col-span-2">Read-only database username<input required value={setupFields.username ?? ''} onChange={(event) => setSetupFields((current) => ({ ...current, username: event.target.value }))} className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" autoComplete="off" /></label>
+                  </>}
+                  {['crm', 'accounting', 'analytics'].includes(active) && <>
+                    <label className="block text-sm font-medium text-slate-800">Provider / product<input required value={setupFields.product ?? ''} onChange={(event) => setSetupFields((current) => ({ ...current, product: event.target.value }))} placeholder={active === 'crm' ? 'e.g. HubSpot' : active === 'accounting' ? 'e.g. QuickBooks' : 'e.g. Google Analytics'} className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" /></label>
+                    <label className="block text-sm font-medium text-slate-800">Account / workspace URL<input value={setupFields.accountUrl ?? ''} onChange={(event) => setSetupFields((current) => ({ ...current, accountUrl: event.target.value }))} placeholder="https://…" className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" inputMode="url" /></label>
+                  </>}
+                  <label className="block text-sm font-medium text-slate-800 sm:col-span-2">Data needed (optional)
+                    <textarea value={setupFields.dataAreas ?? ''} onChange={(event) => setSetupFields((current) => ({ ...current, dataAreas: event.target.value }))} placeholder="e.g. customers, invoices, sales, campaign performance" rows={3} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal" />
+                  </label>
                 </div>
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                  <p className="font-semibold text-amber-950">Provider adapter required</p>
-                  <p className="mt-1 text-sm leading-6 text-amber-900">
-                    This setup guide does not pretend a live connector is installed. The provider-specific OAuth/API adapter, credentials, scopes, sync logic, and error handling must be implemented and tested before a connection can be verified.
-                  </p>
+                  <p className="font-semibold text-amber-950">Live connector still requires implementation</p>
+                  <p className="mt-1 text-sm leading-6 text-amber-900">The provider-specific OAuth/API adapter, secure secret storage, connection test, sync, and KPI mapping must be implemented before this source can become connected. This screen will keep the setup status honest.</p>
                 </div>
-                <p className="text-xs leading-5 text-slate-500">
-                  Supported setup paths: Google Sheets (OAuth and selected spreadsheet), PostgreSQL (TLS-protected read-only connection), CRM (provider-specific OAuth/API), Accounting (least-privilege financial read access), and Analytics (provider-specific reporting API).
-                </p>
-              </div>
+                <button type="submit" disabled={busy} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
+                  {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {busy ? 'Saving setup…' : 'Save setup details'}
+                </button>
+              </form>
             )}
 
             {(active === 'csv' ||

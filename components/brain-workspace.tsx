@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowUp,
   Brain,
   CheckCircle2,
+  Database,
+  TrendingUp,
   ChevronDown,
   FileText,
   Loader2,
@@ -412,6 +415,21 @@ export function BrainWorkspace() {
             </div>
           </div>
         </header>
+
+        <nav aria-label="Company Brain tools" className="mb-6 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <Link href="/brain/data-sources" className="flex min-h-12 items-center gap-3 rounded-xl border border-border/70 bg-card px-4 py-3 text-sm font-medium text-foreground transition hover:border-primary/40 hover:bg-primary/5">
+            <Database size={17} className="text-primary" /> Connect data sources
+          </Link>
+          <Link href="/business-analyst" className="flex min-h-12 items-center gap-3 rounded-xl border border-border/70 bg-card px-4 py-3 text-sm font-medium text-foreground transition hover:border-primary/40 hover:bg-primary/5">
+            <Brain size={17} className="text-primary" /> Business Analyst
+          </Link>
+          <Link href="/business-analyst/forecast" className="flex min-h-12 items-center gap-3 rounded-xl border border-border/70 bg-card px-4 py-3 text-sm font-medium text-foreground transition hover:border-primary/40 hover:bg-primary/5">
+            <TrendingUp size={17} className="text-primary" /> Forecasts
+          </Link>
+          <Link href="/reports" className="flex min-h-12 items-center gap-3 rounded-xl border border-border/70 bg-card px-4 py-3 text-sm font-medium text-foreground transition hover:border-primary/40 hover:bg-primary/5">
+            <FileText size={17} className="text-primary" /> Business reports
+          </Link>
+        </nav>
 
         {error && (
           <div className="mb-5 flex items-start justify-between gap-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3">
