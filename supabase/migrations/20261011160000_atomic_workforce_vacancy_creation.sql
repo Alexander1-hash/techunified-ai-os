@@ -63,9 +63,24 @@ begin
   end if;
 
   if jsonb_typeof(p_requirements) is distinct from 'array'
-     or jsonb_array_length(p_requirements) > 80
-     or jsonb_typeof(p_required_licences) is distinct from 'array'
+     or jsonb_typeof(p_required_licences) is distinct from 'array' then
+    raise exception 'invalid_vacancy_requirements' using errcode = '22023';
+  end if;
+
+  if jsonb_array_length(p_requirements) > 80
      or jsonb_array_length(p_required_licences) > 30 then
+    raise exception 'invalid_vacancy_requirements' using errcode = '22023';
+  end if;
+
+  if exists (
+    select 1 from jsonb_array_elements(p_requirements) as item(value)
+    where jsonb_typeof(item.value) is distinct from 'string'
+       or char_length(trim(item.value #>> '{}')) not between 1 and 240
+  ) or exists (
+    select 1 from jsonb_array_elements(p_required_licences) as item(value)
+    where jsonb_typeof(item.value) is distinct from 'string'
+       or char_length(trim(item.value #>> '{}')) not between 1 and 240
+  ) then
     raise exception 'invalid_vacancy_requirements' using errcode = '22023';
   end if;
 
