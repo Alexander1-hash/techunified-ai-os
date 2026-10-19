@@ -81,3 +81,14 @@ Candidate profile and audit access is restricted to designated recruitment roles
 Apply `supabase/migrations/20261011140000_workforce_vacancy_lifecycle.sql` before using vacancy status actions. The `transition_workforce_vacancy_status` database RPC checks organization membership and recruitment role, requires documented processing authorization before opening a vacancy, rejects terminal-state transitions, and records the status change in the recruitment audit table within the same transaction.
 
 The workspace supports pausing sourcing, reopening an authorized draft/paused vacancy, marking a role filled, and cancelling a role. Status-change reasons are recorded for pause, draft, filled and cancelled transitions. The lifecycle migration is committed to GitHub; it is not evidence that the migration has been applied to the connected Supabase database.
+
+
+### Recruitment security hardening and retention review
+
+Apply these additional migrations in timestamp order after the workforce persistence foundation and the earlier review/ingestion migrations:
+
+- `20261011140000_workforce_vacancy_lifecycle.sql` — audited vacancy status transitions.
+- `20261011150000_harden_workforce_vacancy_writes.sql` — restricts direct vacancy updates/deletes, requires recruitment roles for inserts, and enforces authorization on new open vacancies.
+- `20261011160000_atomic_workforce_vacancy_creation.sql` — routes vacancy creation through a role-checked database RPC that creates the initial audit event atomically, then revokes direct authenticated inserts.
+
+The workspace highlights candidate leads whose scheduled 90-day retention review is overdue or due within 14 days. This is a review reminder, not automatic deletion: an authorized organization representative must decide whether continued retention is necessary under the organization's retention schedule and applicable law, and document the outcome in its approved process. Confirm the intended Supabase project and test role/RLS behavior before enabling the workflow for real candidate data.
