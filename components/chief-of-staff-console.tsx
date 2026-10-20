@@ -12,7 +12,7 @@ function list(value: unknown): Payload[] {
 }
 
 function label(value: unknown, fallback = "Not available") {
-  return typeof value === "string" && value.trim() ? value.replaceAll("_", " ") : fallback
+  return typeof value === "string" && value.trim() ? value.replace(/_/g, " ") : fallback
 }
 
 function Metric({ title, value, detail }: { title: string; value: string | number; detail: string }) {
