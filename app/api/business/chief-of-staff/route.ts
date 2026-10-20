@@ -55,10 +55,10 @@ export async function GET() {
       intelligenceResult.error && 'intelligence',
     ].filter(Boolean)
 
-    if (failedSource.length) {
-      console.error('[Chief of Staff Briefing] Data sources failed:', failedSource)
+    if (failedSource.length === 6) {
+      console.error('[Chief of Staff Briefing] All data sources failed:', failedSource)
       return NextResponse.json({
-        error: 'The executive briefing could not load all required organization data.',
+        error: 'The executive briefing could not load any organization data.',
         failedSources: failedSource,
       }, { status: 500 })
     }
@@ -94,6 +94,8 @@ export async function GET() {
 
     return NextResponse.json({
       ok: true,
+      partial: failedSource.length > 0,
+      failedSources: failedSource,
       generatedAt: new Date().toISOString(),
       summary: {
         objectiveCount: objectives.length,
