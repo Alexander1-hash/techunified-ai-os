@@ -224,7 +224,7 @@ export async function GET() {
         rationale: 'Approved work cannot safely progress while required decisions remain unresolved.',
         nextStep: 'Review the approval queue, inspect the evidence, and approve or reject each proposal.',
         approvalRequired: true,
-        financialImpact: 'not_estimated',
+        financialImpact: 'not_estimated' as const,
       }] : []),
       ...(failedRuns.length > 0 ? [{
         id: 'failed-work',
@@ -235,7 +235,7 @@ export async function GET() {
         rationale: 'Repeated execution without diagnosis can compound failures and waste resources.',
         nextStep: 'Inspect failed run evidence and error details before retrying the affected path.',
         approvalRequired: false,
-        financialImpact: 'not_estimated',
+        financialImpact: 'not_estimated' as const,
       }] : []),
       ...((runs ?? []).length > 0 && verifiedOutcomes.length === 0 ? [{
         id: 'outcome-measurement',
@@ -246,7 +246,7 @@ export async function GET() {
         rationale: 'Execution activity alone does not prove business value; a baseline is needed to evaluate impact.',
         nextStep: 'Define a baseline, measurement window, source of evidence, and outcome owner for completed work.',
         approvalRequired: false,
-        financialImpact: 'not_estimated',
+        financialImpact: 'not_estimated' as const,
       }] : []),
       ...(!dataGrounding.hasBusinessData ? [{
         id: 'business-data-grounding',
@@ -257,7 +257,7 @@ export async function GET() {
         rationale: 'Recommendations are limited when the intelligence layer lacks company-specific operating evidence.',
         nextStep: 'Connect a supported source or import validated records, then confirm KPI mapping and freshness.',
         approvalRequired: false,
-        financialImpact: 'not_estimated',
+        financialImpact: 'not_estimated' as const,
       }] : []),
       ...((agents ?? []).length > 0 && (workflows ?? []).length === 0 ? [{
         id: 'workflow-capacity',
@@ -268,7 +268,7 @@ export async function GET() {
         rationale: 'Agent availability alone does not provide a validated, governed path for carrying out business work.',
         nextStep: 'Configure and test an appropriate workflow before assigning controlled execution.',
         approvalRequired: true,
-        financialImpact: 'not_estimated',
+        financialImpact: 'not_estimated' as const,
       }] : []),
       ...((objectives ?? []).filter((objective: any) =>
         typeof objective.target_value === 'number' &&
@@ -284,7 +284,7 @@ export async function GET() {
         rationale: 'The latest recorded value is below the defined target; this identifies a gap, not its cause.',
         nextStep: 'Verify the KPI source, target period, and blockers before selecting corrective actions.',
         approvalRequired: false,
-        financialImpact: 'not_estimated',
+        financialImpact: 'not_estimated' as const,
       }))),
     ].sort((a, b) => (a.priority === 'high' ? 0 : 1) - (b.priority === 'high' ? 0 : 1)).slice(0, 8)
 
