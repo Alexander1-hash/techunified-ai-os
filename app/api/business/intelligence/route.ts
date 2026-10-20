@@ -10,7 +10,7 @@ export async function GET() {
     const organizationId = profile.organization_id
 
     const [{ data: objectives }, { data: runs }, { data: outcomes }, { data: agents }, { data: workflows }, { data: evaluations }, { data: memories }, { data: kpis }, { data: sourceRecords }] = await Promise.all([
-      supabase.from('company_objectives').select('id,status,target_value,current_value').eq('organization_id', organizationId).limit(200),
+      supabase.from('company_objectives').select('id,title,status,target_value,current_value').eq('organization_id', organizationId).limit(200),
       supabase.from('business_orchestration_runs').select('id,objective_id,status,approval_status,created_at').eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(300),
       supabase.from('business_outcomes').select('id,action_run_id,evidence_status,hours_saved,cost_avoided,revenue_impact').eq('organization_id', organizationId).limit(300),
       supabase.from('agents').select('id,status').eq('organization_id', organizationId).in('status', ['active', 'running']).limit(100),
