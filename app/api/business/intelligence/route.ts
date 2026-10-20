@@ -2,6 +2,18 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/repositories/profile'
 
+type BusinessOpportunity = {
+  id: string
+  title: string
+  priority: 'high' | 'medium'
+  category: string
+  evidence: string[]
+  rationale: string
+  nextStep: string
+  approvalRequired: boolean
+  financialImpact: 'not_estimated'
+}
+
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -10,7 +22,7 @@ export async function GET() {
     const organizationId = profile.organization_id
 
     const [{ data: objectives }, { data: runs }, { data: outcomes }, { data: agents }, { data: workflows }, { data: evaluations }, { data: memories }, { data: kpis }, { data: sourceRecords }] = await Promise.all([
-      supabase.from('company_objectives').select('id,status,target_value,current_value').eq('organization_id', organizationId).limit(200),
+      supabase.from('company_objectives').select('id,title,status,target_value,current_value').eq('organization_id', organizationId).limit(200),
       supabase.from('business_orchestration_runs').select('id,objective_id,status,approval_status,created_at').eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(300),
       supabase.from('business_outcomes').select('id,action_run_id,evidence_status,hours_saved,cost_avoided,revenue_impact').eq('organization_id', organizationId).limit(300),
       supabase.from('agents').select('id,status').eq('organization_id', organizationId).in('status', ['active', 'running']).limit(100),
@@ -202,8 +214,82 @@ export async function GET() {
       ...(!dataGrounding.hasBusinessData ? [{ priority: 'high', action: 'connect_business_data', rationale: 'The intelligence engine has no KPI or source-record evidence from the company data layer; recommendations should remain limited until grounding improves.' }] : []),
     ]
 
+    const opportunities: BusinessOpportunity[] = [
+      ...(pendingApprovals.length > 0 ? [{
+        id: 'governance-queue',
+        title: 'Resolve pending governance decisions',
+        priority: 'high' as const,
+        category: 'governance',
+        evidence: [`${pendingApprovals.length} governed item(s) await human review`],
+        rationale: 'Approved work cannot safely progress while required decisions remain unresolved.',
+        nextStep: 'Review the approval queue, inspect the evidence, and approve or reject each proposal.',
+        approvalRequired: true,
+        financialImpact: 'not_estimated' as const,
+      }] : []),
+      ...(failedRuns.length > 0 ? [{
+        id: 'failed-work',
+        title: 'Investigate failed orchestration work',
+        priority: 'high' as const,
+        category: 'reliability',
+        evidence: [`${failedRuns.length} failed orchestration run(s) recorded`],
+        rationale: 'Repeated execution without diagnosis can compound failures and waste resources.',
+        nextStep: 'Inspect failed run evidence and error details before retrying the affected path.',
+        approvalRequired: false,
+        financialImpact: 'not_estimated' as const,
+      }] : []),
+      ...((runs ?? []).length > 0 && verifiedOutcomes.length === 0 ? [{
+        id: 'outcome-measurement',
+        title: 'Establish outcome baselines',
+        priority: 'high' as const,
+        category: 'measurement',
+        evidence: [`${(runs ?? []).length} orchestration run(s) recorded`, 'No measured or attributed business outcomes recorded'],
+        rationale: 'Execution activity alone does not prove business value; a baseline is needed to evaluate impact.',
+        nextStep: 'Define a baseline, measurement window, source of evidence, and outcome owner for completed work.',
+        approvalRequired: false,
+        financialImpact: 'not_estimated' as const,
+      }] : []),
+      ...(!dataGrounding.hasBusinessData ? [{
+        id: 'business-data-grounding',
+        title: 'Connect and validate business data',
+        priority: 'high' as const,
+        category: 'data_quality',
+        evidence: ['No KPI records or business source records were found in the current organization scope'],
+        rationale: 'Recommendations are limited when the intelligence layer lacks company-specific operating evidence.',
+        nextStep: 'Connect a supported source or import validated records, then confirm KPI mapping and freshness.',
+        approvalRequired: false,
+        financialImpact: 'not_estimated' as const,
+      }] : []),
+      ...((agents ?? []).length > 0 && (workflows ?? []).length === 0 ? [{
+        id: 'workflow-capacity',
+        title: 'Close the workflow execution-capacity gap',
+        priority: 'medium' as const,
+        category: 'capacity',
+        evidence: [`${(agents ?? []).length} active agent(s)`, 'No active workflow found'],
+        rationale: 'Agent availability alone does not provide a validated, governed path for carrying out business work.',
+        nextStep: 'Configure and test an appropriate workflow before assigning controlled execution.',
+        approvalRequired: true,
+        financialImpact: 'not_estimated' as const,
+      }] : []),
+      ...((objectives ?? []).filter((objective: any) =>
+        typeof objective.target_value === 'number' &&
+        typeof objective.current_value === 'number' &&
+        objective.target_value > 0 &&
+        objective.current_value < objective.target_value
+      ).slice(0, 5).map((objective: any) => ({
+        id: `objective-gap:${String(objective.id)}`,
+        title: `Review objective progress: ${String(objective.title ?? 'Company objective')}`,
+        priority: 'medium' as const,
+        category: 'objective_progress',
+        evidence: [`Current progress: ${Math.round((objective.current_value / objective.target_value) * 1000) / 10}% of recorded target`],
+        rationale: 'The latest recorded value is below the defined target; this identifies a gap, not its cause.',
+        nextStep: 'Verify the KPI source, target period, and blockers before selecting corrective actions.',
+        approvalRequired: false,
+        financialImpact: 'not_estimated' as const,
+      }))),
+    ].sort((a, b) => (a.priority === 'high' ? 0 : 1) - (b.priority === 'high' ? 0 : 1)).slice(0, 8)
+
     const intelligenceCore = {
-      version: 'adaptive-core-v1.1',
+      version: 'adaptive-core-v1.2',
       purpose: 'Evidence-grounded company intelligence that observes business data, reasons over signals, governs actions, measures outcomes, and promotes only verified learning.',
       dataGrounding,
       stages: ['observe', 'understand', 'hypothesize', 'reason', 'simulate', 'decide', 'govern', 'measure', 'evaluate', 'learn'],
@@ -404,6 +490,7 @@ export async function GET() {
         : snapshot,
       previousSnapshotId: previousSnapshot?.id ?? null,
       signals,
+      opportunities,
       signalConfidence,
       forecasts,
       forecastConfidence,
