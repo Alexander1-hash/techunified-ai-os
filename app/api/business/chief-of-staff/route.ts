@@ -40,7 +40,7 @@ export async function GET() {
     ] = await Promise.all([
       supabase.from('company_objectives').select('*').eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(100),
       supabase.from('business_orchestration_runs').select('id,objective_id,status,approval_status,action_run_ids,agent_run_ids,created_at,updated_at').eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(200),
-      supabase.from('agent_approvals').select('*').eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(100),
+      supabase.from('agent_approvals').select('id,agent_run_id,status,action_type,title,reason,proposed_action,decision_evidence,reviewer_note,requested_at,reviewed_at,created_at').eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(100),
       supabase.from('business_action_runs').select('id,decision_id,decision_type,decision_title,workflow_id,execution_id,status,input,evidence,output,error_message,started_at,completed_at,created_at,updated_at').eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(100),
       supabase.from('business_outcomes').select('id,title,outcome_type,evidence_status,baseline_value,current_value,unit,hours_saved,cost_avoided,revenue_impact,implementation_cost,currency,source,period_start,period_end,action_run_id,created_at,updated_at').eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(200),
       supabase.from('company_intelligence_snapshots').select('*').eq('organization_id', organizationId).eq('snapshot_type', 'company_state').order('computed_at', { ascending: false }).limit(1).maybeSingle(),
