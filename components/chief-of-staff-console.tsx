@@ -91,7 +91,7 @@ export default function ChiefOfStaffConsole() {
   const pendingApprovals = data.approvals.filter((item) => String(item.status).toLowerCase() === "pending")
   const failedActions = data.actions.filter((item) => ["failed", "error"].includes(String(item.status).toLowerCase()))
   const activeActions = data.actions.filter((item) => ["running", "pending", "queued"].includes(String(item.status).toLowerCase()))
-  const verifiedOutcomes = data.outcomes.filter((item) => ["measured", "attributed", "verified"].includes(String(item.evidence_status).toLowerCase()))
+  const verifiedOutcomes = data.outcomes.filter((item) => ["measured", "attributed"].includes(String(item.evidence_status).toLowerCase()))
   const nextMove = data.priorities.nextMove && typeof data.priorities.nextMove === "object" ? data.priorities.nextMove as Payload : null
   const core = data.priorities.intelligenceCore && typeof data.priorities.intelligenceCore === "object" ? data.priorities.intelligenceCore as Payload : {}
 
