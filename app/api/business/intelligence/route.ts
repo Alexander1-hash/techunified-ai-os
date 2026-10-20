@@ -218,7 +218,7 @@ export async function GET() {
       ...(pendingApprovals.length > 0 ? [{
         id: 'governance-queue',
         title: 'Resolve pending governance decisions',
-        priority: 'high',
+        priority: 'high' as const,
         category: 'governance',
         evidence: [`${pendingApprovals.length} governed item(s) await human review`],
         rationale: 'Approved work cannot safely progress while required decisions remain unresolved.',
@@ -229,7 +229,7 @@ export async function GET() {
       ...(failedRuns.length > 0 ? [{
         id: 'failed-work',
         title: 'Investigate failed orchestration work',
-        priority: 'high',
+        priority: 'high' as const,
         category: 'reliability',
         evidence: [`${failedRuns.length} failed orchestration run(s) recorded`],
         rationale: 'Repeated execution without diagnosis can compound failures and waste resources.',
@@ -240,7 +240,7 @@ export async function GET() {
       ...((runs ?? []).length > 0 && verifiedOutcomes.length === 0 ? [{
         id: 'outcome-measurement',
         title: 'Establish outcome baselines',
-        priority: 'high',
+        priority: 'high' as const,
         category: 'measurement',
         evidence: [`${(runs ?? []).length} orchestration run(s) recorded`, 'No measured or attributed business outcomes recorded'],
         rationale: 'Execution activity alone does not prove business value; a baseline is needed to evaluate impact.',
@@ -251,7 +251,7 @@ export async function GET() {
       ...(!dataGrounding.hasBusinessData ? [{
         id: 'business-data-grounding',
         title: 'Connect and validate business data',
-        priority: 'high',
+        priority: 'high' as const,
         category: 'data_quality',
         evidence: ['No KPI records or business source records were found in the current organization scope'],
         rationale: 'Recommendations are limited when the intelligence layer lacks company-specific operating evidence.',
@@ -262,7 +262,7 @@ export async function GET() {
       ...((agents ?? []).length > 0 && (workflows ?? []).length === 0 ? [{
         id: 'workflow-capacity',
         title: 'Close the workflow execution-capacity gap',
-        priority: 'medium',
+        priority: 'medium' as const,
         category: 'capacity',
         evidence: [`${(agents ?? []).length} active agent(s)`, 'No active workflow found'],
         rationale: 'Agent availability alone does not provide a validated, governed path for carrying out business work.',
@@ -278,7 +278,7 @@ export async function GET() {
       ).slice(0, 5).map((objective: any) => ({
         id: `objective-gap:${String(objective.id)}`,
         title: `Review objective progress: ${String(objective.title ?? 'Company objective')}`,
-        priority: 'medium',
+        priority: 'medium' as const,
         category: 'objective_progress',
         evidence: [`Current progress: ${Math.round((objective.current_value / objective.target_value) * 1000) / 10}% of recorded target`],
         rationale: 'The latest recorded value is below the defined target; this identifies a gap, not its cause.',
