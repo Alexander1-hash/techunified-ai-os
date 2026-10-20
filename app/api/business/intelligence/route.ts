@@ -2,6 +2,18 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/repositories/profile'
 
+type BusinessOpportunity = {
+  id: string
+  title: string
+  priority: 'high' | 'medium'
+  category: string
+  evidence: string[]
+  rationale: string
+  nextStep: string
+  approvalRequired: boolean
+  financialImpact: 'not_estimated'
+}
+
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -202,7 +214,7 @@ export async function GET() {
       ...(!dataGrounding.hasBusinessData ? [{ priority: 'high', action: 'connect_business_data', rationale: 'The intelligence engine has no KPI or source-record evidence from the company data layer; recommendations should remain limited until grounding improves.' }] : []),
     ]
 
-    const opportunities = [
+    const opportunities: BusinessOpportunity[] = [
       ...(pendingApprovals.length > 0 ? [{
         id: 'governance-queue',
         title: 'Resolve pending governance decisions',
