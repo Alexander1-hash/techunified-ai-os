@@ -26,6 +26,7 @@ async function getContext() {
     supabase,
     userId: profile?.id ?? null,
     organizationId: profile?.organization_id ?? null,
+    role: profile?.role ? String(profile.role).toLowerCase() : null,
   }
 }
 
@@ -397,12 +398,13 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const { supabase, organizationId } = await getContext()
+    const { supabase, organizationId, role } = await getContext()
 
     if (!organizationId) {
       return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
     }
 
+    const canApproveOrchestration = ['owner', 'admin', 'organization_admin', 'manager'].includes(String(role ?? ''))
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null
     const id = typeof body?.id === 'string' ? body.id.trim() : ''
 
@@ -425,6 +427,9 @@ export async function PATCH(request: Request) {
     if (typeof body?.status === 'string') {
       if (!allowedStatuses.includes(body.status as (typeof allowedStatuses)[number])) {
         return NextResponse.json({ error: 'Invalid orchestration status.' }, { status: 400 })
+      }
+      if (['executing', 'completed', 'failed', 'cancelled'].includes(body.status) && !canApproveOrchestration) {
+        return NextResponse.json({ error: 'Your organization role cannot control governed orchestration execution.' }, { status: 403 })
       }
       if (body.status === 'executing' && existingRun.approval_status !== 'approved') return NextResponse.json({ error: 'Controlled execution requires explicit approval.' }, { status: 403 })
       if (body.status === 'executing' && existingRun.status !== 'awaiting_approval') return NextResponse.json({ error: 'Execution can only begin from an approval-ready orchestration run.' }, { status: 409 })
@@ -497,6 +502,9 @@ export async function PATCH(request: Request) {
     }
 
     if (typeof body?.approval_status === 'string') {
+      if (['approved', 'rejected'].includes(body.approval_status.toLowerCase()) && !canApproveOrchestration) {
+        return NextResponse.json({ error: 'Your organization role cannot approve or reject controlled orchestration.' }, { status: 403 })
+      }
       if (!allowedApprovalStatuses.includes(body.approval_status as (typeof allowedApprovalStatuses)[number])) {
         return NextResponse.json({ error: 'Invalid orchestration approval status.' }, { status: 400 })
       }
