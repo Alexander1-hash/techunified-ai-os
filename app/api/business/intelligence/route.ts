@@ -21,10 +21,11 @@ export async function GET() {
     if (!profile?.organization_id) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
     const organizationId = profile.organization_id
 
-    const [{ data: objectives }, { data: runs }, { data: outcomes }, { data: agents }, { data: workflows }, { data: evaluations }, { data: memories }, { data: kpis }, { data: sourceRecords }] = await Promise.all([
+    const [{ data: objectives }, { data: runs }, { data: outcomes }, { data: actionRuns }, { data: agents }, { data: workflows }, { data: evaluations }, { data: memories }, { data: kpis }, { data: sourceRecords }] = await Promise.all([
       supabase.from('company_objectives').select('id,title,status,target_value,current_value').eq('organization_id', organizationId).limit(200),
       supabase.from('business_orchestration_runs').select('id,objective_id,status,approval_status,created_at').eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(300),
-      supabase.from('business_outcomes').select('id,action_run_id,evidence_status,hours_saved,cost_avoided,revenue_impact').eq('organization_id', organizationId).limit(300),
+      supabase.from('business_outcomes').select('id,action_run_id,evidence_status,hours_saved,cost_avoided,revenue_impact').eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(1000),
+      supabase.from('business_action_runs').select('id,status,created_at').eq('organization_id', organizationId).order('created_at', { ascending: false }).limit(1000),
       supabase.from('agents').select('id,status').eq('organization_id', organizationId).in('status', ['active', 'running']).limit(100),
       supabase.from('workflows').select('id,status').eq('organization_id', organizationId).eq('status', 'active').limit(100),
       supabase.from('agent_evaluations').select('id,execution_success,outcome_linked').eq('organization_id', organizationId).limit(300),
@@ -38,6 +39,21 @@ export async function GET() {
     const failedRuns = (runs ?? []).filter((run: any) => run.status === 'failed')
     const pendingApprovals = (runs ?? []).filter((run: any) => run.status === 'awaiting_approval' || run.approval_status === 'pending')
     const verifiedOutcomes = (outcomes ?? []).filter((outcome: any) => ['measured', 'attributed'].includes(String(outcome.evidence_status)))
+    const completedActionRuns = (actionRuns ?? []).filter((run: any) => run.status === 'completed')
+    const verifiedOutcomeActionRunIds = new Set(verifiedOutcomes.map((outcome: any) => outcome.action_run_id).filter(Boolean).map(String))
+    const completedActionsWithVerifiedOutcomes = completedActionRuns.filter((run: any) => verifiedOutcomeActionRunIds.has(String(run.id)))
+    const completedActionsWithoutVerifiedOutcomes = completedActionRuns.filter((run: any) => !verifiedOutcomeActionRunIds.has(String(run.id)))
+    const outcomeCoverage = {
+      completedActionRunsObserved: completedActionRuns.length,
+      completedActionsWithVerifiedOutcomes: completedActionsWithVerifiedOutcomes.length,
+      completedActionsWithoutVerifiedOutcomes: completedActionsWithoutVerifiedOutcomes.length,
+      coveragePercent: completedActionRuns.length
+        ? Math.round((completedActionsWithVerifiedOutcomes.length / completedActionRuns.length) * 1000) / 10
+        : null,
+      verifiedOutcomeStatuses: ['measured', 'attributed'],
+      recordWindowLimit: 1000,
+      scopeNote: 'Coverage is calculated from the latest 1,000 action runs and outcome records available to this request; it is not a financial ROI estimate.',
+    }
     const successfulEvaluations = (evaluations ?? []).filter((evaluation: any) => evaluation.execution_success === true && evaluation.outcome_linked === true)
     const verifiedDurableLessons = (memories ?? []).filter((memory: any) => ['verified', 'attributed'].includes(String(memory.evidence_status)))
     const dataGrounding = {
@@ -53,6 +69,8 @@ export async function GET() {
       failedOrchestrationRuns: failedRuns.length,
       pendingApprovals: pendingApprovals.length,
       verifiedOutcomes: verifiedOutcomes.length,
+      completedActionsWithoutVerifiedOutcomes: completedActionsWithoutVerifiedOutcomes.length,
+      outcomeCoveragePercent: outcomeCoverage.coveragePercent,
       activeAgents: (agents ?? []).length,
       activeWorkflows: (workflows ?? []).length,
       successfulVerifiedEvaluations: successfulEvaluations.length,
@@ -73,7 +91,8 @@ export async function GET() {
     const signals = [
       ...(pendingApprovals.length > 0 ? [{ type: 'governance', severity: 'high', title: 'Governed approvals require attention', reason: 'One or more controlled actions are waiting for human approval.' }] : []),
       ...(failedRuns.length > 0 ? [{ type: 'risk', severity: 'high', title: 'Failed governed work detected', reason: 'Failed orchestration runs require investigation before new execution.' }] : []),
-      ...((runs ?? []).length > 0 && verifiedOutcomes.length === 0 ? [{ type: 'evidence_gap', severity: 'medium', title: 'Evidence gap detected', reason: 'Work exists without measured or attributed outcome evidence.' }] : []),
+      ...(completedActionsWithoutVerifiedOutcomes.length > 0 ? [{ type: 'evidence_gap', severity: 'medium', title: 'Completed actions need outcome measurement', reason: `${completedActionsWithoutVerifiedOutcomes.length} completed action run(s) in the observed window have no linked measured or attributed outcome.` }] : []),
+      ...((runs ?? []).length > 0 && verifiedOutcomes.length === 0 && completedActionRuns.length === 0 ? [{ type: 'evidence_gap', severity: 'medium', title: 'Evidence gap detected', reason: 'Orchestration work exists, but no measured or attributed business outcome is available yet.' }] : []),
       ...(successfulEvaluations.length > 0 ? [{ type: 'opportunity', severity: 'medium', title: 'Verified learning signal available', reason: 'Successful agent evaluations linked to outcomes can inform future prioritization.' }] : []),
       ...((agents ?? []).length > 0 && (workflows ?? []).length === 0 ? [{ type: 'capacity', severity: 'medium', title: 'Workflow capacity gap', reason: 'AI workers are available but no active workflow execution path is currently available.' }] : []),
     ]
@@ -237,14 +256,17 @@ export async function GET() {
         approvalRequired: false,
         financialImpact: 'not_estimated' as const,
       }] : []),
-      ...((runs ?? []).length > 0 && verifiedOutcomes.length === 0 ? [{
+      ...(completedActionsWithoutVerifiedOutcomes.length > 0 ? [{
         id: 'outcome-measurement',
-        title: 'Establish outcome baselines',
+        title: 'Measure completed business actions',
         priority: 'high' as const,
         category: 'measurement',
-        evidence: [`${(runs ?? []).length} orchestration run(s) recorded`, 'No measured or attributed business outcomes recorded'],
-        rationale: 'Execution activity alone does not prove business value; a baseline is needed to evaluate impact.',
-        nextStep: 'Define a baseline, measurement window, source of evidence, and outcome owner for completed work.',
+        evidence: [
+          `${completedActionsWithoutVerifiedOutcomes.length} completed action run(s) lack linked measured or attributed outcomes`,
+          `${outcomeCoverage.completedActionsWithVerifiedOutcomes} completed action run(s) have verified outcome evidence`,
+        ],
+        rationale: 'A completed action is not proof of business value. Linking a source-backed outcome makes later evaluation and learning more reliable.',
+        nextStep: 'For each completed action, record a baseline, measurement period, source, and measured or attributed result when evidence is available.',
         approvalRequired: false,
         financialImpact: 'not_estimated' as const,
       }] : []),
@@ -299,6 +321,7 @@ export async function GET() {
         signalConfidence,
         evidenceBound: true,
         verifiedOutcomeCount: verifiedOutcomes.length,
+        outcomeCoverage,
         activeWorkCount: activeRuns.length,
         dataGrounding,
         currentEvidenceCoverage: dataGrounding.groundingConfidence,
@@ -363,6 +386,8 @@ export async function GET() {
         objectiveCount: objectiveIds.size,
         activeOrchestrationRuns: activeRuns.length,
         verifiedOutcomes: verifiedOutcomes.length,
+        completedActionsWithoutVerifiedOutcomes: completedActionsWithoutVerifiedOutcomes.length,
+        outcomeCoveragePercent: outcomeCoverage.coveragePercent,
         pendingApprovals: pendingApprovals.length,
       },
       intelligence,
@@ -410,6 +435,8 @@ export async function GET() {
       'failedOrchestrationRuns',
       'pendingApprovals',
       'verifiedOutcomes',
+      'completedActionsWithoutVerifiedOutcomes',
+      'outcomeCoveragePercent',
       'activeAgents',
       'activeWorkflows',
       'successfulVerifiedEvaluations',
@@ -491,6 +518,7 @@ export async function GET() {
       previousSnapshotId: previousSnapshot?.id ?? null,
       signals,
       opportunities,
+      outcomeCoverage,
       signalConfidence,
       forecasts,
       forecastConfidence,
