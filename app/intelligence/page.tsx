@@ -3,6 +3,18 @@
 import { useEffect, useState } from 'react'
 import { Brain, RefreshCw, ShieldCheck, AlertTriangle, Lightbulb, GitBranch } from 'lucide-react'
 
+type Opportunity = {
+  id: string
+  title: string
+  priority: string
+  category: string
+  evidence: string[]
+  rationale: string
+  nextStep: string
+  approvalRequired: boolean
+  financialImpact: string
+}
+
 type Core = {
   version?: string
   stages?: string[]
@@ -16,6 +28,7 @@ type Core = {
 
 export default function IntelligencePage() {
   const [core, setCore] = useState<Core | null>(null)
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -27,6 +40,7 @@ export default function IntelligencePage() {
       const json = await response.json()
       if (!response.ok) throw new Error(json.error || 'Unable to load intelligence.')
       setCore(json.intelligenceCore ?? json.snapshot?.graph?.intelligenceCore ?? null)
+      setOpportunities(Array.isArray(json.opportunities) ? json.opportunities : [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load intelligence.')
     } finally {
@@ -86,6 +100,26 @@ export default function IntelligencePage() {
 
           <section className="rounded-xl border border-border bg-card p-5"><div className="flex items-center gap-2"><AlertTriangle size={18} /><h2 className="font-semibold">Contradictions & gaps</h2></div><div className="mt-4 space-y-3">{(core.contradictions ?? []).length ? core.contradictions!.map((c, i) => <div key={i} className="rounded-lg border border-border p-3"><p className="text-xs font-semibold uppercase tracking-wide">{c.type} · {c.severity}</p><p className="mt-1 text-sm text-muted-foreground">{c.description}</p></div>) : <p className="text-sm text-muted-foreground">No material contradictions detected.</p>}</div></section>
         </div>
+
+        <section className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center gap-2"><Lightbulb size={18} /><h2 className="font-semibold">Evidence-led business opportunities</h2><span className="ml-auto text-xs text-muted-foreground">{opportunities.length} prioritized</span></div>
+          <p className="mt-1 text-sm text-muted-foreground">Priorities are derived from organization-scoped records. They are recommendations, not proof of financial impact, and they do not execute actions.</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {opportunities.length ? opportunities.map((opportunity) => (
+              <article key={opportunity.id} className="rounded-lg border border-border p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full px-2 py-1 text-[11px] font-semibold uppercase ${opportunity.priority === 'high' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>{opportunity.priority} priority</span>
+                  <span className="text-xs text-muted-foreground">{opportunity.category.replaceAll('_', ' ')}</span>
+                </div>
+                <h3 className="mt-3 font-medium">{opportunity.title}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">{opportunity.rationale}</p>
+                <div className="mt-3 rounded-md bg-muted/40 p-3"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Observed evidence</p><ul className="mt-1 list-disc space-y-1 pl-4 text-sm">{opportunity.evidence.map((item) => <li key={item}>{item}</li>)}</ul></div>
+                <p className="mt-3 text-sm"><span className="font-medium">Next step:</span> {opportunity.nextStep}</p>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground"><span className="rounded border border-border px-2 py-1">Financial impact not estimated</span>{opportunity.approvalRequired ? <span className="rounded border border-border px-2 py-1">Human approval required before controlled action</span> : null}</div>
+              </article>
+            )) : <p className="text-sm text-muted-foreground">No priority opportunities were derived from current records. Refresh after updating company data, objectives, or execution records.</p>}
+          </div>
+        </section>
 
         <section className="rounded-xl border border-border bg-card p-5"><h2 className="font-semibold">Decision options</h2><div className="mt-4 grid gap-3 md:grid-cols-2">{(core.decisions ?? []).map((d, i) => <div key={i} className="rounded-lg border border-border p-4"><div className="flex justify-between gap-3"><span className="font-medium">{d.action.replaceAll('_', ' ')}</span><span className="text-xs uppercase text-muted-foreground">{d.priority}</span></div><p className="mt-2 text-sm text-muted-foreground">{d.rationale}</p></div>)}</div></section>
 
