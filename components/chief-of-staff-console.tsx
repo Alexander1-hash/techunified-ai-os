@@ -71,7 +71,9 @@ export default function ChiefOfStaffConsole() {
       setData(next)
       const briefingResult = results.find((result) => result.status === "fulfilled" && result.value.key === "briefing")
       if (briefingResult?.status === "fulfilled" && briefingResult.value.body.partial === true) {
-        const unavailable = list(briefingResult.value.body.failedSources).map((item) => String(item)).join(", ")
+        const unavailable = Array.isArray(briefingResult.value.body.failedSources)
+          ? briefingResult.value.body.failedSources.map((item: unknown) => String(item)).join(", ")
+          : ""
         failures.push(`briefing data sources unavailable${unavailable ? `: ${unavailable}` : ""}`)
       }
       setError(failures.length ? `Some briefing sources could not be loaded: ${failures.join("; ")}` : null)
