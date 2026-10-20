@@ -88,7 +88,12 @@ export function evaluateWorkflowReadiness(
   if (evidence.humanApprovalRecorded !== true) missingGates.push("human_approval_recorded");
 
   if (!validTimestamp(evidence.evidenceRecordedAt)) blockers.push("Evidence timestamp is missing or invalid.");
-  else {\n    const evidenceAgeMs = Date.parse(checkedAt) - Date.parse(evidence.evidenceRecordedAt);\n    if (evidenceAgeMs < 0) blockers.push("Evidence timestamp is in the future.");\n    if (evidenceAgeMs > 24 * 60 * 60 * 1000) blockers.push("Readiness evidence is older than 24 hours and must be revalidated.");\n  }\n  if (!validTimestamp(checkedAt)) blockers.push("Readiness check timestamp is invalid.");
+  else {
+    const evidenceAgeMs = Date.parse(checkedAt) - Date.parse(evidence.evidenceRecordedAt);
+    if (evidenceAgeMs < 0) blockers.push("Evidence timestamp is in the future.");
+    if (evidenceAgeMs > 24 * 60 * 60 * 1000) blockers.push("Readiness evidence is older than 24 hours and must be revalidated.");
+  }
+  if (!validTimestamp(checkedAt)) blockers.push("Readiness check timestamp is invalid.");
   if (!evidence.configurationFingerprint?.trim()) blockers.push("Configuration fingerprint is required.");
   if (evidence.integrationVerified !== true) blockers.push("No verified integration is available for execution.");
   if (evidence.leastPrivilegeVerified !== true) blockers.push("Least-privilege access has not been verified.");
