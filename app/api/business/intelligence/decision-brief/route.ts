@@ -122,6 +122,7 @@ export async function GET() {
     }
 
     for (const objective of objectiveRows as any[]) {
+      if (objective.target_value == null || objective.current_value == null || objective.target_value === '' || objective.current_value === '') continue
       const target = typeof objective.target_value === 'number' ? objective.target_value : Number(objective.target_value)
       const current = typeof objective.current_value === 'number' ? objective.current_value : Number(objective.current_value)
       if (!Number.isFinite(target) || !Number.isFinite(current) || target <= 0 || current >= target) continue
