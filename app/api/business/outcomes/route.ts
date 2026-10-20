@@ -122,8 +122,63 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid outcome type.' }, { status: 400 })
     }
 
-    if (!allowedEvidence.includes(body.evidence_status ?? 'estimated')) {
+    const evidenceStatus = body.evidence_status ?? 'estimated'
+    if (!allowedEvidence.includes(evidenceStatus)) {
       return NextResponse.json({ error: 'Invalid evidence status.' }, { status: 400 })
+    }
+
+    // Reject malformed numeric inputs instead of silently turning them into zero.
+    const numericInputs: Array<[string, unknown]> = [
+      ['baseline_value', body.baseline_value],
+      ['current_value', body.current_value],
+      ['hours_saved', body.hours_saved],
+      ['cost_avoided', body.cost_avoided],
+      ['revenue_impact', body.revenue_impact],
+      ['implementation_cost', body.implementation_cost],
+    ]
+    for (const [field, value] of numericInputs) {
+      if (value !== undefined && value !== null && value !== '') {
+        const parsed = Number(value)
+        if (!Number.isFinite(parsed)) {
+          return NextResponse.json({ error: `\u001b[1m${field}\u001b[0m must be a finite number.`.replaceAll('\u001b[1m','').replaceAll('\u001b[0m','') }, { status: 400 })
+        }
+        if (['hours_saved', 'cost_avoided', 'revenue_impact', 'implementation_cost'].includes(field) && parsed < 0) {
+          return NextResponse.json({ error: `${field} cannot be negative.` }, { status: 400 })
+        }
+      }
+    }
+
+    const periodStart = body.period_start?.trim() || null
+    const periodEnd = body.period_end?.trim() || null
+    if ((periodStart && !Number.isFinite(Date.parse(periodStart))) || (periodEnd && !Number.isFinite(Date.parse(periodEnd)))) {
+      return NextResponse.json({ error: 'Outcome period dates must be valid dates.' }, { status: 400 })
+    }
+    if (periodStart && periodEnd && Date.parse(periodStart) > Date.parse(periodEnd)) {
+      return NextResponse.json({ error: 'Outcome period start must be on or before its end.' }, { status: 400 })
+    }
+
+    const source = body.source?.trim() || null
+    const notes = body.notes?.trim() || null
+    if (['measured', 'attributed'].includes(evidenceStatus)) {
+      if (!source || !periodStart || !periodEnd) {
+        return NextResponse.json({
+          error: 'Measured or attributed outcomes require a source and a defined measurement period.',
+        }, { status: 400 })
+      }
+      if (evidenceStatus === 'measured') {
+        const hasBaselineAndCurrent = body.baseline_value !== undefined && body.baseline_value !== null &&
+          body.current_value !== undefined && body.current_value !== null
+        if (!hasBaselineAndCurrent && (notes?.length ?? 0) < 20) {
+          return NextResponse.json({
+            error: 'Measured outcomes require baseline and current values, or at least 20 characters of measurement notes.',
+          }, { status: 400 })
+        }
+      }
+      if (evidenceStatus === 'attributed' && (notes?.length ?? 0) < 20) {
+        return NextResponse.json({
+          error: 'Attributed outcomes require notes explaining the attribution evidence and method (at least 20 characters).',
+        }, { status: 400 })
+      }
     }
 
     let actionRunId: string | null = null
@@ -168,10 +223,10 @@ export async function POST(request: Request) {
         implementation_cost: numberOrZero(body.implementation_cost),
         currency: body.currency?.trim() || 'NGN',
         evidence_status: body.evidence_status ?? 'estimated',
-        source: body.source?.trim() || null,
-        notes: body.notes?.trim() || null,
-        period_start: body.period_start || null,
-        period_end: body.period_end || null,
+        source,
+        notes,
+        period_start: periodStart,
+        period_end: periodEnd,
         action_run_id: actionRunId,
       })
       .select(outcomeSelect)
