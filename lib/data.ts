@@ -60,6 +60,7 @@ import {
   LayoutDashboard,
   Lightbulb,
   CandlestickChart,
+  ClipboardCheck,
   Plug,
   Settings,
   ShoppingCart,
@@ -85,6 +86,7 @@ export const navGroups: NavigationGroup[] = [
     label: 'Command Center',
     items: [
       { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { label: 'Chief of Staff', href: '/chief-of-staff', icon: ClipboardCheck },
     ],
   },
   {
