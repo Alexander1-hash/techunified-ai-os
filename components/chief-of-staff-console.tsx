@@ -42,9 +42,7 @@ export default function ChiefOfStaffConsole() {
     try {
       const sources = [
         { key: "priorities", path: "/api/business/orchestration/priorities" },
-        { key: "approvals", path: "/api/agents/approvals" },
-        { key: "actions", path: "/api/business/action-runs" },
-        { key: "outcomes", path: "/api/business/outcomes" },
+        { key: "briefing", path: "/api/business/chief-of-staff" },
       ] as const
       const results = await Promise.allSettled(sources.map(async (source) => {
         const response = await fetch(source.path, { cache: "no-store" })
@@ -62,9 +60,13 @@ export default function ChiefOfStaffConsole() {
         }
         const { key, body } = result.value
         if (key === "priorities") next.priorities = body
-        if (key === "approvals") next.approvals = list(body.approvals)
-        if (key === "actions") next.actions = list(body.actionRuns)
-        if (key === "outcomes") next.outcomes = list(body.outcomes)
+        if (key === "briefing") {
+          next.approvals = list(body.approvals)
+          next.actions = list(body.actionRuns)
+          next.outcomes = list(body.outcomes)
+          if (!next.priorities.nextMove && body.nextMove) next.priorities.nextMove = body.nextMove
+          if (!next.priorities.intelligenceCore && body.intelligenceCore) next.priorities.intelligenceCore = body.intelligenceCore
+        }
       })
       setData(next)
       setError(failures.length ? `Some briefing sources could not be loaded: ${failures.join("; ")}` : null)
