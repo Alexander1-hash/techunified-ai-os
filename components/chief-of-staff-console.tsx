@@ -40,23 +40,34 @@ export default function ChiefOfStaffConsole() {
     setLoading(true)
     setError(null)
     try {
-      const responses = await Promise.all([
-        fetch("/api/business/orchestration/priorities", { cache: "no-store" }),
-        fetch("/api/agents/approvals", { cache: "no-store" }),
-        fetch("/api/business/action-runs", { cache: "no-store" }),
-        fetch("/api/business/outcomes", { cache: "no-store" }),
-      ])
-      const bodies = await Promise.all(responses.map(async (response) => {
-        const body = await response.json().catch(() => ({}))
-        if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "One or more Chief of Staff data sources could not be loaded.")
-        return body as Payload
+      const sources = [
+        { key: "priorities", path: "/api/business/orchestration/priorities" },
+        { key: "approvals", path: "/api/agents/approvals" },
+        { key: "actions", path: "/api/business/action-runs" },
+        { key: "outcomes", path: "/api/business/outcomes" },
+      ] as const
+      const results = await Promise.allSettled(sources.map(async (source) => {
+        const response = await fetch(source.path, { cache: "no-store" })
+        const body = await response.json().catch(() => ({})) as Payload
+        if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : `HTTP ${response.status}`)
+        return { key: source.key, body }
       }))
-      setData({
-        priorities: bodies[0],
-        approvals: list(bodies[1].approvals),
-        actions: list(bodies[2].actionRuns),
-        outcomes: list(bodies[3].outcomes),
+      const next = { priorities: {} as Payload, approvals: [] as Payload[], actions: [] as Payload[], outcomes: [] as Payload[] }
+      const failures: string[] = []
+      results.forEach((result, index) => {
+        const source = sources[index]
+        if (result.status === "rejected") {
+          failures.push(`${source.key}: ${result.reason instanceof Error ? result.reason.message : "request failed"}`)
+          return
+        }
+        const { key, body } = result.value
+        if (key === "priorities") next.priorities = body
+        if (key === "approvals") next.approvals = list(body.approvals)
+        if (key === "actions") next.actions = list(body.actionRuns)
+        if (key === "outcomes") next.outcomes = list(body.outcomes)
       })
+      setData(next)
+      setError(failures.length ? `Some briefing sources could not be loaded: ${failures.join("; ")}` : null)
       setRefreshedAt(new Date().toISOString())
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to load the Chief of Staff briefing.")
@@ -128,7 +139,7 @@ export default function ChiefOfStaffConsole() {
           <Card>
             <div className="flex items-center gap-2"><ShieldCheck size={18} /><h2 className="text-base font-semibold">Governance and intelligence</h2></div>
             <dl className="mt-4 space-y-3 text-sm">
-              <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Intelligence Core</dt><dd className="font-medium">{core.available ? "Available" : "No current snapshot"}</dd></div>
+              <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Intelligence Core</dt><dd className="font-medium">{core.available || Array.isArray(core.decisions) || data.priorities.adaptiveSummary?.intelligenceCoreInfluence?.available ? "Available" : "No current snapshot"}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Core decisions</dt><dd className="font-medium">{Array.isArray(core.decisions) ? core.decisions.length : Number(data.priorities.adaptiveSummary?.intelligenceCoreInfluence?.decisionCount ?? 0)}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Contradictions</dt><dd className="font-medium">{Array.isArray(core.contradictions) ? core.contradictions.length : Number(data.priorities.adaptiveSummary?.intelligenceCoreInfluence?.contradictionCount ?? 0)}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Active action runs</dt><dd className="font-medium">{activeActions.length}</dd></div>
