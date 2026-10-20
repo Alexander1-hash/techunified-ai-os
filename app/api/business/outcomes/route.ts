@@ -140,7 +140,7 @@ export async function POST(request: Request) {
       if (value !== undefined && value !== null && value !== '') {
         const parsed = Number(value)
         if (!Number.isFinite(parsed)) {
-          return NextResponse.json({ error: `\u001b[1m${field}\u001b[0m must be a finite number.`.replaceAll('\u001b[1m','').replaceAll('\u001b[0m','') }, { status: 400 })
+          return NextResponse.json({ error: `${field} must be a finite number.` }, { status: 400 })
         }
         if (['hours_saved', 'cost_avoided', 'revenue_impact', 'implementation_cost'].includes(field) && parsed < 0) {
           return NextResponse.json({ error: `${field} cannot be negative.` }, { status: 400 })
