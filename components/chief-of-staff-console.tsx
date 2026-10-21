@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { Activity, AlertTriangle, ArrowRight, CheckCircle2, ClipboardCheck, RefreshCw, ShieldCheck, Target } from "lucide-react"
 import { Card, PageHeader } from "@/components/ui"
+import DecisionBriefPanel from "@/components/decision-brief-panel"
 
 type Payload = Record<string, any>
 
@@ -126,6 +127,8 @@ export default function ChiefOfStaffConsole() {
           <Metric title="Failed action runs" value={loading ? "…" : failedActions.length} detail="Investigate before retrying work" />
           <Metric title="Evidence-backed outcomes" value={loading ? "…" : verifiedOutcomes.length} detail="Measured, attributed, or verified records" />
         </section>
+
+        <DecisionBriefPanel />
 
         <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
           <Card>
