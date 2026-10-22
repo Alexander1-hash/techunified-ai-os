@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Activity, Download, RefreshCw, ShieldCheck, TriangleAlert } from "lucide-react";
+import { Activity, Download, FileCheck2, RefreshCw, ShieldCheck, TriangleAlert, Upload } from "lucide-react";
+import { createOperationsSnapshotEnvelope, verifyOperationsSnapshotText, type OperationsSnapshotPayload, type SnapshotVerification } from "@/lib/market-intelligence/operations-snapshot";
 import { readRunLedger } from "@/lib/market-intelligence/run-ledger";
 import { buildReliabilityReport, type ReliabilityReport } from "@/lib/market-intelligence/reliability-monitor";
 import { readIncidentSnapshot, type IncidentSnapshot } from "@/lib/market-intelligence/incident-management";
@@ -25,6 +26,8 @@ export default function IntelligenceOperationsCenterPreview() {
   const [quoteMode, setQuoteMode] = useState("unknown");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("Operations overview has not been refreshed.");
+  const [verification, setVerification] = useState<SnapshotVerification | null>(null);
+  const [verifying, setVerifying] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -103,10 +106,10 @@ export default function IntelligenceOperationsCenterPreview() {
         "Incident and audit records are browser-local, editable, and may differ between browsers or devices.",
         "The current market-data feed is scripted demonstration data, not a live provider.",
         "No live trading, broker execution, capital authorization, or financial-performance claim is enabled.",
-        "Exported JSON is unsigned and is not tamper-proof evidence.",
+        "SHA-256 digest detects accidental changes but is not a digital signature or proof of origin.",
       ],
     };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    try {\n      const snapshot = await createOperationsSnapshotEnvelope(payload);\n      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -125,7 +128,7 @@ export default function IntelligenceOperationsCenterPreview() {
       </div>
       <div className="flex gap-2 self-start">
         <button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium disabled:opacity-50"><RefreshCw size={13} className={loading ? "animate-spin" : ""}/>{loading ? "Refreshing…" : "Refresh"}</button>
-        <button type="button" onClick={exportSnapshot} disabled={!report} className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium disabled:opacity-40"><Download size={13}/> Export</button>
+        <button type="button" onClick={() => void exportSnapshot()} disabled={!report} className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium disabled:opacity-40"><Download size={13}/> Export</button>\n        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium"><Upload size={13}/>{verifying ? "Checking…" : "Verify file"}<input type="file" accept="application/json,.json" className="sr-only" disabled={verifying} onChange={event => { const file = event.currentTarget.files?.[0]; void verifySnapshotFile(file); event.currentTarget.value = ""; }}/></label>
       </div>
     </div>
 
@@ -145,6 +148,6 @@ export default function IntelligenceOperationsCenterPreview() {
       <article className="rounded-xl border border-border p-4"><h3 className="flex items-center gap-2 text-xs font-semibold"><ShieldCheck size={14}/> Execution safety boundary</h3><p className="mt-2 text-[11px] leading-5 text-muted-foreground">{governanceSafe ? "Saved research records preserve eligibleForExecution=false and approvedNotional=0." : "No records are available, or at least one saved record violates the expected research-only invariant."} This local check is not a substitute for server-side authorization.</p></article>
       <article className="rounded-xl border border-border p-4"><h3 className="flex items-center gap-2 text-xs font-semibold"><TriangleAlert size={14}/> Current limitations</h3><p className="mt-2 text-[11px] leading-5 text-muted-foreground">No centralized event store, external alert delivery, live feed validation, or cross-device incident synchronization is configured. {recentTrend ? `Last saved trend checkpoint: ${new Date(recentTrend.capturedAt).toLocaleString()}.` : "No saved health trend checkpoint is available."}</p></article>
     </div>
-    <p role="status" className="mt-3 text-[11px] text-muted-foreground">{message}</p>
+    {verification && <div className="mt-4 rounded-xl border border-border p-4" aria-live="polite"><h3 className="flex items-center gap-2 text-xs font-semibold"><FileCheck2 size={14}/>{verification.valid ? "Snapshot verified" : "Snapshot verification failed"}</h3><p className="mt-2 text-[11px] text-muted-foreground">Schema: {verification.errors.some(error => error.includes("schema") || error.includes("format")) ? "invalid" : "checked"} · SHA-256: {verification.digestMatches ? "match" : "not verified"}</p>{verification.errors.map((error, index) => <p key={`e-${index}`} className="mt-1 text-[11px] text-rose-600">• {error}</p>)}{verification.warnings.map((warning, index) => <p key={`w-${index}`} className="mt-1 text-[11px] text-muted-foreground">• {warning}</p>)}{verification.payload && <p className="mt-2 text-[11px] text-muted-foreground">Snapshot date: {new Date(verification.payload.exportedAt).toLocaleString()} · {verification.payload.modules.length} modules · {verification.payload.incidents.length} incident records. This is a preview only; no live records were imported.</p>}</div>}\n    <p role="status" className="mt-3 text-[11px] text-muted-foreground">{message}</p>
   </section>;
 }
