@@ -5,6 +5,7 @@ import MarketDataPreview from "./market-data-preview";
 import StrategyPreview from "./strategy-preview";
 import RiskPreview from "./risk-preview";
 import BacktestingPreview from "./backtesting-preview";
+import StrategyValidationPreview from "./strategy-validation-preview";
 
 const modules: { title: string; description: string; icon: LucideIcon; status: string }[] = [
   { title: "Market Data", description: "Versioned quote schema, validation boundary, and a clearly labeled demo feed; provider adapters are next.", icon: BarChart3, status: "Prototype" },
@@ -12,6 +13,7 @@ const modules: { title: string; description: string; icon: LucideIcon; status: s
   { title: "Opportunity Detection", description: "Candidate opportunities from signals and strategy rules.", icon: Radar, status: "Planned" },
   { title: "Risk Engine", description: "Hypothetical stop-loss, exposure, drawdown, and position-count checks; no capital authorization.", icon: ShieldCheck, status: "Research prototype" },
   { title: "Backtesting", description: "Reproducible synthetic-data replay with fees, trade journal, drawdown, and explicit research limitations.", icon: FlaskConical, status: "Research prototype" },
+  { title: "Strategy Validation", description: "Walk-forward parameter selection and holdout reporting to expose overfitting risk.", icon: ShieldCheck, status: "Research prototype" },
   { title: "Paper Trading", description: "Interactive simulated execution before any live execution path.", icon: PlayCircle, status: "Prototype" },
 ];
 
@@ -41,6 +43,7 @@ export default function MarketIntelligencePage() {
     <StrategyPreview />
     <RiskPreview />
     <BacktestingPreview />
+    <StrategyValidationPreview />
     <PaperTradingLab />
 
     <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
