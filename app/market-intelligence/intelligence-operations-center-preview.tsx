@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Activity, AlertTriangle, CheckCircle2, Download, RefreshCw, ShieldCheck, TriangleAlert } from "lucide-react";
+import { Activity, Download, RefreshCw, ShieldCheck, TriangleAlert } from "lucide-react";
 import { readRunLedger } from "@/lib/market-intelligence/run-ledger";
 import { buildReliabilityReport, type ReliabilityReport } from "@/lib/market-intelligence/reliability-monitor";
 import { readIncidentSnapshot, type IncidentSnapshot } from "@/lib/market-intelligence/incident-management";
