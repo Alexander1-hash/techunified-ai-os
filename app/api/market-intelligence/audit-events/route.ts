@@ -33,6 +33,13 @@ export async function GET(request: Request) {
 
   const eventType = url.searchParams.get("eventType");
   if (eventType) query = query.eq("event_type", eventType);
+  const correlationId = url.searchParams.get("correlationId")?.trim();
+  if (correlationId) {
+    if (correlationId.length > CENTRAL_AUDIT_LIMITS.correlationIdLength) {
+      return NextResponse.json({ error: "Correlation ID must be 120 characters or fewer." }, { status: 400 });
+    }
+    query = query.eq("correlation_id", correlationId);
+  }
   const { data, error } = await query;
   if (error) {
     return NextResponse.json({
@@ -40,7 +47,13 @@ export async function GET(request: Request) {
       code: error.code ?? "AUDIT_STORAGE_UNAVAILABLE",
     }, { status: 503 });
   }
-  return NextResponse.json({ success: true, storage: "supabase-user-scoped", events: data ?? [], limit });
+  return NextResponse.json({
+    success: true,
+    storage: "supabase-user-scoped",
+    events: data ?? [],
+    limit,
+    filters: { ...(eventType ? { eventType } : {}), ...(correlationId ? { correlationId } : {}) },
+  });
 }
 
 export async function POST(request: Request) {
