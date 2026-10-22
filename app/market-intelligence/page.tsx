@@ -1,4 +1,4 @@
-import { Activity, BarChart3, BrainCircuit, FlaskConical, Gauge, Globe2, LineChart, LockKeyhole, PlayCircle, Radar, ShieldCheck, Sparkles, TrendingUp, WalletCards } from "lucide-react";
+import { Activity, BarChart3, BrainCircuit, ClipboardCheck, FlaskConical, Gauge, Globe2, LineChart, LockKeyhole, PlayCircle, Radar, ShieldCheck, Sparkles, TrendingUp, WalletCards } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import PaperTradingLab from "./paper-trading-lab";
 import MarketDataPreview from "./market-data-preview";
@@ -7,11 +7,13 @@ import RiskPreview from "./risk-preview";
 import BacktestingPreview from "./backtesting-preview";
 import StrategyValidationPreview from "./strategy-validation-preview";
 import OpportunityPreview from "./opportunity-preview";
+import DecisionGovernancePreview from "./decision-governance-preview";
 
 const modules: { title: string; description: string; icon: LucideIcon; status: string }[] = [
   { title: "Market Data", description: "Versioned quote schema, validation boundary, and a clearly labeled demo feed; provider adapters are next.", icon: BarChart3, status: "Prototype" },
   { title: "Strategy Engine", description: "Deterministic, explainable directional observations with explicit non-execution gates.", icon: BrainCircuit, status: "Research prototype" },
   { title: "Opportunity Detection", description: "Evidence-gated candidate triage with freshness, provenance, and validation blockers.", icon: Radar, status: "Research prototype" },
+  { title: "Decision Governance", description: "Fail-closed aggregation of signal, opportunity, validation, and risk evidence.", icon: ClipboardCheck, status: "Research prototype" },
   { title: "Risk Engine", description: "Hypothetical stop-loss, exposure, drawdown, and position-count checks; no capital authorization.", icon: ShieldCheck, status: "Research prototype" },
   { title: "Backtesting", description: "Reproducible synthetic-data replay with fees, trade journal, drawdown, and explicit research limitations.", icon: FlaskConical, status: "Research prototype" },
   { title: "Strategy Validation", description: "Walk-forward parameter selection and holdout reporting to expose overfitting risk.", icon: ShieldCheck, status: "Research prototype" },
@@ -29,7 +31,7 @@ const steps: { number: string; label: string; icon: LucideIcon }[] = [
   { number: "02", label: "Analyze", icon: BrainCircuit },
   { number: "03", label: "Test", icon: FlaskConical },
   { number: "04", label: "Validate", icon: ShieldCheck },
-  { number: "05", label: "Act", icon: TrendingUp },
+  { number: "05", label: "Govern", icon: ClipboardCheck },
 ];
 
 export default function MarketIntelligencePage() {
@@ -42,6 +44,7 @@ export default function MarketIntelligencePage() {
     <MarketDataPreview />
     <StrategyPreview />
     <OpportunityPreview />
+    <DecisionGovernancePreview />
     <RiskPreview />
     <BacktestingPreview />
     <StrategyValidationPreview />
@@ -59,7 +62,7 @@ export default function MarketIntelligencePage() {
       </div>
     </section>
     <section className="rounded-2xl border border-border bg-card p-5">
-      <div className="flex items-start gap-3"><div className="flex size-9 items-center justify-center rounded-lg border border-border bg-background"><Gauge size={16}/></div><div><h2 className="text-sm font-semibold">Intelligence → verification → action</h2><p className="mt-1 text-xs leading-5 text-muted-foreground">A detected opportunity does not become an order automatically.</p></div></div>
+      <div className="flex items-start gap-3"><div className="flex size-9 items-center justify-center rounded-lg border border-border bg-background"><Gauge size={16}/></div><div><h2 className="text-sm font-semibold">Intelligence → verification → governance → action</h2><p className="mt-1 text-xs leading-5 text-muted-foreground">A detected opportunity does not become an order automatically.</p></div></div>
       <div className="mt-5 grid gap-2 sm:grid-cols-5">{steps.map(({ number, label, icon: Icon }) => <div key={number} className="flex items-center gap-2 rounded-xl border border-border bg-background p-3"><span className="text-[10px] text-muted-foreground">{number}</span><Icon size={14}/><span className="text-xs font-medium">{label}</span></div>)}</div>
       <div className="mt-4 flex items-center gap-2 text-[11px] text-muted-foreground"><LockKeyhole size={13}/> Controlled execution boundary · live orders are not enabled</div>
     </section>
