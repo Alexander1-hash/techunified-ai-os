@@ -2,10 +2,11 @@ import { Activity, BarChart3, BrainCircuit, FlaskConical, Gauge, Globe2, LineCha
 import type { LucideIcon } from "lucide-react";
 import PaperTradingLab from "./paper-trading-lab";
 import MarketDataPreview from "./market-data-preview";
+import StrategyPreview from "./strategy-preview";
 
 const modules: { title: string; description: string; icon: LucideIcon; status: string }[] = [
   { title: "Market Data", description: "Versioned quote schema, validation boundary, and a clearly labeled demo feed; provider adapters are next.", icon: BarChart3, status: "Prototype" },
-  { title: "Strategy Engine", description: "Explicit, testable strategy definitions and hypotheses.", icon: BrainCircuit, status: "Foundation" },
+  { title: "Strategy Engine", description: "Deterministic, explainable directional observations with explicit non-execution gates.", icon: BrainCircuit, status: "Research prototype" },
   { title: "Opportunity Detection", description: "Candidate opportunities from signals and strategy rules.", icon: Radar, status: "Planned" },
   { title: "Risk Engine", description: "Exposure, sizing, drawdown, liquidity, and policy constraints.", icon: ShieldCheck, status: "Planned" },
   { title: "Backtesting", description: "Reproducible historical replay and performance evidence.", icon: FlaskConical, status: "Planned" },
@@ -35,7 +36,7 @@ export default function MarketIntelligencePage() {
     </section>
 
     <MarketDataPreview />
-
+    <StrategyPreview />
     <PaperTradingLab />
 
     <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
