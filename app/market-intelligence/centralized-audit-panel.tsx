@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AlertCircle, CheckCircle2, Database, RefreshCw, Send } from "lucide-react";
 import { CENTRAL_AUDIT_EVENT_TYPES, CENTRAL_AUDIT_SEVERITIES, type CentralAuditEventType, type CentralAuditSeverity } from "@/lib/market-intelligence/centralized-audit";
 
@@ -42,7 +42,7 @@ export default function CentralizedAuditPanel() {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  async function appendEvent(event: React.FormEvent<HTMLFormElement>) {
+  async function appendEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!summary.trim()) return;
     setBusy(true);
