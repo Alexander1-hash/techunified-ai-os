@@ -1,9 +1,10 @@
 import { Activity, BarChart3, BrainCircuit, FlaskConical, Gauge, Globe2, LineChart, LockKeyhole, PlayCircle, Radar, ShieldCheck, Sparkles, TrendingUp, WalletCards } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import PaperTradingLab from "./paper-trading-lab";
+import MarketDataPreview from "./market-data-preview";
 
 const modules: { title: string; description: string; icon: LucideIcon; status: string }[] = [
-  { title: "Market Data", description: "Normalized prices, events, macro signals, and provider feeds.", icon: BarChart3, status: "Foundation" },
+  { title: "Market Data", description: "Versioned quote schema, validation boundary, and a clearly labeled demo feed; provider adapters are next.", icon: BarChart3, status: "Prototype" },
   { title: "Strategy Engine", description: "Explicit, testable strategy definitions and hypotheses.", icon: BrainCircuit, status: "Foundation" },
   { title: "Opportunity Detection", description: "Candidate opportunities from signals and strategy rules.", icon: Radar, status: "Planned" },
   { title: "Risk Engine", description: "Exposure, sizing, drawdown, liquidity, and policy constraints.", icon: ShieldCheck, status: "Planned" },
@@ -32,6 +33,8 @@ export default function MarketIntelligencePage() {
       <h1 className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">Market Intelligence</h1>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">A controlled market-intelligence environment connecting external information with strategy research, opportunity discovery, risk analysis, simulation, and explicitly authorized execution.</p>
     </section>
+
+    <MarketDataPreview />
 
     <PaperTradingLab />
 
