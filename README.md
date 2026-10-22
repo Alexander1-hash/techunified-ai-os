@@ -33,6 +33,15 @@ Credits are checked server-side, generation ownership is filtered by authenticat
 For email confirmation and password recovery, configure the Supabase Auth Site URL as `https://techunified-ai-os.vercel.app` and allow the redirect URL `https://techunified-ai-os.vercel.app/auth/callback`. Set `NEXT_PUBLIC_SITE_URL=https://techunified-ai-os.vercel.app` in production. Signup and password reset then use `https://techunified-ai-os.vercel.app/auth/callback`. In development, when `NEXT_PUBLIC_SITE_URL` is unset, they use the current browser origin (for example `http://localhost:3000/auth/callback`). Production fails safely instead of generating a localhost or other development-host callback when the site URL is missing or invalid. Sessions are stored in Supabase SSR cookies; passwords and service-role credentials are never handled by the browser.
 
 
+
+## Company Brain data-source setup
+
+The Company Brain data-source screen keeps setup entry points open for Supabase, CSV, Excel, Google Sheets, external PostgreSQL, CRM, Accounting, and Analytics. External connectors are presented as **Setup available**, not “Coming soon,” and their setup panels explain the provider-specific integration requirements.
+
+An open setup panel is not proof of a live connection. Google Sheets requires an authorized OAuth flow and spreadsheet selection; PostgreSQL requires a TLS-protected, least-privilege read-only connection; CRM, Accounting, and Analytics require a provider-specific API/OAuth adapter and scopes. Credentials must remain server-side in deployment environment variables or an approved secrets manager and must never be stored in browser code or ordinary source metadata.
+
+Before an external source is marked connected, its provider adapter must perform a real authenticated test, validate organization access, synchronize records, and expose verified source metadata. The external setup forms save non-secret provider details as organization-scoped `setup_required` records so the team can track intended integrations. The Business Analyst only treats sources with status `connected` as connected. Google Sheets accepts a valid HTTPS spreadsheet URL or a spreadsheet ID; PostgreSQL setup captures host, port, database, schema, and read-only username without collecting a password. The current setup guide intentionally does not simulate a successful connection. Supabase verification registers the authenticated application database source; it does not automatically import external systems or guarantee that business KPIs are populated. CSV/XLSX uploads remain the currently available file-ingestion paths.
+
 ## Recruitment workspace: trusted candidate ingestion
 
 The `/workforce` workspace and organization-scoped vacancy/review APIs provide the recruitment foundation. Live search is **not enabled by default**: an approved provider adapter must be implemented and configured separately. Do not describe the product as searching all online profiles until a real provider is connected and tested.

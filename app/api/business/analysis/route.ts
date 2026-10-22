@@ -29,6 +29,22 @@ const units: Record<string, string> = {
 
 const VERIFIED_OUTCOME_STATUSES = new Set(['measured', 'attributed'])
 
+function parseMetricNumber(raw: unknown): number | null {
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null
+  if (typeof raw !== 'string') return null
+  let value = raw.trim()
+  if (!value) return null
+
+  const negativeByParentheses = /^\(.*\)$/.test(value)
+  if (negativeByParentheses) value = value.slice(1, -1).trim()
+  value = value.replace(/[$£€₦¥%\s]/g, '')
+  if (!/^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/.test(value)) return null
+  // Commas were validated as thousands separators before removal.
+  const parsed = Number(value.replace(/,/g, ''))
+  if (!Number.isFinite(parsed)) return null
+  return negativeByParentheses ? -Math.abs(parsed) : parsed
+}
+
 function outcomeNumber(value: unknown) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
@@ -205,7 +221,7 @@ export async function GET() {
   )
 
   const hasConnectedSource =
-    Boolean(sources.data?.length) &&
+    Boolean((sources.data ?? []).some((source: any) => source.status === 'connected')) &&
     Boolean(mappings.data?.length)
 
   let nextAction =
@@ -260,10 +276,15 @@ export async function POST(request: Request) {
     )
   }
 
+  const contentLength = Number(request.headers.get('content-length') ?? 0)
+  if (contentLength > 256 * 1024) {
+    return NextResponse.json({ error: 'The KPI mapping request is too large.' }, { status: 413 })
+  }
   const body = await request.json().catch(() => null)
 
   if (
     !body?.sourceId ||
+    typeof body.sourceId !== 'string' ||
     !Array.isArray(body.mappings)
   ) {
     return NextResponse.json(
@@ -275,7 +296,7 @@ export async function POST(request: Request) {
   const { data: source } = await supabase
     .from('business_data_sources')
     .select(
-      'id,name,configuration_metadata',
+      'id,name,status,configuration_metadata',
     )
     .eq('id', body.sourceId)
     .eq('organization_id', organizationId)
@@ -288,14 +309,57 @@ export async function POST(request: Request) {
     )
   }
 
-  const {
-    data: records,
-    error: recordsError,
-  } = await supabase
-    .from('business_source_records')
-    .select('id,payload,recorded_at')
-    .eq('source_id', source.id)
-    .eq('organization_id', organizationId)
+  if (source.status !== 'connected') {
+    return NextResponse.json(
+      { error: 'This source is not connected yet. Complete a real connection and sync before mapping KPIs.' },
+      { status: 409 },
+    )
+  }
+
+  if (body.mappings.length > 50) {
+    return NextResponse.json(
+      { error: 'Map no more than 50 fields in one request.' },
+      { status: 400 },
+    )
+  }
+
+  // Supabase/PostgREST commonly caps an unpaginated response at 1,000 rows.
+  // Page deterministically so KPI calculations don't silently ignore imported history.
+  const recordPageSize = 1000
+  const maxAnalysisRecords = 20000
+  const records: any[] = []
+  let recordsError: any = null
+  let offset = 0
+
+  while (true) {
+    const { data: page, error } = await supabase
+      .from('business_source_records')
+      .select('id,payload,recorded_at')
+      .eq('source_id', source.id)
+      .eq('organization_id', organizationId)
+      .order('id', { ascending: true })
+      .range(offset, offset + recordPageSize - 1)
+
+    if (error) {
+      recordsError = error
+      break
+    }
+
+    const batch = page ?? []
+    if (records.length + batch.length > maxAnalysisRecords) {
+      return NextResponse.json(
+        {
+          error: `This source contains more than ${maxAnalysisRecords.toLocaleString()} records. Narrow the source or split the dataset before mapping KPIs so the analyst does not report partial totals.`,
+          maxRecords: maxAnalysisRecords,
+        },
+        { status: 413 },
+      )
+    }
+
+    records.push(...batch)
+    if (batch.length < recordPageSize) break
+    offset += batch.length
+  }
 
   if (recordsError) {
     return NextResponse.json(
@@ -307,34 +371,56 @@ export async function POST(request: Request) {
     )
   }
 
-  const sample = (records ?? []).map(
-    (record: any) => record.payload,
+  const sample = records.map((record: any) => record.payload)
+
+  const availableFields = new Set(
+    sample.flatMap((record: any) =>
+      record && typeof record === 'object' && !Array.isArray(record)
+        ? Object.keys(record)
+        : [],
+    ),
   )
 
-  const valid = body.mappings
-    .map((m: any) => ({
-      fieldName:
-        typeof m.fieldName === 'string'
-          ? m.fieldName
-          : typeof m.column === 'string'
-            ? m.column
-            : '',
-      metricName:
-        typeof m.metricName === 'string'
-          ? m.metricName
-          : typeof m.metric === 'string'
-            ? m.metric
-            : '',
-      unit:
-        typeof m.unit === 'string'
-          ? m.unit
-          : undefined,
-    }))
+  const normalizedMappings = body.mappings.map((m: any) => ({
+    fieldName:
+      typeof m?.fieldName === 'string'
+        ? m.fieldName.trim().slice(0, 200)
+        : typeof m?.column === 'string'
+          ? m.column.trim().slice(0, 200)
+          : '',
+    metricName:
+      typeof m?.metricName === 'string'
+        ? m.metricName
+        : typeof m?.metric === 'string'
+          ? m.metric
+          : '',
+    unit: typeof m?.unit === 'string' ? m.unit.trim().slice(0, 40) : undefined,
+  }))
+
+  const valid = normalizedMappings
     .filter(
       (m: any) =>
         m.fieldName.length > 0 &&
+        availableFields.has(m.fieldName) &&
         METRICS.includes(m.metricName),
     )
+    .filter((m: any, index: number, all: any[]) =>
+      all.findIndex((candidate: any) => candidate.fieldName === m.fieldName) === index,
+    )
+
+  const duplicateMetrics = [...new Set(
+    valid
+      .filter((mapping: any, index: number, all: any[]) =>
+        all.findIndex((candidate: any) => candidate.metricName === mapping.metricName) !== index,
+      )
+      .map((mapping: any) => mapping.metricName),
+  )]
+  if (duplicateMetrics.length) {
+    return NextResponse.json(
+      { error: `Each KPI can only be mapped once per analysis. Duplicate metrics: ${duplicateMetrics.join(', ')}. Choose one source column for each metric.` },
+      { status: 422 },
+    )
+  }
 
   if (!valid.length) {
     return NextResponse.json(
@@ -350,19 +436,18 @@ export async function POST(request: Request) {
 
   for (const mapping of valid) {
     const values = sample
-      .map((r: any) =>
-        Number(r[mapping.fieldName]),
-      )
-      .filter(Number.isFinite)
+      .map((record: any) => record?.[mapping.fieldName])
+      .map((raw: unknown) => parseMetricNumber(raw))
+      .filter((value: number | null): value is number => value !== null)
 
     if (!values.length) {
       continue
     }
 
-    const value = values.reduce(
-      (a: number, b: number) => a + b,
-      0,
-    )
+    const isRateMetric = ['Conversion Rate', 'Churn', 'Retention'].includes(mapping.metricName)
+    const value = isRateMetric
+      ? values.reduce((sum: number, current: number) => sum + current, 0) / values.length
+      : values.reduce((sum: number, current: number) => sum + current, 0)
 
     const { data: existingKpi } =
       await supabase
@@ -370,6 +455,8 @@ export async function POST(request: Request) {
         .select('id,value,previous_value')
         .eq('organization_id', organizationId)
         .eq('name', mapping.metricName)
+        .order('recorded_at', { ascending: false })
+        .limit(1)
         .maybeSingle()
 
     const kpiPayload = {
@@ -453,5 +540,6 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     persistedKpis,
+    aggregation: 'Sum for additive metrics; average for conversion rate, churn, and retention.',
   })
 }

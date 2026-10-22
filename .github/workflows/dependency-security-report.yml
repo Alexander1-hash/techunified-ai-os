@@ -1,0 +1,47 @@
+name: Dependency security report
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [feat/open-data-source-integrations]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Generate dependency advisory report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run npm audit and retain the full report
+        shell: bash
+        run: |
+          set +e
+          npm audit --json > npm-audit.json
+          audit_exit=$?
+          set -e
+          if node -e "const fs=require('node:fs'); const p=JSON.parse(fs.readFileSync('npm-audit.json','utf8')); const v=p.metadata?.vulnerabilities ?? {}; console.log('## Dependency security report'); console.log('npm audit exit code: ' + ${audit_exit}); console.log('Counts: ' + JSON.stringify(v)); for (const [name, item] of Object.entries(p.vulnerabilities ?? {})) console.log('- ' + name + ': ' + item.severity + ' (direct: ' + item.isDirect + ', fix available: ' + Boolean(item.fixAvailable) + ')');" >> "$GITHUB_STEP_SUMMARY"; then
+            echo "Full npm audit JSON is attached as a workflow artifact. This report does not automatically upgrade dependencies." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "npm audit did not return parseable JSON. Check registry/network logs; no dependency changes were made." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload dependency advisory report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-dependency-audit
+          path: npm-audit.json
+          if-no-files-found: warn
+          retention-days: 14

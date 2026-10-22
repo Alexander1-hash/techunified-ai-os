@@ -33,7 +33,12 @@ type Column = {
   missing: number
 }
 
-type Provider = 'supabase' | 'csv' | 'excel' | null
+type ImportQuality = {
+  rowCount: number
+  duplicateRows: number
+}
+
+type Provider = 'supabase' | 'csv' | 'excel' | 'google-sheets' | 'postgresql' | 'crm' | 'accounting' | 'analytics' | null
 
 const sourceOptions = [
   {
@@ -126,13 +131,15 @@ export function DataSourcesCenter() {
   const [error, setError] = useState('')
   const [result, setResult] = useState<Source | null>(null)
   const [columns, setColumns] = useState<Column[]>([])
+  const [importQuality, setImportQuality] = useState<ImportQuality | null>(null)
   const [mapping, setMapping] = useState<Record<string, string>>({})
+  const [setupFields, setSetupFields] = useState<Record<string, string>>({})
   const fileRef = useRef<HTMLInputElement | null>(null)
 
   const connectedProviders = useMemo(
     () =>
       new Set(
-        sources.map((source) => source.provider),
+        sources.filter((source) => source.status === 'connected').map((source) => source.provider),
       ),
     [sources],
   )
@@ -184,11 +191,18 @@ export function DataSourcesCenter() {
     setError('')
     setResult(null)
     setColumns([])
+    setImportQuality(null)
     setMapping({})
   }
 
   function openSetup(provider: Provider) {
     resetFeedback()
+    const existing = sources.find((source) => source.provider === provider && source.category === 'integration')
+    const savedSetup = existing?.configuration_metadata?.setup
+    setSetupFields({
+      ...(savedSetup && typeof savedSetup === 'object' && !Array.isArray(savedSetup) ? savedSetup as Record<string, string> : {}),
+      ...(existing?.name ? { name: existing.name } : {}),
+    })
     setActive(provider)
 
     window.setTimeout(() => {
@@ -203,7 +217,36 @@ export function DataSourcesCenter() {
 
   function closeSetup() {
     resetFeedback()
+    setSetupFields({})
     setActive(null)
+  }
+
+  async function saveExternalSetup() {
+    if (!active || ['supabase', 'csv', 'excel'].includes(active)) return
+    const name = (setupFields.name ?? '').trim()
+    if (!name) {
+      setError('Give this integration a recognizable name before saving.')
+      return
+    }
+    setBusy(true)
+    setMessage('')
+    setError('')
+    try {
+      const response = await fetch('/api/brain/data-sources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: active, setup: setupFields }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.error || 'Integration setup could not be saved.')
+      setResult(data?.source ?? null)
+      setMessage('Setup details saved. This source is pending provider authentication and a real test sync; it is not connected yet.')
+      await loadSources()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Integration setup could not be saved.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function verifySupabase() {
@@ -294,6 +337,11 @@ export function DataSourcesCenter() {
         Array.isArray(data?.columns)
           ? data.columns
           : [],
+      )
+      setImportQuality(
+        data?.quality && typeof data.quality.rowCount === 'number'
+          ? { rowCount: data.quality.rowCount, duplicateRows: Number(data.quality.duplicateRows) || 0 }
+          : null,
       )
 
       setMessage(
@@ -498,19 +546,16 @@ export function DataSourcesCenter() {
                   <Icon className="h-5 w-5" />
                 </div>
 
-                {connected &&
-                  source.supported && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Connected
-                    </span>
-                  )}
-
-                {!source.supported && (
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
-                    Coming soon
+                {connected ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Connected
                   </span>
-                )}
+                ) : !source.supported ? (
+                  <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+                    Setup available
+                  </span>
+                ) : null}
 
               </div>
 
@@ -524,27 +569,13 @@ export function DataSourcesCenter() {
 
               <div className="mt-5">
 
-                {source.supported ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openSetup(source.id as Provider)
-                    }
-                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-[0.99]"
-                  >
-                    {connected
-                      ? 'Manage source'
-                      : 'Open setup'}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    className="inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-400"
-                  >
-                    Coming soon
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => openSetup(source.id as Provider)}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-[0.99]"
+                >
+                  {connected ? 'Manage source' : source.supported ? 'Open setup' : 'Configure integration'}
+                </button>
 
               </div>
 
@@ -561,11 +592,11 @@ export function DataSourcesCenter() {
           <div>
 
             <h2 className="text-lg font-semibold text-slate-950">
-              Connected sources
+              Data source registry
             </h2>
 
             <p className="mt-1 text-sm text-slate-600">
-              Sources available to the Business Analyst.
+              Connected sources and saved integration setups for this organization.
             </p>
 
           </div>
@@ -596,8 +627,7 @@ export function DataSourcesCenter() {
               </p>
 
               <p className="mt-1 text-sm text-slate-500">
-                Connect Supabase or upload a
-                CSV/Excel file to begin.
+                Open any connector above to begin setup, or import a CSV/Excel file. External providers appear here after a real connection and data sync are verified.
               </p>
 
             </div>
@@ -619,8 +649,8 @@ export function DataSourcesCenter() {
                         {source.name}
                       </h3>
 
-                      <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium capitalize text-emerald-700">
-                        {source.status}
+                      <span className={`rounded-full px-2 py-1 text-xs font-medium capitalize ${source.status === 'connected' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>
+                        {source.status === 'connected' ? 'Connected' : source.status.replaceAll('_', ' ')}
                       </span>
 
                     </div>
@@ -671,15 +701,19 @@ export function DataSourcesCenter() {
                     ? 'Verify Supabase'
                     : active === 'csv'
                       ? 'Import CSV'
-                      : 'Import Excel'}
+                      : active === 'excel'
+                        ? 'Import Excel'
+                        : `Configure ${sourceOptions.find((source) => source.id === active)?.name ?? 'integration'}`}
 
                 </h2>
 
                 <p className="mt-1 text-sm leading-6 text-slate-600">
 
                   {active === 'supabase'
-                    ? 'Verify the organization database connection and make it available to the Business Analyst.'
-                    : 'Upload your business data and let TechUnified inspect the columns before KPI mapping.'}
+                    ? 'Check authenticated access to this organization’s TechUnifedAIOS database and register it as a data source.'
+                    : active === 'csv' || active === 'excel'
+                      ? 'Upload business data, inspect its columns, and map verified fields to business KPIs.'
+                      : 'Start the integration setup for this provider. Connection is only marked complete after credentials, permissions, and a real data sync have been verified.'}
 
                 </p>
 
@@ -708,9 +742,10 @@ export function DataSourcesCenter() {
                     </p>
 
                     <p className="mt-1 text-sm text-slate-600">
-                      TechUnified will verify the current
-                      authenticated Supabase organization
-                      connection.
+                      This checks authenticated access to the current
+                      organization database and registers the source.
+                      It does not automatically discover every table
+                      or import records from external systems.
                     </p>
 
                   </div>
@@ -737,6 +772,45 @@ export function DataSourcesCenter() {
                 </div>
 
               </div>
+            )}
+
+            {active && !['supabase', 'csv', 'excel'].includes(active) && (
+              <form className="mt-6 space-y-5" onSubmit={(event) => { event.preventDefault(); void saveExternalSetup() }}>
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                  <p className="font-semibold text-blue-950">Integration setup details</p>
+                  <p className="mt-2 text-sm leading-6 text-blue-900">Save non-secret details needed to prepare this connector. Never enter passwords, API keys, or OAuth tokens here. Saving records a setup request only; it does not connect or sync the provider.</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block text-sm font-medium text-slate-800 sm:col-span-2">Integration name
+                    <input required value={setupFields.name ?? ''} onChange={(event) => setSetupFields((current) => ({ ...current, name: event.target.value }))} placeholder={sourceOptions.find((source) => source.id === active)?.name ?? 'Integration'} className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" />
+                  </label>
+                  {active === 'google-sheets' && <label className="block text-sm font-medium text-slate-800 sm:col-span-2">Spreadsheet URL or ID
+                    <input value={setupFields.spreadsheetUrl ?? ''} onChange={(event) => setSetupFields((current) => ({ ...current, spreadsheetUrl: event.target.value }))} placeholder="https://docs.google.com/spreadsheets/d/…" className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" inputMode="url" />
+                  </label>}
+                  {active === 'postgresql' && <>
+                    <label className="block text-sm font-medium text-slate-800">Host<input required value={setupFields.host ?? ''} onChange={(event) => setSetupFields((current) => ({ ...current, host: event.target.value }))} placeholder="db.example.com" className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" /></label>
+                    <label className="block text-sm font-medium text-slate-800">Port<input required type="number" min="1" max="65535" value={setupFields.port ?? '5432'} onChange={(event) => setSetupFields((current) => ({ ...current, port: event.target.value }))} className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" /></label>
+                    <label className="block text-sm font-medium text-slate-800">Database<input required value={setupFields.database ?? ''} onChange={(event) => setSetupFields((current) => ({ ...current, database: event.target.value }))} className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" /></label>
+                    <label className="block text-sm font-medium text-slate-800">Schema<input value={setupFields.schema ?? 'public'} onChange={(event) => setSetupFields((current) => ({ ...current, schema: event.target.value }))} className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" /></label>
+                    <label className="block text-sm font-medium text-slate-800 sm:col-span-2">Read-only database username<input required value={setupFields.username ?? ''} onChange={(event) => setSetupFields((current) => ({ ...current, username: event.target.value }))} className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" autoComplete="off" /></label>
+                  </>}
+                  {['crm', 'accounting', 'analytics'].includes(active) && <>
+                    <label className="block text-sm font-medium text-slate-800">Provider / product<input required value={setupFields.product ?? ''} onChange={(event) => setSetupFields((current) => ({ ...current, product: event.target.value }))} placeholder={active === 'crm' ? 'e.g. HubSpot' : active === 'accounting' ? 'e.g. QuickBooks' : 'e.g. Google Analytics'} className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" /></label>
+                    <label className="block text-sm font-medium text-slate-800">Account / workspace URL<input value={setupFields.accountUrl ?? ''} onChange={(event) => setSetupFields((current) => ({ ...current, accountUrl: event.target.value }))} placeholder="https://…" className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal" inputMode="url" /></label>
+                  </>}
+                  <label className="block text-sm font-medium text-slate-800 sm:col-span-2">Data needed (optional)
+                    <textarea value={setupFields.dataAreas ?? ''} onChange={(event) => setSetupFields((current) => ({ ...current, dataAreas: event.target.value }))} placeholder="e.g. customers, invoices, sales, campaign performance" rows={3} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal" />
+                  </label>
+                </div>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="font-semibold text-amber-950">Live connector still requires implementation</p>
+                  <p className="mt-1 text-sm leading-6 text-amber-900">The provider-specific OAuth/API adapter, secure secret storage, connection test, sync, and KPI mapping must be implemented before this source can become connected. This screen will keep the setup status honest.</p>
+                </div>
+                <button type="submit" disabled={busy} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
+                  {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {busy ? 'Saving setup…' : 'Save setup details'}
+                </button>
+              </form>
             )}
 
             {(active === 'csv' ||
@@ -790,6 +864,23 @@ export function DataSourcesCenter() {
             {columns.length > 0 &&
               result && (
                 <div className="mt-6 space-y-5">
+
+                  {importQuality && (
+                    <div className="grid gap-3 sm:grid-cols-3" aria-label="Import quality summary">
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <p className="text-xs text-slate-500">Rows detected</p>
+                        <p className="mt-1 text-xl font-semibold text-slate-950">{importQuality.rowCount.toLocaleString()}</p>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <p className="text-xs text-slate-500">Duplicate rows excluded from analysis</p>
+                        <p className="mt-1 text-xl font-semibold text-slate-950">{importQuality.duplicateRows.toLocaleString()}</p>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <p className="text-xs text-slate-500">Detected fields</p>
+                        <p className="mt-1 text-xl font-semibold text-slate-950">{columns.length.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
 
                   <div>
 

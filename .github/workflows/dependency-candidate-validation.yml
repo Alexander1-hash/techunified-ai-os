@@ -1,0 +1,56 @@
+name: Validate patched dependency candidates
+
+on:
+  push:
+    branches: [feat/open-data-source-integrations]
+    paths:
+      - '.github/workflows/dependency-candidate-validation.yml'
+      - 'package.json'
+      - 'package-lock.json'
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: build-only-placeholder-key
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Create isolated candidate dependency lock
+        run: |
+          npm install --save-exact next@16.4.2 --ignore-scripts
+          npm install --save-exact sharp@0.35.5 source-map-js@1.2.2 --ignore-scripts
+      - name: Install candidate lock cleanly
+        run: npm ci
+      - name: Build candidate
+        run: npm run build
+      - name: Type-check candidate
+        run: npx tsc --noEmit
+      - name: Record candidate audit
+        shell: bash
+        run: |
+          set +e
+          npm audit --json > npm-audit-candidate.json
+          set -e
+          node -e "const fs=require('node:fs'); const p=JSON.parse(fs.readFileSync('npm-audit-candidate.json','utf8')); console.log('## Patched dependency candidate audit'); console.log(JSON.stringify(p.metadata?.vulnerabilities ?? {}, null, 2)); for (const [name, item] of Object.entries(p.vulnerabilities ?? {})) console.log('- ' + name + ': ' + item.severity + ' (direct: ' + item.isDirect + ', fix available: ' + Boolean(item.fixAvailable) + ')');" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload candidate lock and audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: patched-dependency-candidate
+          path: |
+            package.json
+            package-lock.json
+            npm-audit-candidate.json
+          if-no-files-found: error
+          retention-days: 14
