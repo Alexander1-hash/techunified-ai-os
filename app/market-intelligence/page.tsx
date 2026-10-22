@@ -1,4 +1,4 @@
-import { Activity, BarChart3, BrainCircuit, ClipboardCheck, ClipboardList, Database, FlaskConical, Gauge, Globe2, LineChart, LockKeyhole, PlayCircle, Radar, ShieldCheck, Sparkles, WalletCards, ChartNoAxesCombined } from "lucide-react";
+import { Activity, BarChart3, BrainCircuit, ClipboardCheck, ClipboardList, Database, FlaskConical, Gauge, Globe2, LineChart, LockKeyhole, PlayCircle, Radar, ShieldCheck, Sparkles, WalletCards, ChartNoAxesCombined, HeartPulse } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import PaperTradingLab from "./paper-trading-lab";
 import MarketDataPreview from "./market-data-preview";
@@ -11,6 +11,7 @@ import DecisionGovernancePreview from "./decision-governance-preview";
 import OrchestrationAuditPreview from "./orchestration-audit-preview";
 import PersistentRunLedgerPreview from "./persistent-run-ledger-preview";
 import EvidencePerformanceAnalyticsPreview from "./evidence-performance-analytics-preview";
+import IntelligenceReliabilityPreview from "./intelligence-reliability-preview";
 
 const modules: { title: string; description: string; icon: LucideIcon; status: string }[] = [
   { title: "Market Data", description: "Versioned quote schema, validation boundary, and a clearly labeled demo feed; provider adapters are next.", icon: BarChart3, status: "Prototype" },
@@ -20,6 +21,7 @@ const modules: { title: string; description: string; icon: LucideIcon; status: s
   { title: "Orchestration & Audit", description: "Ordered stage evidence, policy reason codes, and reviewable research audit snapshots.", icon: ClipboardList, status: "Research prototype" },
   { title: "Persistent Run Ledger", description: "Bounded browser-local history with JSON export and explicit durability limitations.", icon: Database, status: "Local persistence" },
   { title: "Evidence Analytics", description: "Stage coverage, audit completeness, and recurring blocker counts from retained runs.", icon: ChartNoAxesCombined, status: "Descriptive analytics" },
+  { title: "Reliability Monitoring", description: "Severity-ranked quote, audit, timestamp, and governance-invariant checks.", icon: HeartPulse, status: "Read-only monitor" },
   { title: "Risk Engine", description: "Hypothetical stop-loss, exposure, drawdown, and position-count checks; no capital authorization.", icon: ShieldCheck, status: "Research prototype" },
   { title: "Backtesting", description: "Reproducible synthetic-data replay with fees, trade journal, drawdown, and explicit research limitations.", icon: FlaskConical, status: "Research prototype" },
   { title: "Strategy Validation", description: "Walk-forward parameter selection and holdout reporting to expose overfitting risk.", icon: ShieldCheck, status: "Research prototype" },
@@ -54,6 +56,7 @@ export default function MarketIntelligencePage() {
     <OrchestrationAuditPreview />
     <PersistentRunLedgerPreview />
     <EvidencePerformanceAnalyticsPreview />
+    <IntelligenceReliabilityPreview />
     <RiskPreview />
     <BacktestingPreview />
     <StrategyValidationPreview />
