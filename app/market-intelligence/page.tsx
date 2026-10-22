@@ -13,6 +13,7 @@ import PersistentRunLedgerPreview from "./persistent-run-ledger-preview";
 import EvidencePerformanceAnalyticsPreview from "./evidence-performance-analytics-preview";
 import IntelligenceReliabilityPreview from "./intelligence-reliability-preview";
 import IntelligenceIncidentManagementPreview from "./intelligence-incident-management-preview";
+import IntelligenceOperationsCenterPreview from "./intelligence-operations-center-preview";
 
 const modules: { title: string; description: string; icon: LucideIcon; status: string }[] = [
   { title: "Market Data", description: "Versioned quote schema, validation boundary, and a clearly labeled demo feed; provider adapters are next.", icon: BarChart3, status: "Prototype" },
@@ -59,6 +60,7 @@ export default function MarketIntelligencePage() {
     <PersistentRunLedgerPreview />
     <EvidencePerformanceAnalyticsPreview />
     <IntelligenceReliabilityPreview />
+    <IntelligenceOperationsCenterPreview />
     <IntelligenceIncidentManagementPreview />
     <RiskPreview />
     <BacktestingPreview />
