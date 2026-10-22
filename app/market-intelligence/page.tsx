@@ -1,5 +1,6 @@
 import { Activity, BarChart3, BrainCircuit, FlaskConical, Gauge, Globe2, LineChart, LockKeyhole, PlayCircle, Radar, ShieldCheck, Sparkles, TrendingUp, WalletCards } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import PaperTradingLab from "./paper-trading-lab";
 
 const modules: { title: string; description: string; icon: LucideIcon; status: string }[] = [
   { title: "Market Data", description: "Normalized prices, events, macro signals, and provider feeds.", icon: BarChart3, status: "Foundation" },
@@ -7,7 +8,7 @@ const modules: { title: string; description: string; icon: LucideIcon; status: s
   { title: "Opportunity Detection", description: "Candidate opportunities from signals and strategy rules.", icon: Radar, status: "Planned" },
   { title: "Risk Engine", description: "Exposure, sizing, drawdown, liquidity, and policy constraints.", icon: ShieldCheck, status: "Planned" },
   { title: "Backtesting", description: "Reproducible historical replay and performance evidence.", icon: FlaskConical, status: "Planned" },
-  { title: "Paper Trading", description: "Simulated execution before any live execution path.", icon: PlayCircle, status: "Planned" },
+  { title: "Paper Trading", description: "Interactive simulated execution before any live execution path.", icon: PlayCircle, status: "Prototype" },
 ];
 
 const integrations: { title: string; description: string; icon: LucideIcon }[] = [
@@ -32,6 +33,8 @@ export default function MarketIntelligencePage() {
       <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">A controlled market-intelligence environment connecting external information with strategy research, opportunity discovery, risk analysis, simulation, and explicitly authorized execution.</p>
     </section>
 
+    <PaperTradingLab />
+
     <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {modules.map(({ title, description, icon: Icon, status }) => <article key={title} className="rounded-2xl border border-border bg-card p-5">
         <div className="flex items-start justify-between gap-3"><div className="flex size-10 items-center justify-center rounded-xl border border-border bg-background"><Icon size={18}/></div><span className="rounded-full border border-border px-2 py-1 text-[10px] text-muted-foreground">{status}</span></div>
@@ -51,7 +54,7 @@ export default function MarketIntelligencePage() {
       <div className="mt-5 grid gap-2 sm:grid-cols-5">
         {steps.map(({ number, label, icon: Icon }) => <div key={number} className="flex items-center gap-2 rounded-xl border border-border bg-background p-3"><span className="text-[10px] text-muted-foreground">{number}</span><Icon size={14}/><span className="text-xs font-medium">{label}</span></div>)}
       </div>
-      <div className="mt-4 flex items-center gap-2 text-[11px] text-muted-foreground"><LockKeyhole size={13}/> Controlled execution boundary</div>
+      <div className="mt-4 flex items-center gap-2 text-[11px] text-muted-foreground"><LockKeyhole size={13}/> Controlled execution boundary · live orders are not enabled</div>
     </section>
   </div>;
 }
