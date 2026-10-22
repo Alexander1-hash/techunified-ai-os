@@ -81,8 +81,8 @@ export default function IntelligenceOperationsCenterPreview() {
     { name: "Evidence coverage", state: stageCoverage === null ? "no-data" : stageCoverage >= 95 ? "operational" : stageCoverage >= 70 ? "attention" : "blocked", detail: stageCoverage === null ? "No saved runs to evaluate." : `Average required-stage coverage ${stageCoverage}%` },
   ];
 
-  function exportSnapshot() {
-    const payload = {
+  async function exportSnapshot() {
+    const payload: OperationsSnapshotPayload = {
       schemaVersion: 1,
       exportedAt: new Date().toISOString(),
       product: "TechUnifiedAIOS Intelligence Operations Center",
@@ -106,17 +106,44 @@ export default function IntelligenceOperationsCenterPreview() {
         "Incident and audit records are browser-local, editable, and may differ between browsers or devices.",
         "The current market-data feed is scripted demonstration data, not a live provider.",
         "No live trading, broker execution, capital authorization, or financial-performance claim is enabled.",
-        "SHA-256 digest detects accidental changes but is not a digital signature or proof of origin.",
+        "SHA-256 detects accidental changes but is not a digital signature or proof of origin.",
       ],
     };
-    try {\n      const snapshot = await createOperationsSnapshotEnvelope(payload);\n      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `techunified-operations-center-${new Date().toISOString().slice(0, 10)}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    setMessage("Operations snapshot exported as unsigned JSON.");
+    try {
+      const snapshot = await createOperationsSnapshotEnvelope(payload);
+      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `techunified-operations-center-${new Date().toISOString().slice(0, 10)}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setMessage("Integrity-wrapped operations snapshot exported. SHA-256 detects accidental edits; it does not authenticate the source.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Snapshot export failed validation.");
+    }
+  }
+
+  async function verifySnapshotFile(file?: File) {
+    if (!file) return;
+    setVerifying(true);
+    setVerification(null);
+    try {
+      const result = await verifyOperationsSnapshotText(await file.text());
+      setVerification(result);
+      setMessage(result.valid
+        ? "Snapshot schema and SHA-256 digest verified. No live data was changed."
+        : "Snapshot verification failed. Review the validation findings below.");
+    } catch (error) {
+      setVerification({
+        valid: false,
+        digestMatches: false,
+        errors: [error instanceof Error ? error.message : "Could not verify this file."],
+        warnings: [],
+      });
+    } finally {
+      setVerifying(false);
+    }
   }
 
   return <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
