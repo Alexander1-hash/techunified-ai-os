@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { ArrowRight, Brain, CheckCircle2, Compass, MessageSquare, X } from 'lucide-react'
+import { ArrowRight, Brain, CheckCircle2, Compass, Sparkles, X } from 'lucide-react'
 
 const STORAGE_KEY = 'techunifedaios-onboarding-dismissed-v1'
 
@@ -17,11 +17,11 @@ const steps = [
   },
   {
     number: '02',
-    title: 'Give AI one clear task',
-    description: 'Ask for a draft, analysis, plan, or summary. Keep the first task small enough to review.',
-    href: '#ai-command-surface',
-    action: 'Try an AI task',
-    icon: MessageSquare,
+    title: 'Try one small AI task',
+    description: 'Start with a clear prompt, review the result, and refine it before relying on it for business decisions.',
+    href: '/studio',
+    action: 'Open AI Studio',
+    icon: Sparkles,
   },
   {
     number: '03',
@@ -93,7 +93,7 @@ export function FirstRunGuide() {
           )
         })}
       </div>
-      <p className="mt-4 text-xs leading-5 text-muted-foreground">You can reopen this guide from the dashboard whenever you need it by clearing its dismissal in this browser.</p>
+      <p className="mt-4 text-xs leading-5 text-muted-foreground">This guide stays hidden on this browser after you dismiss it.</p>
     </section>
   )
 }
