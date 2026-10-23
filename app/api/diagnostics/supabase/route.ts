@@ -15,7 +15,7 @@ function classifyKey(key: string | undefined): KeyType {
 
 function safeErrorMessage(error: unknown) {
   if (!(error instanceof Error)) return 'Supabase connectivity check failed.'
-  const message = error.message.replace(/\\s+/g, ' ').trim()
+  const message = error.message.replace(/\s+/g, ' ').trim()
   return message ? message.slice(0, 200) : 'Supabase connectivity check failed.'
 }
 
