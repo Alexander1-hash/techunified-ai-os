@@ -424,7 +424,7 @@ export async function GET() {
           accuracy_score: evaluation.accuracyScore,
           prediction_confidence: evaluation.predictionConfidence,
         })),
-        { onConflict: 'snapshot_id,objective_id' },
+        { onConflict: 'snapshot_id,objective_id', ignoreDuplicates: true },
       )
       if (forecastEvaluationError) throw forecastEvaluationError
     }
