@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { getSupabasePublicConfig } from '@/lib/supabase/config'
+
 const EXPECTED_HOSTNAME = 'cqxudowdhlnqnmavmlve.supabase.co'
 
 type KeyType = 'legacy_anon' | 'publishable' | 'unknown'
@@ -13,15 +15,42 @@ function classifyKey(key: string | undefined): KeyType {
 
 function safeErrorMessage(error: unknown) {
   if (!(error instanceof Error)) return 'Supabase connectivity check failed.'
-  const message = error.message.replace(/\s+/g, ' ').trim()
+  const message = error.message.replace(/\\s+/g, ' ').trim()
   return message ? message.slice(0, 200) : 'Supabase connectivity check failed.'
 }
 
+function privateJson(body: Record<string, unknown>, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      'Cache-Control': 'private, no-store, max-age=0',
+      Vary: 'Cookie',
+    },
+  })
+}
+
 export async function GET() {
+  let supabase
+  try {
+    supabase = await createClient()
+    const { data: { user }, error } = await supabase.auth.getUser()
+    if (error || !user) {
+      return privateJson({ error: 'Authentication required.' }, 401)
+    }
+  } catch {
+    return privateJson({ error: 'Supabase diagnostics are unavailable.' }, 503)
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-  const { key: supabaseKey } = getSupabasePublicConfig()
+  let supabaseKey: string | undefined
+  try {
+    supabaseKey = getSupabasePublicConfig().key
+  } catch {
+    supabaseKey = undefined
+  }
+
   const selectedKeyVariable = publishableKey !== undefined
     ? 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'
     : anonKey !== undefined
@@ -52,13 +81,14 @@ export async function GET() {
 
   if (!url || url.protocol !== 'https:' || url.hostname !== EXPECTED_HOSTNAME || !supabaseKey) {
     diagnostic.errorMessage = 'Supabase URL or selected public key is missing or invalid.'
-    return NextResponse.json(diagnostic)
+    return privateJson(diagnostic)
   }
 
   try {
     const response = await fetch(`${url.origin}/auth/v1/health`, {
       headers: { apikey: supabaseKey },
       cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
     })
     diagnostic.status = response.status
     if (response.ok) {
@@ -72,5 +102,5 @@ export async function GET() {
     diagnostic.errorMessage = safeErrorMessage(error)
   }
 
-  return NextResponse.json(diagnostic)
+  return privateJson(diagnostic)
 }
