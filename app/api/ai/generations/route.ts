@@ -79,11 +79,53 @@ export async function POST(request: Request) {
   }
   const cost = creditCost(requestData)
 
-  const { data: existing } = await supabase.from('generations').select('id,status,credits_reserved').eq('user_id', user.id).eq('idempotency_key', idempotencyKey).maybeSingle()
-  if (existing) return NextResponse.json({ success: true, generationId: existing.id, jobId: existing.id, status: existing.status, cost: existing.credits_reserved ?? cost, duplicate: true })
+  const existingSelect = 'id,status,credits_reserved,type,mode,prompt,model,aspect_ratio,duration,quality'
+  const matchesExistingRequest = (existing: {
+    type: string
+    mode: string
+    prompt: string
+    model: string
+    aspect_ratio: string | null
+    duration: number | null
+    quality: string
+  }) =>
+    existing.type === requestData.type &&
+    existing.mode === requestData.mode &&
+    existing.prompt === requestData.prompt &&
+    existing.model === requestData.model &&
+    existing.aspect_ratio === requestData.aspectRatio &&
+    (existing.duration ?? undefined) === requestData.duration &&
+    existing.quality === requestData.quality
+
+  const { data: existing } = await supabase.from('generations').select(existingSelect)
+    .eq('user_id', user.id).eq('idempotency_key', idempotencyKey).maybeSingle()
+  if (existing) {
+    if (!matchesExistingRequest(existing)) {
+      return NextResponse.json({
+        error: 'IDEMPOTENCY_KEY_REUSED',
+        message: 'This idempotency key was already used for a different generation request. Use a new key.',
+      }, { status: 409 })
+    }
+    return NextResponse.json({ success: true, generationId: existing.id, jobId: existing.id, status: existing.status, cost: existing.credits_reserved ?? cost, duplicate: true })
+  }
 
   const { data: created, error: createError } = await supabase.from('generations').insert({ user_id: user.id, ...requestData, credits_reserved: cost, status: 'queued', provider: 'remote-worker' }).select('id').single()
-  if (createError || !created) return NextResponse.json({ error: 'Unable to create the generation job.' }, { status: 500 })
+  if (createError || !created) {
+    // Concurrent retries can both pass the initial lookup. Resolve the unique-key
+    // race by reading the winner rather than returning a misleading generic 500.
+    const { data: raced } = await supabase.from('generations').select(existingSelect)
+      .eq('user_id', user.id).eq('idempotency_key', idempotencyKey).maybeSingle()
+    if (raced) {
+      if (!matchesExistingRequest(raced)) {
+        return NextResponse.json({
+          error: 'IDEMPOTENCY_KEY_REUSED',
+          message: 'This idempotency key was already used for a different generation request. Use a new key.',
+        }, { status: 409 })
+      }
+      return NextResponse.json({ success: true, generationId: raced.id, jobId: raced.id, status: raced.status, cost: raced.credits_reserved ?? cost, duplicate: true })
+    }
+    return NextResponse.json({ error: 'Unable to create the generation job.' }, { status: 500 })
+  }
 
   const { data: remaining, error: reserveError } = await supabase.rpc('reserve_generation_credits', { p_user_id: user.id, p_generation_id: created.id, p_amount: cost, p_description: `Reserved credits for ${type} generation` })
   if (reserveError) {
