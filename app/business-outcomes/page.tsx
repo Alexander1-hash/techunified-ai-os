@@ -16,6 +16,22 @@ type OutcomeSummary = {
   roi: number | null
 }
 
+type LearningLoop = {
+  totalOutcomes: number
+  evidence: { measured: number; attributed: number; estimated: number; unknownStatus: number }
+  traceability: {
+    withSource: number
+    missingSource: number
+    withCompletePeriod: number
+    missingPeriod: number
+    linkedToActionRun: number
+    withoutActionRunLink: number
+    withSourceAndPeriod: number
+    sourceAndPeriodCoveragePercent: number | null
+  }
+  followUp: string[]
+}
+
 type Outcome = {
   id: string
   title: string
@@ -73,6 +89,7 @@ export default function BusinessOutcomesPage() {
   const [error, setError] = useState('')
   const [verifiedSummary, setVerifiedSummary] = useState<OutcomeSummary | null>(null)
   const [estimatedSummary, setEstimatedSummary] = useState<OutcomeSummary | null>(null)
+  const [learningLoop, setLearningLoop] = useState<LearningLoop | null>(null)
 
   async function load() {
     setLoading(true)
@@ -87,6 +104,7 @@ export default function BusinessOutcomesPage() {
       if (summaryResponse.ok) {
         setVerifiedSummary(summaryJson.evidence?.verified ?? null)
         setEstimatedSummary(summaryJson.evidence?.estimated ?? null)
+        setLearningLoop(summaryJson.learningLoop ?? null)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load outcomes.')
@@ -260,6 +278,43 @@ export default function BusinessOutcomesPage() {
             This foundation intentionally does not manufacture ROI. It creates a durable evidence trail that can later feed reports, grants, investor materials, customer success reviews, and enterprise ROI analysis.
           </p>
         </section>
+      </section>
+
+      <section className="rounded-2xl border border-border bg-card p-5">
+        <div className="flex items-center gap-2"><Target size={17} /><h2 className="text-base font-semibold">Outcome learning readiness</h2></div>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">Traceability checks show whether recorded outcomes have a source and a complete measurement period. They do not prove that an action caused the result.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            ['Recorded outcomes', learningLoop?.totalOutcomes ?? 0],
+            ['Measured', learningLoop?.evidence.measured ?? 0],
+            ['Attributed', learningLoop?.evidence.attributed ?? 0],
+            ['Estimated', learningLoop?.evidence.estimated ?? 0],
+            ['With source', learningLoop?.traceability.withSource ?? 0],
+            ['Complete periods', learningLoop?.traceability.withCompletePeriod ?? 0],
+            ['Linked action runs', learningLoop?.traceability.linkedToActionRun ?? 0],
+            ['Source + period coverage', learningLoop?.traceability.sourceAndPeriodCoveragePercent == null ? '—' : learningLoop.traceability.sourceAndPeriodCoveragePercent + '%'],
+          ].map(([label, value]) => (
+            <div key={String(label)} className="rounded-xl border border-border bg-background p-3">
+              <div className="text-xs text-muted-foreground">{label}</div>
+              <div className="mt-2 text-xl font-semibold">{value}</div>
+            </div>
+          ))}
+        </div>
+        {learningLoop?.followUp.length ? (
+          <div className="mt-4 rounded-xl border border-border bg-background p-4">
+            <h3 className="text-sm font-medium">Recommended evidence follow-up</h3>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 text-muted-foreground">
+              {learningLoop.followUp.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </div>
+        ) : (
+          <p className="mt-4 text-xs text-muted-foreground">No evidence follow-up gaps were detected by these checks.</p>
+        )}
+        {learningLoop && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            {learningLoop.traceability.missingSource} outcome(s) have no source · {learningLoop.traceability.missingPeriod} have incomplete measurement periods · {learningLoop.traceability.withoutActionRunLink} have no recorded action-run link.
+          </p>
+        )}
       </section>
 
       <section className="rounded-2xl border border-border bg-card">
