@@ -48,7 +48,11 @@ export async function GET() {
       return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
     }
 
-    const [{ data, error }, { data: intelligenceSnapshot, error: intelligenceError }] = await Promise.all([
+    const [
+      { data, error },
+      { data: intelligenceSnapshot, error: intelligenceError },
+      { data: actionRuns, error: actionRunsError },
+    ] = await Promise.all([
       supabase
         .from('business_outcomes')
         .select(outcomeSelect)
@@ -62,9 +66,16 @@ export async function GET() {
         .order('captured_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
+      supabase
+        .from('business_action_runs')
+        .select('id,status,decision_id')
+        .eq('organization_id', organizationId)
+        .eq('status', 'completed')
+        .limit(50),
     ])
 
     if (error) throw error
+    if (actionRunsError) throw actionRunsError
 
     const intelligenceCore =
       !intelligenceError &&
@@ -84,6 +95,7 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       outcomes: data ?? [],
+      actionRuns: (actionRuns ?? []).map((run) => ({ id: run.id, status: run.status, decision_id: run.decision_id })),
       intelligenceCore: intelligenceCore ?? { available: false },
     })
   } catch (error) {
