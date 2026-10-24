@@ -32,6 +32,12 @@ type LearningLoop = {
   followUp: string[]
 }
 
+type ActionRun = {
+  id: string
+  status: string
+  decision_id: string | null
+}
+
 type Outcome = {
   id: string
   title: string
@@ -65,6 +71,7 @@ const emptyForm = {
   source: '',
   period_start: '',
   period_end: '',
+  action_run_id: '',
 }
 
 function n(value: string | number | null | undefined) {
@@ -82,6 +89,7 @@ function money(value: number, currency: string) {
 
 export default function BusinessOutcomesPage() {
   const [outcomes, setOutcomes] = useState<Outcome[]>([])
+  const [actionRuns, setActionRuns] = useState<ActionRun[]>([])
   const [form, setForm] = useState(emptyForm)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -99,6 +107,7 @@ export default function BusinessOutcomesPage() {
       const json = await response.json()
       if (!response.ok) throw new Error(json.error || 'Unable to load outcomes.')
       setOutcomes(json.outcomes ?? [])
+      setActionRuns(Array.isArray(json.actionRuns) ? json.actionRuns : [])
       const summaryResponse = await fetch('/api/business/outcomes/summary', { cache: 'no-store' })
       const summaryJson = await summaryResponse.json()
       if (summaryResponse.ok) {
@@ -129,6 +138,7 @@ export default function BusinessOutcomesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          action_run_id: form.action_run_id || null,
           baseline_value: form.baseline_value ? n(form.baseline_value) : null,
           current_value: form.current_value ? n(form.current_value) : null,
           hours_saved: n(form.hours_saved),
@@ -247,6 +257,27 @@ export default function BusinessOutcomesPage() {
                 <option value="measured">Measured</option>
                 <option value="attributed">Attributed</option>
               </select>
+            </label>
+            <label className="space-y-1.5 sm:col-span-2">
+              <span className="text-xs font-medium">Link to completed action run (optional)</span>
+              <select
+                value={form.action_run_id}
+                onChange={(event) => setForm((current) => ({ ...current, action_run_id: event.target.value }))}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm"
+              >
+                <option value="">No action run linked</option>
+                {actionRuns.map((run) => (
+                  <option key={run.id} value={run.id}>
+                    Action run {run.id.slice(0, 8)} · {run.status}
+                  </option>
+                ))}
+              </select>
+              <span className="block text-xs leading-5 text-muted-foreground">
+                Only completed action runs from this organization are listed. Linking records traceability; it does not by itself prove causation.
+              </span>
+              {actionRuns.length === 0 && (
+                <span className="block text-xs text-muted-foreground">No completed action runs are currently available to link.</span>
+              )}
             </label>
           </div>
           <button disabled={saving} className="mt-5 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-60">
