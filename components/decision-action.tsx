@@ -171,6 +171,7 @@ export function DecisionAction({
             workflowId: selectedWorkflowId,
             input: {
               source: 'decision_engine',
+              approvalConfirmed: approvedForExecution,
               decision: {
                 id: decisionId,
                 title: decisionTitle,

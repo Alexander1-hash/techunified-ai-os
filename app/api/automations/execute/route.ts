@@ -115,6 +115,21 @@ export async function POST(request: NextRequest) {
 
     const input = (payload.input ?? {}) as Record<string, unknown>;
 
+    // Decision Engine actions must carry an explicit approval acknowledgement
+    // to the server; a disabled client button alone is not an execution guard.
+    if (
+      input.source === "decision_engine" &&
+      input.approvalConfirmed !== true
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Explicit approval is required before executing a Decision Engine action.",
+        },
+        { status: 403 }
+      );
+    }
+
     const result = await executeAutomation(
       workflowId,
       profile.organization_id,
