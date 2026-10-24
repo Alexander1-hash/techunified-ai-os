@@ -163,23 +163,38 @@ function DecisionCard({
 
           {decision.evidence &&
           Object.keys(decision.evidence).length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {Object.entries(decision.evidence).map(
-                ([key, value]) => (
-                  <span
-                    key={key}
-                    className="rounded-full border border-border/60 px-2.5 py-1 text-[11px]"
-                  >
-                    {key.replace(
-                      /([A-Z])/g,
-                      ' $1',
-                    )}{' '}
-                    {String(value)}
-                  </span>
-                ),
-              )}
+            <div className="mt-3 rounded-lg border border-border/60 bg-background p-3">
+              <p className="text-xs font-semibold text-foreground">
+                Evidence behind this signal
+              </p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                These values come from the organization records used by the Decision Engine. They describe recorded activity, not independent verification or a guaranteed outcome.
+              </p>
+              <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+                {Object.entries(decision.evidence).map(([key, value]) => (
+                  <div key={key} className="min-w-0 rounded-md bg-muted/50 px-3 py-2">
+                    <dt className="text-[10px] font-medium uppercase tracking-[.1em] text-muted-foreground">
+                      {key.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase())}
+                    </dt>
+                    <dd className="mt-1 break-words text-sm font-semibold text-foreground">
+                      {value === null || value === undefined || value === ''
+                        ? 'Not available'
+                        : typeof value === 'number' && Number.isFinite(value)
+                          ? value.toLocaleString()
+                          : String(value)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
             </div>
-          ) : null}
+          ) : (
+            <div className="mt-3 rounded-lg border border-dashed border-border/60 p-3">
+              <p className="text-xs font-medium text-foreground">Evidence detail unavailable</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                This signal has no evidence fields to display. Review the underlying company records before acting on it.
+              </p>
+            </div>
+          )}
 
           <DecisionAction
             decisionId={decision.id}
@@ -336,9 +351,10 @@ export default function DecisionsPage() {
           </h1>
 
           <p className="mt-4 max-w-3xl leading-7 text-muted-foreground">
-            TechUnified connects customers, services,
-            and sales to surface evidence-backed
-            signals, opportunities, and actions.
+            TechUnifedAIOS connects recorded customer, service,
+            sales, workflow, and outcome information to surface
+            business signals. Each recommendation shows the evidence
+            fields available to this workspace; missing evidence is not treated as proof.
           </p>
         </header>
 
