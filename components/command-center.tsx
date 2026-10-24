@@ -143,11 +143,10 @@ export function CommandCenter() {
   }
 
   const stats = [
-    { label: 'AI Agents', value: data?.agents, detail: 'Active agents', href: '/agents', icon: Bot },
-    { label: 'Workflows', value: data?.workflows, detail: 'Automated workflows', href: '/workflows', icon: Workflow },
-    { label: 'Automations', value: data?.automations, detail: 'Active automations', href: '/automations', icon: Zap },
-    { label: 'Knowledge', value: data?.knowledge, detail: 'Connected sources', href: '/brain/data-sources', icon: Database },
-    { label: 'Analytics', value: data?.analytics, detail: 'Insights generated', href: '/analytics', icon: BarChart3 },
+    { label: 'AI Agents', value: data?.agents, detail: 'Configured agents', href: '/agents', icon: Bot },
+    { label: 'Workflows', value: data?.workflows, detail: 'Configured workflows', href: '/workflows', icon: Workflow },
+    { label: 'Knowledge documents', value: data?.knowledge, detail: 'Records in Company Brain', href: '/brain/data-sources', icon: Database },
+    { label: 'Activity events', value: data?.activity, detail: 'Recorded workspace events', href: '/activity', icon: Activity },
   ]
 
   const operatingLayers = [
@@ -238,7 +237,7 @@ export function CommandCenter() {
                   <span className="text-[11px] font-semibold uppercase tracking-[.12em] text-muted-foreground">{stat.label}</span>
                   <Icon size={16} className="shrink-0 text-primary" />
                 </div>
-                <p className="mt-5 text-2xl font-semibold tracking-tight">{isLoading ? '—' : countValue(stat.value)}</p>
+                <p className="mt-5 text-2xl font-semibold tracking-tight">{isLoading ? '—' : error ? 'Unavailable' : countValue(stat.value)}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{stat.detail}</p>
                 <ArrowRight size={15} className="mt-4 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
               </Link>
@@ -277,10 +276,8 @@ export function CommandCenter() {
             </div>
             <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Brain size={19} /></div>
           </div>
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <BrainStat label="Knowledge Sources" value={data?.knowledge} />
-            <BrainStat label="Documents" value={0} />
-            <BrainStat label="Data Sources" value={data?.knowledge} />
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <BrainStat label="Knowledge documents" value={error ? 'Unavailable' : isLoading ? '—' : data?.knowledge} />
           </div>
           <Link href="/brain/data-sources" className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90">
             <Plus size={16} /> Add Knowledge Source
@@ -344,7 +341,7 @@ export function CommandCenter() {
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[.2em] text-primary">Decision Engine</p>
             <h2 id="decision-engine" className="mt-2 text-xl font-semibold">What requires attention?</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">TechUnified evaluates organization-scoped customers, services and sales evidence for business signals.</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">TechUnifedAIOS evaluates organization-scoped customers, services and sales evidence for business signals.</p>
           </div>
           <Link href="/business-analyst/decisions" className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-medium hover:border-primary/50">
             Open Decision Engine <ArrowRight size={15} />
@@ -474,10 +471,11 @@ function LayerCard({ href, icon, eyebrow, title, description, status }: { href: 
 }
 
 function BrainStat({ label, value }: { label: string; value: unknown }) {
+  const displayValue = typeof value === 'string' ? value : countValue(value)
   return (
     <div className="rounded-lg border border-border bg-muted/40 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-[.12em] text-muted-foreground">{label}</p>
-      <p className="mt-2 text-xl font-semibold">{countValue(value)}</p>
+      <p className="mt-2 break-words text-xl font-semibold">{displayValue}</p>
     </div>
   )
 }
