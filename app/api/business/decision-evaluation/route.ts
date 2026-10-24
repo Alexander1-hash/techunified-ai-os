@@ -6,7 +6,6 @@ type ActionRun = {
   id: string
   status: string | null
   decision_id: string | null
-  created_at?: string | null
 }
 
 type Outcome = {
@@ -46,9 +45,8 @@ export async function GET() {
     const [runsResult, outcomesResult] = await Promise.all([
       supabase
         .from('business_action_runs')
-        .select('id,status,decision_id,created_at')
+        .select('id,status,decision_id')
         .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false })
         .limit(100),
       supabase
         .from('business_outcomes')
@@ -92,7 +90,7 @@ export async function GET() {
         actionRunId: run.id,
         actionStatus: run.status ?? 'unknown',
         decisionId: run.decision_id,
-        createdAt: run.created_at ?? null,
+        createdAt: null,
         outcomeCount: linkedOutcomes.length,
         evidenceState,
         evidenceStatuses,
@@ -148,7 +146,7 @@ export async function GET() {
         numericDirectionDoesNotDetermineBenefit: true,
         correlationDoesNotProveCausation: true,
         outcomesOutsideLatest500MayNotBeIncluded: outcomes.length === 500,
-        actionRunsOutsideLatest100MayNotBeIncluded: runs.length === 100,
+        actionRunLimitReached: runs.length === 100,
       },
       evaluations,
     })
