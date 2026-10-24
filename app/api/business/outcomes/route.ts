@@ -124,6 +124,24 @@ export async function POST(request: Request) {
     }
 
     const body = parsedBody as OutcomeInput
+    const stringInputs: Array<[string, unknown]> = [
+      ['title', body.title],
+      ['outcome_type', body.outcome_type],
+      ['unit', body.unit],
+      ['currency', body.currency],
+      ['evidence_status', body.evidence_status],
+      ['source', body.source],
+      ['notes', body.notes],
+      ['period_start', body.period_start],
+      ['period_end', body.period_end],
+      ['action_run_id', body.action_run_id],
+    ]
+    for (const [field, value] of stringInputs) {
+      if (value !== undefined && value !== null && typeof value !== 'string') {
+        return NextResponse.json({ error: `${field} must be a string.` }, { status: 400 })
+      }
+    }
+
     const title = typeof body.title === 'string' ? body.title.trim() : ''
 
     if (!title) {
