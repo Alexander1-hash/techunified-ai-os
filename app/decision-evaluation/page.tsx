@@ -43,6 +43,7 @@ type Summary = {
 }
 
 type ApiResponse = {
+  limits: { actionRuns: number; outcomes: number }
   summary: Summary
   evaluations: Evaluation[]
   generatedAt: string
