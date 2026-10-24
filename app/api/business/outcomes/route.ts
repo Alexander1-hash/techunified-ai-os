@@ -112,8 +112,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
     }
 
-    const body = (await request.json()) as OutcomeInput
-    const title = body.title?.trim()
+    let parsedBody: unknown
+    try {
+      parsedBody = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Request body must be valid JSON.' }, { status: 400 })
+    }
+
+    if (!parsedBody || typeof parsedBody !== 'object' || Array.isArray(parsedBody)) {
+      return NextResponse.json({ error: 'Request body must be a JSON object.' }, { status: 400 })
+    }
+
+    const body = parsedBody as OutcomeInput
+    const stringInputs: Array<[string, unknown]> = [
+      ['title', body.title],
+      ['outcome_type', body.outcome_type],
+      ['unit', body.unit],
+      ['currency', body.currency],
+      ['evidence_status', body.evidence_status],
+      ['source', body.source],
+      ['notes', body.notes],
+      ['period_start', body.period_start],
+      ['period_end', body.period_end],
+      ['action_run_id', body.action_run_id],
+    ]
+    for (const [field, value] of stringInputs) {
+      if (value !== undefined && value !== null && typeof value !== 'string') {
+        return NextResponse.json({ error: `${field} must be a string.` }, { status: 400 })
+      }
+    }
+
+    const title = typeof body.title === 'string' ? body.title.trim() : ''
 
     if (!title) {
       return NextResponse.json({ error: 'Outcome title is required.' }, { status: 400 })
@@ -246,9 +275,12 @@ export async function POST(request: Request) {
 
     if (error) throw error
 
-    // When a verified outcome is attached to a completed action, immediately propagate
-    // that evidence into the originating agent evaluation and durable learning.
+    // The outcome is already persisted. Learning propagation is a secondary operation:
+    // never return a failed-create response for a saved outcome, which can cause duplicate retries.
+    let learningSync: 'synced' | 'pending' | 'not_applicable' = 'not_applicable'
     if (data && actionRunId && ['measured', 'attributed'].includes(String(data.evidence_status))) {
+      learningSync = 'pending'
+      try {
       const { data: actionRun } = await supabase
         .from('business_action_runs')
         .select('id,decision_id,status')
@@ -331,11 +363,28 @@ export async function POST(request: Request) {
 
             if (memoryError) throw memoryError
           }
+          learningSync = 'synced'
         }
+      }
+      if (learningSync !== 'synced') learningSync = 'not_applicable'
+      } catch (learningError) {
+        console.error('[Business Outcomes] Outcome saved but learning sync failed:', learningError)
+        learningSync = 'pending'
       }
     }
 
-    return NextResponse.json({ ok: true, outcome: data }, { status: 201 })
+    return NextResponse.json({
+      ok: true,
+      outcome: data,
+      learningSync: {
+        status: learningSync,
+        message: learningSync === 'pending'
+          ? 'The outcome was saved, but agent learning may need a retry. Do not submit the same outcome again.'
+          : learningSync === 'synced'
+            ? 'Outcome evidence was added to the agent learning record.'
+            : 'No agent learning update was required for this outcome.',
+      },
+    }, { status: 201 })
   } catch (error) {
     console.error('[Business Outcomes] POST failed:', error)
     return NextResponse.json({ error: 'Unable to record business outcome.' }, { status: 500 })
