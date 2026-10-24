@@ -471,10 +471,11 @@ function LayerCard({ href, icon, eyebrow, title, description, status }: { href: 
 }
 
 function BrainStat({ label, value }: { label: string; value: unknown }) {
+  const displayValue = typeof value === 'string' ? value : countValue(value)
   return (
     <div className="rounded-lg border border-border bg-muted/40 p-3">
       <p className="text-[10px] font-semibold uppercase tracking-[.12em] text-muted-foreground">{label}</p>
-      <p className="mt-2 text-xl font-semibold">{countValue(value)}</p>
+      <p className="mt-2 break-words text-xl font-semibold">{displayValue}</p>
     </div>
   )
 }
