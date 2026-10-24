@@ -147,7 +147,7 @@ export default function DecisionEvaluationPage() {
 
       <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="text-base font-semibold">Action-run evaluations</h2><p className="mt-1 text-xs leading-5 text-muted-foreground">Latest {data?.limits?.actionRuns ?? 100} action runs and up to {data?.limits?.outcomes ?? 500} outcomes are checked.</p></div>
+          <div><h2 className="text-base font-semibold">Action-run evaluations</h2><p className="mt-1 text-xs leading-5 text-muted-foreground">Up to {data?.limits?.actionRuns ?? 100} action runs and {data?.limits?.outcomes ?? 500} outcomes are checked.</p></div>
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             Filter
             <select value={filter} onChange={(event) => setFilter(event.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground">
