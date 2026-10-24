@@ -345,9 +345,9 @@ export async function POST(request: Request) {
 
             if (memoryError) throw memoryError
           }
+          learningSync = 'synced'
         }
       }
-      learningSync = 'synced'
       } catch (learningError) {
         console.error('[Business Outcomes] Outcome saved but learning sync failed:', learningError)
         learningSync = 'pending'
