@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { BarChart3, CheckCircle2, Clock3, DollarSign, Plus, Target, TrendingUp } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -199,6 +200,16 @@ export default function BusinessOutcomesPage() {
             <span className="font-medium text-foreground">Evidence first.</span> Estimated values are never presented as verified results.
           </div>
         </div>
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-xl border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold">Decision Evaluation Center</h2>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">Compare completed action runs with explicitly linked outcomes and identify missing follow-up evidence.</p>
+        </div>
+        <Link href="/decision-evaluation" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90">
+          Evaluate decisions <TrendingUp size={14} />
+        </Link>
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
