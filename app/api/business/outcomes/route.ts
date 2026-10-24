@@ -348,6 +348,7 @@ export async function POST(request: Request) {
           learningSync = 'synced'
         }
       }
+      if (learningSync !== 'synced') learningSync = 'not_applicable'
       } catch (learningError) {
         console.error('[Business Outcomes] Outcome saved but learning sync failed:', learningError)
         learningSync = 'pending'
