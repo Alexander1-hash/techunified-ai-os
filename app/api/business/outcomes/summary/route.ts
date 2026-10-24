@@ -62,6 +62,10 @@ export async function GET() {
     const traceable = outcomes.filter(
       (item) => Boolean(item.source?.trim() && item.period_start && item.period_end),
     )
+    const comparable = outcomes.filter(
+      (item) => item.baseline_value !== null && item.baseline_value !== undefined &&
+        item.current_value !== null && item.current_value !== undefined,
+    )
     const percentage = (count: number, total: number) =>
       total > 0 ? Math.round((count / total) * 100) : null
 
@@ -83,10 +87,17 @@ export async function GET() {
         withSourceAndPeriod: traceable.length,
         sourceAndPeriodCoveragePercent: percentage(traceable.length, outcomes.length),
       },
+      comparison: {
+        withBaselineAndCurrent: comparable.length,
+        missingBaselineOrCurrent: outcomes.length - comparable.length,
+        coveragePercent: percentage(comparable.length, outcomes.length),
+        directionIsDescriptiveOnly: true,
+      },
       followUp: [
         ...(outcomes.length === 0 ? ['Record an outcome after a real business action before evaluating impact.'] : []),
         ...(outcomes.some((item) => !item.source?.trim()) ? ['Add a source or reference for outcomes that currently have no source.'] : []),
         ...(outcomes.some((item) => !item.period_start || !item.period_end) ? ['Complete the measurement period so results can be compared consistently.'] : []),
+        ...(outcomes.some((item) => item.baseline_value === null || item.baseline_value === undefined || item.current_value === null || item.current_value === undefined) ? ['Add both baseline and current values where a meaningful before-and-after comparison is available.'] : []),
         ...(outcomes.some((item) => !item.action_run_id) ? ['Link outcomes to their action run where a valid action-run record exists.'] : []),
         ...(unknownEvidenceStatus.length > 0 ? ['Review outcomes with an unrecognized evidence status before including them in verified totals.'] : []),
       ],
