@@ -56,6 +56,9 @@ export function DecisionAction({
   const [executionId, setExecutionId] =
     useState('')
 
+  const [approvedForExecution, setApprovedForExecution] =
+    useState(false)
+
   async function loadActiveWorkflows() {
     try {
       setLoadingWorkflows(true)
@@ -107,6 +110,7 @@ export function DecisionAction({
     setMessage('')
     setExecutionId('')
     setSelectedWorkflowId('')
+    setApprovedForExecution(false)
     setState('selecting')
 
     void loadActiveWorkflows()
@@ -121,6 +125,7 @@ export function DecisionAction({
     setMessage('')
     setExecutionId('')
     setSelectedWorkflowId('')
+    setApprovedForExecution(false)
   }
 
   function prepareWorkflow() {
@@ -132,6 +137,7 @@ export function DecisionAction({
     }
 
     setMessage('')
+    setApprovedForExecution(false)
     setState('ready')
   }
 
@@ -141,6 +147,11 @@ export function DecisionAction({
         'Select an active workflow before executing this action.',
       )
       setState('selecting')
+      return
+    }
+
+    if (!approvedForExecution) {
+      setMessage('Confirm that you want to execute this workflow with the selected decision context.')
       return
     }
 
@@ -421,13 +432,32 @@ export function DecisionAction({
               </div>
             </div>
 
+            <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-border/70 p-3 text-xs leading-5 text-foreground">
+              <input
+                type="checkbox"
+                checked={approvedForExecution}
+                onChange={(event) => {
+                  setApprovedForExecution(event.target.checked)
+                  setMessage('')
+                }}
+                className="mt-1 size-4 shrink-0 accent-primary"
+              />
+              <span>
+                <span className="font-medium">I approve this execution.</span>
+                <span className="mt-1 block text-muted-foreground">
+                  Run “{selectedWorkflow?.name ?? 'the selected workflow'}” using the decision context shown above. Workflow actions may affect connected systems.
+                </span>
+              </span>
+            </label>
+
             <button
               type="button"
               onClick={executeAction}
-              className="mt-3 inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              disabled={!approvedForExecution}
+              className="mt-3 inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Play size={14} />
-              Execute Action
+              Confirm & Execute
             </button>
           </>
         ) : null}
@@ -488,8 +518,7 @@ export function DecisionAction({
             </p>
 
             <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
-              Check the workflow configuration and
-              Automation Engine execution history.
+              {message || 'Check the workflow configuration and Automation Engine execution history.'}
             </p>
 
             <button
