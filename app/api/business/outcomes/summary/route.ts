@@ -18,6 +18,7 @@ type OutcomeRow = {
   source: string | null
   period_start: string | null
   period_end: string | null
+  action_run_id?: string | null
 }
 
 const VERIFIED_STATUSES = new Set(['measured', 'attributed'])
@@ -50,6 +51,51 @@ export async function GET() {
     const outcomes = (data ?? []) as OutcomeRow[]
     const verified = outcomes.filter((item) => VERIFIED_STATUSES.has(item.evidence_status))
     const estimated = outcomes.filter((item) => item.evidence_status === 'estimated')
+    const measured = outcomes.filter((item) => item.evidence_status === 'measured')
+    const attributed = outcomes.filter((item) => item.evidence_status === 'attributed')
+    const unknownEvidenceStatus = outcomes.filter(
+      (item) => !VERIFIED_STATUSES.has(item.evidence_status) && item.evidence_status !== 'estimated',
+    )
+    const withSource = outcomes.filter((item) => Boolean(item.source?.trim()))
+    const withCompletePeriod = outcomes.filter((item) => Boolean(item.period_start && item.period_end))
+    const linkedToActionRun = outcomes.filter((item) => Boolean(item.action_run_id))
+    const traceable = outcomes.filter(
+      (item) => Boolean(item.source?.trim() && item.period_start && item.period_end),
+    )
+    const percentage = (count: number, total: number) =>
+      total > 0 ? Math.round((count / total) * 100) : null
+
+    const learningLoop = {
+      totalOutcomes: outcomes.length,
+      evidence: {
+        measured: measured.length,
+        attributed: attributed.length,
+        estimated: estimated.length,
+        unknownStatus: unknownEvidenceStatus.length,
+      },
+      traceability: {
+        withSource: withSource.length,
+        missingSource: outcomes.length - withSource.length,
+        withCompletePeriod: withCompletePeriod.length,
+        missingPeriod: outcomes.length - withCompletePeriod.length,
+        linkedToActionRun: linkedToActionRun.length,
+        withoutActionRunLink: outcomes.length - linkedToActionRun.length,
+        withSourceAndPeriod: traceable.length,
+        sourceAndPeriodCoveragePercent: percentage(traceable.length, outcomes.length),
+      },
+      followUp: [
+        ...(outcomes.length === 0 ? ['Record an outcome after a real business action before evaluating impact.'] : []),
+        ...(outcomes.some((item) => !item.source?.trim()) ? ['Add a source or reference for outcomes that currently have no source.'] : []),
+        ...(outcomes.some((item) => !item.period_start || !item.period_end) ? ['Complete the measurement period so results can be compared consistently.'] : []),
+        ...(outcomes.some((item) => !item.action_run_id) ? ['Link outcomes to their action run where a valid action-run record exists.'] : []),
+        ...(unknownEvidenceStatus.length > 0 ? ['Review outcomes with an unrecognized evidence status before including them in verified totals.'] : []),
+      ],
+      guardrails: {
+        missingValuesAreNotTreatedAsMeasuredImpact: true,
+        estimatesExcludedFromVerifiedTotals: true,
+        actionRunLinksAreReportedAsRecordedNotIndependentlyValidated: true,
+      },
+    }
 
     const aggregate = (rows: OutcomeRow[]) => {
       const currencies = [...new Set(rows.map((row) => row.currency || 'NGN'))]
@@ -88,6 +134,7 @@ export async function GET() {
         estimatedExcludedFromVerifiedTotals: true,
         mixedCurrenciesExcludedFromNetAndRoi: true,
       },
+      learningLoop,
       outcomes,
     })
   } catch (error) {
