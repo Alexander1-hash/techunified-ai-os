@@ -29,6 +29,12 @@ type LearningLoop = {
     withSourceAndPeriod: number
     sourceAndPeriodCoveragePercent: number | null
   }
+  comparison: {
+    withBaselineAndCurrent: number
+    missingBaselineOrCurrent: number
+    coveragePercent: number | null
+    directionIsDescriptiveOnly: boolean
+  }
   followUp: string[]
 }
 
@@ -54,6 +60,7 @@ type Outcome = {
   source: string | null
   period_start: string | null
   period_end: string | null
+  action_run_id?: string | null
 }
 
 const emptyForm = {
@@ -323,6 +330,8 @@ export default function BusinessOutcomesPage() {
             ['With source', learningLoop?.traceability.withSource ?? 0],
             ['Complete periods', learningLoop?.traceability.withCompletePeriod ?? 0],
             ['Linked action runs', learningLoop?.traceability.linkedToActionRun ?? 0],
+            ['Baseline comparisons', learningLoop?.comparison.withBaselineAndCurrent ?? 0],
+            ['Comparison coverage', learningLoop?.comparison.coveragePercent == null ? '—' : learningLoop.comparison.coveragePercent + '%'],
             ['Source + period coverage', learningLoop?.traceability.sourceAndPeriodCoveragePercent == null ? '—' : learningLoop.traceability.sourceAndPeriodCoveragePercent + '%'],
           ].map(([label, value]) => (
             <div key={String(label)} className="rounded-xl border border-border bg-background p-3">
@@ -358,6 +367,30 @@ export default function BusinessOutcomesPage() {
                 <div><div className="text-[11px] text-muted-foreground">Evidence</div><div className="text-sm capitalize">{outcome.evidence_status}</div></div>
                 <div><div className="text-[11px] text-muted-foreground">Hours</div><div className="text-sm">{n(outcome.hours_saved).toLocaleString()}</div></div>
                 <div><div className="text-[11px] text-muted-foreground">Value</div><div className="text-sm">{money(n(outcome.cost_avoided) + n(outcome.revenue_impact), outcome.currency || 'NGN')}</div></div>
+                <div className="rounded-lg bg-background p-3 text-xs md:col-span-4">
+                  {outcome.baseline_value !== null && outcome.baseline_value !== undefined &&
+                    outcome.current_value !== null && outcome.current_value !== undefined ? (
+                    <>
+                      <div className="font-medium">Observed comparison{outcome.unit ? ` · ${outcome.unit}` : ''}</div>
+                      <div className="mt-1 text-muted-foreground">
+                        Baseline {n(outcome.baseline_value).toLocaleString()} → Current {n(outcome.current_value).toLocaleString()}
+                      </div>
+                      <div className="mt-1">
+                        Change: {n(outcome.current_value) - n(outcome.baseline_value) > 0 ? '+' : ''}
+                        {(n(outcome.current_value) - n(outcome.baseline_value)).toLocaleString()}
+                        {n(outcome.baseline_value) !== 0
+                          ? ` (${(((n(outcome.current_value) - n(outcome.baseline_value)) / Math.abs(n(outcome.baseline_value))) * 100).toFixed(1)}%)`
+                          : ' (percentage unavailable because baseline is zero)'}
+                      </div>
+                      <div className="mt-1 text-muted-foreground">Direction describes the numeric change only; it does not determine whether the result is beneficial or caused by an action.</div>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">Baseline comparison unavailable — record both baseline and current values to calculate observed change.</span>
+                  )}
+                  {outcome.period_start || outcome.period_end ? (
+                    <div className="mt-1 text-muted-foreground">Measurement period: {outcome.period_start || 'not set'} to {outcome.period_end || 'not set'}</div>
+                  ) : null}
+                </div>
               </div>
             ))}
           </div>
