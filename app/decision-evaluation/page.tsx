@@ -126,6 +126,7 @@ export default function DecisionEvaluationPage() {
           <span className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5"><ShieldCheck size={13} /> Organization-scoped</span>
           <span className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5"><Workflow size={13} /> Recorded action-run links only</span>
           <Link href="/business-outcomes" className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 font-medium text-primary-foreground">Record / review outcomes <ArrowRight size={13} /></Link>
+          <Link href="/business-improvement" className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 font-medium hover:bg-muted"><Target size={13} /> Improvement priorities <ArrowRight size={13} /></Link>
         </div>
       </section>
 
