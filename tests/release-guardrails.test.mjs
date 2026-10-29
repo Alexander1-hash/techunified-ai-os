@@ -75,3 +75,12 @@ test("Company Brain answers are generated server-side from organization-scoped s
   assert.match(source, /Do not invent company facts, metrics, customers, policies/);
   assert.match(source, /demo: false/);
 });
+
+
+test("Company Brain uses the maintained XLSX security fork in package and lock files", () => {
+  assert.equal(packageJson.dependencies.xlsx, "npm:@keep-lts/xlsx@0.18.6");
+  assert.equal(packageLock.packages[""].dependencies.xlsx, "npm:@keep-lts/xlsx@0.18.6");
+  assert.equal(packageLock.packages["node_modules/xlsx"].name, "@keep-lts/xlsx");
+  assert.equal(packageLock.packages["node_modules/xlsx"].version, "0.18.6");
+  assert.match(packageLock.packages["node_modules/xlsx"].resolved, /@keep-lts\/xlsx/);
+});
