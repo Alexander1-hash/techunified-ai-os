@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/repositories/profile'
 
+const MAX_KPI_RECORDS = 800
+const MAX_RELATIONSHIPS = 800
+
 export async function GET() {
   const supabase = await createClient()
   const { profile } = await getCurrentProfile(supabase)
@@ -21,11 +24,13 @@ export async function GET() {
         'id,name,value,previous_value,unit,period,trend,status,source,recorded_at,updated_at'
       )
       .eq('organization_id', organizationId)
-      .order('recorded_at', { ascending: false }),
+      .order('recorded_at', { ascending: false })
+      .limit(MAX_KPI_RECORDS + 1),
     supabase
       .from('business_relationships')
       .select('source_type,source_id,target_type,target_id,evidence_status')
-      .eq('organization_id', organizationId),
+      .eq('organization_id', organizationId)
+      .limit(MAX_RELATIONSHIPS + 1),
     supabase
       .from('company_intelligence_snapshots')
       .select('state,intelligence,captured_at')
@@ -57,8 +62,12 @@ export async function GET() {
         ? intelligenceSnapshot.intelligence.intelligenceCore
         : null
 
-  const rows = kpiResult.data ?? []
-  const relationshipRows = relationshipsResult.data ?? []
+  const retrievedKpis = kpiResult.data ?? []
+  const retrievedRelationships = relationshipsResult.data ?? []
+  const kpiWindowTruncated = retrievedKpis.length > MAX_KPI_RECORDS
+  const relationshipWindowTruncated = retrievedRelationships.length > MAX_RELATIONSHIPS
+  const rows = retrievedKpis.slice(0, MAX_KPI_RECORDS)
+  const relationshipRows = retrievedRelationships.slice(0, MAX_RELATIONSHIPS)
   const verifiedRelationships = relationshipRows.filter(
     (row) => row.evidence_status === 'verified',
   ).length
@@ -97,11 +106,13 @@ export async function GET() {
     const projected = current * (1 + change)
 
     const confidence =
-      history.length >= 3
-        ? 'higher'
-        : history.length >= 2
-          ? 'moderate'
-          : 'limited'
+      kpiWindowTruncated
+        ? 'limited'
+        : history.length >= 3
+          ? 'higher'
+          : history.length >= 2
+            ? 'moderate'
+            : 'limited'
 
     return {
       name,
@@ -139,10 +150,24 @@ export async function GET() {
     forecasts,
     recommendations,
     hasEnoughData: forecasts.length > 0,
+    dataCompleteness: {
+      completeWithinConfiguredWindow: !kpiWindowTruncated && !relationshipWindowTruncated,
+      kpiRecordsReviewed: rows.length,
+      kpiRecordLimit: MAX_KPI_RECORDS,
+      kpiHistoryTruncated: kpiWindowTruncated,
+      relationshipsReviewed: relationshipRows.length,
+      relationshipLimit: MAX_RELATIONSHIPS,
+      relationshipsTruncated: relationshipWindowTruncated,
+      warning: kpiWindowTruncated || relationshipWindowTruncated
+        ? 'Forecast evidence is bounded. Older KPI or relationship records may be excluded; confidence is downgraded when KPI history is truncated.'
+        : null,
+    },
     message:
       forecasts.length > 0
-        ? 'Forecasts are based on verified organization KPI records.'
-        : 'More verified historical KPI data is required before TechUnified can produce a forecast.',
+        ? kpiWindowTruncated
+          ? 'Forecasts use a bounded KPI history window; older records were excluded and confidence is limited.'
+          : 'Forecasts are based on available organization KPI records. Confirm source status and measurement quality before acting.'
+        : 'More historical KPI data with comparable values is required before a forecast can be produced.',
     intelligenceCore: intelligenceCore ?? { available: false },
     relationshipEvidence: {
       explicitRelationships: relationshipRows.length,

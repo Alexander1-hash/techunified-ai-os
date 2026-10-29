@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/repositories/profile'
 
+const MAX_ACTION_RUNS = 100
+const MAX_OUTCOMES = 500
+
 type ActionRun = {
   id: string
   status: string | null
@@ -45,22 +48,27 @@ export async function GET() {
     const [runsResult, outcomesResult] = await Promise.all([
       supabase
         .from('business_action_runs')
-        .select('id,status,decision_id')
+        .select('id,status,decision_id,created_at')
         .eq('organization_id', organizationId)
-        .limit(100),
+        .order('created_at', { ascending: false })
+        .limit(MAX_ACTION_RUNS + 1),
       supabase
         .from('business_outcomes')
         .select('id,title,outcome_type,baseline_value,current_value,unit,evidence_status,source,period_start,period_end,action_run_id,cost_avoided,revenue_impact,implementation_cost,currency')
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
-        .limit(500),
+        .limit(MAX_OUTCOMES + 1),
     ])
 
     if (runsResult.error) throw runsResult.error
     if (outcomesResult.error) throw outcomesResult.error
 
-    const runs = (runsResult.data ?? []) as ActionRun[]
-    const outcomes = (outcomesResult.data ?? []) as Outcome[]
+    const retrievedRuns = runsResult.data ?? []
+    const retrievedOutcomes = outcomesResult.data ?? []
+    const actionRunWindowTruncated = retrievedRuns.length > MAX_ACTION_RUNS
+    const outcomeWindowTruncated = retrievedOutcomes.length > MAX_OUTCOMES
+    const runs = retrievedRuns.slice(0, MAX_ACTION_RUNS) as ActionRun[]
+    const outcomes = retrievedOutcomes.slice(0, MAX_OUTCOMES) as Outcome[]
     const outcomesByRun = new Map<string, Outcome[]>()
 
     for (const outcome of outcomes) {
@@ -129,7 +137,7 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       generatedAt: new Date().toISOString(),
-      limits: { actionRuns: 100, outcomes: 500 },
+      limits: { actionRuns: MAX_ACTION_RUNS, outcomes: MAX_OUTCOMES },
       summary: {
         actionRunsReviewed: evaluations.length,
         completedRuns: completedRuns.length,
@@ -145,8 +153,12 @@ export async function GET() {
         onlyRecordedActionRunLinksAreUsed: true,
         numericDirectionDoesNotDetermineBenefit: true,
         correlationDoesNotProveCausation: true,
-        outcomesOutsideLatest500MayNotBeIncluded: outcomes.length === 500,
-        actionRunLimitReached: runs.length === 100,
+        outcomesOutsideLatest500MayNotBeIncluded: outcomeWindowTruncated,
+        actionRunLimitReached: actionRunWindowTruncated,
+        resultsArePartial: actionRunWindowTruncated || outcomeWindowTruncated,
+        partialResultsWarning: actionRunWindowTruncated || outcomeWindowTruncated
+          ? 'This evaluation uses bounded, newest-first windows. Older action runs or outcomes may be excluded; coverage percentages apply only to the reviewed window.'
+          : null,
       },
       evaluations,
     })
