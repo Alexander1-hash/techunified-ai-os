@@ -212,18 +212,6 @@ export async function POST(
       throw new Error("No readable knowledge chunks were produced.");
     }
 
-    const { error: deleteError } = await supabase
-      .from("knowledge_chunks")
-      .delete()
-      .eq("document_id", document.id)
-      .eq("organization_id", organizationId);
-
-    if (deleteError) {
-      throw new Error(
-        `Existing knowledge chunks could not be refreshed: ${deleteError.message}`,
-      );
-    }
-
     const rows = chunks.map((content, chunkIndex) => ({
       document_id: document.id,
       organization_id: organizationId,
@@ -235,13 +223,28 @@ export async function POST(
       },
     }));
 
+    // Upsert the new version before pruning stale tail chunks. A failed write
+    // must not delete the document's last known-good index first.
     const { error: insertError } = await supabase
       .from("knowledge_chunks")
-      .insert(rows);
+      .upsert(rows, { onConflict: "document_id,chunk_index" });
 
     if (insertError) {
       throw new Error(
         `Knowledge chunks could not be saved: ${insertError.message}`,
+      );
+    }
+
+    const { error: pruneError } = await supabase
+      .from("knowledge_chunks")
+      .delete()
+      .eq("document_id", document.id)
+      .eq("organization_id", organizationId)
+      .gte("chunk_index", chunks.length);
+
+    if (pruneError) {
+      throw new Error(
+        `New knowledge was saved, but stale chunks could not be removed: ${pruneError.message}`,
       );
     }
 
