@@ -310,7 +310,7 @@ export async function POST(request: Request) {
 
   if ((records ?? []).length > MAX_SOURCE_RECORDS) {
     return NextResponse.json(
-      { error: \`This source has more than \${MAX_SOURCE_RECORDS} records. Narrow the import before calculating KPIs so totals are not silently incomplete.\` },
+      { error: `This source has more than ${MAX_SOURCE_RECORDS} records. Narrow the import before calculating KPIs so totals are not silently incomplete.` },
       { status: 413 },
     )
   }
@@ -324,7 +324,7 @@ export async function POST(request: Request) {
 
   if (body.mappings.length > MAX_KPI_MAPPINGS) {
     return NextResponse.json(
-      { error: \`Submit no more than \${MAX_KPI_MAPPINGS} KPI mappings at a time.\` },
+      { error: `Submit no more than ${MAX_KPI_MAPPINGS} KPI mappings at a time.` },
       { status: 413 },
     )
   }
@@ -387,7 +387,7 @@ export async function POST(request: Request) {
   const missingFields = prepared.filter((mapping) => !availableFields.has(mapping.fieldName))
   if (missingFields.length) {
     return NextResponse.json(
-      { error: \`Source field not found: \${missingFields.map((mapping) => mapping.fieldName).join(', ')}.\` },
+      { error: `Source field not found: ${missingFields.map((mapping) => mapping.fieldName).join(', ')}.` },
       { status: 422 },
     )
   }
