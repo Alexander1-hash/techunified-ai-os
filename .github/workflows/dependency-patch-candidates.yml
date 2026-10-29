@@ -3,6 +3,8 @@ name: Validate and apply dependency patch candidates
 on:
   push:
     branches: [dependency-patch-candidates-2026-10-29]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
@@ -22,6 +24,7 @@ jobs:
       - name: Check out candidate branch
         uses: actions/checkout@v4
         with:
+          ref: dependency-patch-candidates-2026-10-29
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
@@ -87,7 +90,7 @@ jobs:
             exit 0
           fi
           git commit -m "security: patch Next.js and transitive dependencies"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin "HEAD:dependency-patch-candidates-2026-10-29"
 
       - name: Upload candidate audit
         if: always()
