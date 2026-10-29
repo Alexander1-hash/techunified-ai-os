@@ -41,6 +41,9 @@ jobs:
       - name: Type-check TypeScript
         run: npx tsc --noEmit
 
+      - name: Run release guardrail tests
+        run: npm run test:guardrails
+
       - name: Build production application
         run: npm run build
 
