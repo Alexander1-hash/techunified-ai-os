@@ -112,7 +112,7 @@ export async function POST(request: Request) {
   const provider = String(form.get('provider') ?? '')
   if (provider === 'supabase') {
     const now = new Date().toISOString()
-    const payload = { organization_id: profile.organization_id, name: 'TechUnified Supabase', provider: 'supabase', category: 'database', status: 'connected', configuration_metadata: { verification: 'server-authenticated', verified_at: now }, last_synced_at: now }
+    const payload = { organization_id: profile.organization_id, name: 'TechUnified Supabase', provider: 'supabase', category: 'database', status: 'connected', configuration_metadata: { connection_type: 'application_database', verification: 'authenticated_session', verified_at: now, note: 'Confirms access to the current application database only; it does not import external tables.' }, last_synced_at: now }
     const { data: existing } = await supabase.from('business_data_sources').select('id').eq('organization_id', profile.organization_id).eq('provider', 'supabase').maybeSingle()
     const query = existing?.id ? supabase.from('business_data_sources').update(payload).eq('id', existing.id) : supabase.from('business_data_sources').insert(payload)
     const { data, error } = await query.select('id,name,provider,category,status,configuration_metadata,last_synced_at').single()
@@ -167,13 +167,28 @@ export async function POST(request: Request) {
   }).select('id,name,provider,category,configuration_metadata').single()
   if (error || !data) return NextResponse.json({ error: 'The file was validated but could not be saved. Confirm the Brain data migration is applied.' }, { status: 500 })
 
-  const records = rows.map((row, index) => ({
-    organization_id: profile.organization_id,
-    source_id: data.id,
-    record_key: `${file.name}:${sheetName}:${index}`,
-    payload: row,
-    recorded_at: typeof row.date === 'string' && !Number.isNaN(Date.parse(row.date)) ? new Date(row.date).toISOString() : null,
-  }))
+  const records = rows.map((row, index) => {
+    const dateField = Object.keys(row).find((key) =>
+      ['date', 'datetime', 'timestamp', 'recorded_at'].includes(key.trim().toLocaleLowerCase()),
+    )
+    const rawDate = dateField ? row[dateField] : null
+    const parsedDate = rawDate instanceof Date
+      ? rawDate
+      : typeof rawDate === 'string' || typeof rawDate === 'number'
+        ? new Date(rawDate)
+        : null
+    const recordedAt = parsedDate && !Number.isNaN(parsedDate.getTime())
+      ? parsedDate.toISOString()
+      : null
+
+    return {
+      organization_id: profile.organization_id,
+      source_id: data.id,
+      record_key: file.name + ':' + sheetName + ':' + index,
+      payload: row,
+      recorded_at: recordedAt,
+    }
+  })
 
   for (let offset = 0; offset < records.length; offset += BATCH_SIZE) {
     const batch = records.slice(offset, offset + BATCH_SIZE)
