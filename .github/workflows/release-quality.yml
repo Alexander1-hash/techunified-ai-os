@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   validate:
-    name: Install, lint, type-check, and build
+    name: Install, type-check, guardrail tests, and build
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -40,6 +40,9 @@ jobs:
 
       - name: Type-check TypeScript
         run: npx tsc --noEmit
+
+      - name: Run release guardrail tests
+        run: npm run test:guardrails
 
       - name: Build production application
         run: npm run build
