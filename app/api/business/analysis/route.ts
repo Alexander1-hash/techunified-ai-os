@@ -333,7 +333,9 @@ export async function POST(request: Request) {
     record.payload && typeof record.payload === 'object' ? record.payload : {},
   )
 
-  const valid = body.mappings.map((m: unknown) => {
+  type ValidMapping = { fieldName: string; metricName: string; unit?: string }
+
+  const valid: ValidMapping[] = (body.mappings as unknown[]).map((m: unknown): ValidMapping => {
     if (!m || typeof m !== 'object') return { fieldName: '', metricName: '', unit: undefined }
     const item = m as Record<string, unknown>
     return {
@@ -365,7 +367,7 @@ export async function POST(request: Request) {
   }
 
   const availableFields = new Set(sample.flatMap((row) => Object.keys(row)))
-  const prepared = valid.map((mapping) => {
+  const prepared: Array<ValidMapping & { total: number | null }> = valid.map((mapping) => {
     if (!availableFields.has(mapping.fieldName)) {
       return { ...mapping, total: null as number | null }
     }
@@ -392,7 +394,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const analyzable = prepared.filter((mapping) => mapping.total !== null)
+  const analyzable = prepared.filter((mapping): mapping is ValidMapping & { total: number } => mapping.total !== null)
   if (!analyzable.length) {
     return NextResponse.json(
       { error: 'The selected columns contain no numeric values. Blank cells are ignored, not counted as zero.' },
