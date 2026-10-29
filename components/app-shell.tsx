@@ -36,6 +36,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const notificationRef = useRef<HTMLDivElement>(null)
   const profileRef = useRef<HTMLDivElement>(null)
+  const mobileTriggerRef = useRef<HTMLButtonElement>(null)
+  const mobileDialogRef = useRef<HTMLElement>(null)
+  const mobileWasOpen = useRef(false)
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -56,6 +59,42 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       document.removeEventListener("pointerdown", handlePointerDown)
     }
   }, [])
+
+  useEffect(() => {
+    if (mobile) {
+      mobileWasOpen.current = true
+      const dialog = mobileDialogRef.current
+      const selector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>(selector) ?? [])
+      focusable()[0]?.focus()
+
+      const trapFocus = (event: KeyboardEvent) => {
+        if (event.key !== "Tab") return
+        const items = focusable()
+        if (!items.length) {
+          event.preventDefault()
+          return
+        }
+        const first = items[0]
+        const last = items[items.length - 1]
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first.focus()
+        }
+      }
+
+      dialog?.addEventListener("keydown", trapFocus)
+      return () => dialog?.removeEventListener("keydown", trapFocus)
+    }
+
+    if (mobileWasOpen.current) {
+      mobileWasOpen.current = false
+      mobileTriggerRef.current?.focus()
+    }
+  }, [mobile])
 
   useEffect(() => {
     document.body.style.overflow = mobile ? "hidden" : ""
@@ -138,10 +177,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.label}
                     href={item.href}
+                    aria-current={active ? "page" : undefined}
                     onClick={closeMobile}
                     title={collapsed ? item.label : undefined}
                     className={[
-                      "group flex min-h-9 items-center gap-3 rounded-lg px-2.5 py-2 text-[13px] transition-colors",
+                      "group flex min-h-11 items-center gap-3 rounded-lg px-2.5 py-2 text-[13px] transition-colors",
                       collapsed ? "justify-center" : "",
                       active
                         ? "bg-muted text-foreground"
@@ -243,7 +283,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-30 flex h-14 items-center border-b border-border bg-background px-3 lg:px-5">
         <button
+          ref={mobileTriggerRef}
+          type="button"
           aria-label={mobile ? "Close navigation" : "Open navigation"}
+          aria-expanded={mobile}
+          aria-controls="mobile-navigation"
           onClick={() => setMobile((value) => !value)}
           className="mr-2 flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
         >
@@ -288,14 +332,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {mobile && (
         <>
           <button
+            type="button"
             aria-label="Close navigation"
             onClick={closeMobile}
-            className="fixed inset-y-0 left-0 z-[90] w-[min(320px,86vw)] bg-[#171717] lg:hidden"
+            className="fixed inset-0 z-[90] bg-black/50 lg:hidden"
           />
 
           <aside
+            ref={mobileDialogRef}
+            id="mobile-navigation"
             className={[
-              "fixed inset-y-0 left-0 flex w-[min(320px,86vw)] flex-col border-r border-[#303030] bg-[#171717] text-white shadow-2xl lg:hidden",
+              "fixed inset-y-0 left-0 flex w-[min(320px,88vw)] flex-col border-r border-[#303030] bg-[#171717] text-white shadow-2xl lg:hidden",
               profileOpen ? "z-[210]" : "z-[100]",
             ].join(" ")}
             role="dialog"
@@ -338,7 +385,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </>
       )}
 
-        <main className="min-h-[calc(100vh-3.5rem)]">
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[300] focus:rounded-lg focus:bg-background focus:px-4 focus:py-3 focus:text-foreground focus:shadow-lg">Skip to main content</a>
+        <main id="main-content" tabIndex={-1} className="min-h-[calc(100vh-3.5rem)]">
         <div className="mx-auto w-full max-w-[1500px] px-3 py-4 sm:px-5 sm:py-5 lg:px-7 lg:py-7">
           {children}
         </div>
