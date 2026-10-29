@@ -1,0 +1,99 @@
+name: Release quality gates
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, release-hardening-ci-2026-10-29]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Install, lint, type-check, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: build-only-placeholder-key
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      # ESLint is not installed or configured in the current project yet.
+      # Add the lint step after the repository's lint toolchain is established.
+
+      - name: Type-check TypeScript
+        run: npx tsc --noEmit
+
+      - name: Build production application
+        run: npm run build
+
+  dependency-audit:
+    name: Report dependency advisories
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Generate dependency audit report
+        shell: bash
+        run: |
+          npm audit --json > npm-audit.json || true
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('npm-audit.json', 'utf8'));
+          const counts = report.metadata?.vulnerabilities ?? {};
+          const summary = [
+            '## Dependency advisory report',
+            '',
+            '| Severity | Count |',
+            '|---|---:|',
+            ...['critical', 'high', 'moderate', 'low', 'info'].map(
+              (level) => `| ${level} | ${counts[level] ?? 0} |`
+            ),
+            '',
+            'This report is informational while existing advisories are triaged. It does not certify dependencies as safe.',
+            '',
+            ...Object.entries(report.vulnerabilities ?? {}).map(
+              ([name, item]) => `- **${name}** — ${item.severity}; direct dependency: ${item.isDirect}; fix available: ${Boolean(item.fixAvailable)}`
+            ),
+          ].join('\n');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary + '\n');
+          console.log(summary);
+          NODE
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-report
+          path: npm-audit.json
+          if-no-files-found: ignore
