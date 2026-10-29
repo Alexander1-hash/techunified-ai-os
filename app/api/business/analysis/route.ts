@@ -28,6 +28,8 @@ const units: Record<string, string> = {
 }
 
 const VERIFIED_OUTCOME_STATUSES = new Set(['measured', 'attributed'])
+const MAX_SOURCE_RECORDS = 5000
+const MAX_KPI_MAPPINGS = 50
 
 function outcomeNumber(value: unknown) {
   const parsed = Number(value)
@@ -296,158 +298,164 @@ export async function POST(request: Request) {
     .select('id,payload,recorded_at')
     .eq('source_id', source.id)
     .eq('organization_id', organizationId)
+    .order('recorded_at', { ascending: true })
+    .limit(MAX_SOURCE_RECORDS + 1)
 
   if (recordsError) {
     return NextResponse.json(
-      {
-        error:
-          'Source records are unavailable. Apply the Brain pipeline migration.',
-      },
+      { error: 'Source records are unavailable. Apply the Brain pipeline migration.' },
       { status: 500 },
     )
   }
 
-  const sample = (records ?? []).map(
-    (record: any) => record.payload,
-  )
-
-  const valid = body.mappings
-    .map((m: any) => ({
-      fieldName:
-        typeof m.fieldName === 'string'
-          ? m.fieldName
-          : typeof m.column === 'string'
-            ? m.column
-            : '',
-      metricName:
-        typeof m.metricName === 'string'
-          ? m.metricName
-          : typeof m.metric === 'string'
-            ? m.metric
-            : '',
-      unit:
-        typeof m.unit === 'string'
-          ? m.unit
-          : undefined,
-    }))
-    .filter(
-      (m: any) =>
-        m.fieldName.length > 0 &&
-        METRICS.includes(m.metricName),
-    )
-
-  if (!valid.length) {
+  if ((records ?? []).length > MAX_SOURCE_RECORDS) {
     return NextResponse.json(
-      {
-        error:
-          'Confirm at least one supported KPI mapping.',
-      },
+      { error: `This source has more than ${MAX_SOURCE_RECORDS} records. Narrow the import before calculating KPIs so totals are not silently incomplete.` },
+      { status: 413 },
+    )
+  }
+
+  if (!records?.length) {
+    return NextResponse.json(
+      { error: 'This source has no imported records to analyze.' },
       { status: 422 },
     )
+  }
+
+  if (body.mappings.length > MAX_KPI_MAPPINGS) {
+    return NextResponse.json(
+      { error: `Submit no more than ${MAX_KPI_MAPPINGS} KPI mappings at a time.` },
+      { status: 413 },
+    )
+  }
+
+  const sample = records.map((record: { payload: Record<string, unknown> | null }) =>
+    record.payload && typeof record.payload === 'object' ? record.payload : {},
+  )
+
+  type ValidMapping = { fieldName: string; metricName: string; unit?: string }
+
+  const valid: ValidMapping[] = (body.mappings as unknown[]).map((m: unknown): ValidMapping => {
+    if (!m || typeof m !== 'object') return { fieldName: '', metricName: '', unit: undefined }
+    const item = m as Record<string, unknown>
+    return {
+      fieldName: typeof item.fieldName === 'string'
+        ? item.fieldName.trim()
+        : typeof item.column === 'string' ? item.column.trim() : '',
+      metricName: typeof item.metricName === 'string'
+        ? item.metricName.trim()
+        : typeof item.metric === 'string' ? item.metric.trim() : '',
+      unit: typeof item.unit === 'string' ? item.unit.trim() : undefined,
+    }
+  })
+
+  if (!valid.length || valid.some((m) => !m.fieldName || !METRICS.includes(m.metricName))) {
+    return NextResponse.json(
+      { error: 'Each mapping must include a field and a supported KPI metric.' },
+      { status: 422 },
+    )
+  }
+
+  if (
+    new Set(valid.map((m) => m.fieldName)).size !== valid.length ||
+    new Set(valid.map((m) => m.metricName)).size !== valid.length
+  ) {
+    return NextResponse.json(
+      { error: 'Map each source field and KPI metric only once per request.' },
+      { status: 422 },
+    )
+  }
+
+  const availableFields = new Set(sample.flatMap((row) => Object.keys(row)))
+  const prepared: Array<ValidMapping & { total: number | null }> = valid.map((mapping) => {
+    if (!availableFields.has(mapping.fieldName)) {
+      return { ...mapping, total: null as number | null }
+    }
+
+    const values = sample
+      .map((row) => row[mapping.fieldName])
+      .filter((value): value is string | number =>
+        (typeof value === 'number' && Number.isFinite(value)) ||
+        (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value.trim()))),
+      )
+      .map((value) => Number(value))
+
+    return {
+      ...mapping,
+      total: values.length ? values.reduce((sum, value) => sum + value, 0) : null,
+    }
+  })
+
+  const missingFields = prepared.filter((mapping) => !availableFields.has(mapping.fieldName))
+  if (missingFields.length) {
+    return NextResponse.json(
+      { error: `Source field not found: ${missingFields.map((mapping) => mapping.fieldName).join(', ')}.` },
+      { status: 422 },
+    )
+  }
+
+  const analyzable = prepared.filter((mapping): mapping is ValidMapping & { total: number } => mapping.total !== null)
+  if (!analyzable.length) {
+    return NextResponse.json(
+      { error: 'The selected columns contain no numeric values. Blank cells are ignored, not counted as zero.' },
+      { status: 422 },
+    )
+  }
+
+  const mappingRows = analyzable.map((mapping) => ({
+    organization_id: organizationId,
+    source_id: source.id,
+    field_name: mapping.fieldName,
+    metric_name: mapping.metricName,
+    unit: mapping.unit || units[mapping.metricName] || 'count',
+  }))
+
+  const { error: mappingError } = await supabase
+    .from('business_kpi_mappings')
+    .upsert(mappingRows, { onConflict: 'source_id,field_name' })
+
+  if (mappingError) {
+    return NextResponse.json({ error: 'Could not persist KPI mappings.' }, { status: 500 })
   }
 
   let persistedKpis = 0
+  for (const mapping of analyzable) {
+    const { data: existingKpi, error: existingKpiError } = await supabase
+      .from('business_kpis')
+      .select('id,value,previous_value')
+      .eq('organization_id', organizationId)
+      .eq('name', mapping.metricName)
+      .maybeSingle()
 
-  for (const mapping of valid) {
-    const values = sample
-      .map((r: any) =>
-        Number(r[mapping.fieldName]),
-      )
-      .filter(Number.isFinite)
-
-    if (!values.length) {
-      continue
+    if (existingKpiError) {
+      return NextResponse.json({ error: 'Could not load the existing KPI value.' }, { status: 500 })
     }
 
-    const value = values.reduce(
-      (a: number, b: number) => a + b,
-      0,
-    )
-
-    const { data: existingKpi } =
-      await supabase
-        .from('business_kpis')
-        .select('id,value,previous_value')
-        .eq('organization_id', organizationId)
-        .eq('name', mapping.metricName)
-        .maybeSingle()
-
+    const now = new Date().toISOString()
     const kpiPayload = {
       organization_id: organizationId,
       name: mapping.metricName,
-      value,
-      previous_value:
-        existingKpi?.value !== null &&
-        existingKpi?.value !== undefined
-          ? existingKpi.value
-          : existingKpi?.previous_value ?? null,
-      unit:
-        mapping.unit ||
-        units[mapping.metricName] ||
-        'count',
+      value: mapping.total,
+      previous_value: existingKpi?.value !== null && existingKpi?.value !== undefined
+        ? existingKpi.value
+        : existingKpi?.previous_value ?? null,
+      unit: mapping.unit || units[mapping.metricName] || 'count',
       period: 'Imported records',
       status: 'verified',
       source: source.name,
-      recorded_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      recorded_at: now,
+      updated_at: now,
     }
 
-    const { error } = existingKpi?.id
-      ? await supabase
-          .from('business_kpis')
-          .update(kpiPayload)
-          .eq('id', existingKpi.id)
-      : await supabase
-          .from('business_kpis')
-          .insert(kpiPayload)
+    const { error: kpiError } = existingKpi?.id
+      ? await supabase.from('business_kpis').update(kpiPayload).eq('id', existingKpi.id).eq('organization_id', organizationId)
+      : await supabase.from('business_kpis').insert(kpiPayload)
 
-    if (error) {
-      return NextResponse.json(
-        { error: 'Could not persist KPI.' },
-        { status: 500 },
-      )
+    if (kpiError) {
+      return NextResponse.json({ error: 'A KPI could not be persisted. Refresh Analyst data before retrying.' }, { status: 500 })
     }
 
     persistedKpis += 1
-
-    const { error: mappingError } =
-      await supabase
-        .from('business_kpi_mappings')
-        .upsert(
-          {
-            organization_id: organizationId,
-            source_id: source.id,
-            field_name: mapping.fieldName,
-            metric_name: mapping.metricName,
-            unit:
-              mapping.unit ||
-              units[mapping.metricName] ||
-              'count',
-          },
-          {
-            onConflict:
-              'source_id,field_name',
-          },
-        )
-
-    if (mappingError) {
-      return NextResponse.json(
-        {
-          error: 'Could not persist mapping.',
-        },
-        { status: 500 },
-      )
-    }
-  }
-
-  if (persistedKpis === 0) {
-    return NextResponse.json(
-      {
-        error:
-          'The selected KPI columns contain no numeric values that can be analyzed.',
-      },
-      { status: 422 },
-    )
   }
 
   return NextResponse.json({

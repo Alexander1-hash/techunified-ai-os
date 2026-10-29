@@ -235,7 +235,7 @@ export function DataSourcesCenter() {
       setResult(data?.source ?? null)
 
       setMessage(
-        'Supabase connection verified successfully.',
+        'Workspace database access confirmed. External tables were not imported.',
       )
 
       await loadSources()
