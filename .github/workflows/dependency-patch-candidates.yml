@@ -1,0 +1,102 @@
+name: Validate and apply dependency patch candidates
+
+on:
+  push:
+    branches: [dependency-patch-candidates-2026-10-29]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dependency-candidates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: build-only-placeholder-key
+    steps:
+      - name: Check out candidate branch
+        uses: actions/checkout@v4
+        with:
+          ref: dependency-patch-candidates-2026-10-29
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Generate patched dependency lock
+        run: npm install --save-exact next@16.4.2 sharp@0.35.5 source-map-js@1.2.2 --ignore-scripts
+
+      - name: Verify reproducible install
+        run: npm ci
+
+      - name: Type-check TypeScript
+        run: npx tsc --noEmit
+
+      - name: Build production application
+        run: npm run build
+
+      - name: Audit patched dependency candidates
+        shell: bash
+        run: |
+          npm audit --json > npm-audit-candidate.json || true
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('npm-audit-candidate.json', 'utf8'));
+          const counts = report.metadata?.vulnerabilities ?? {};
+          const summary = [
+            '## Patched dependency candidate audit',
+            '',
+            '| Severity | Count |',
+            '|---|---:|',
+            ...['critical', 'high', 'moderate', 'low', 'info'].map(
+              (level) => `| ${level} | ${counts[level] ?? 0} |`
+            ),
+            '',
+            ...Object.entries(report.vulnerabilities ?? {}).map(
+              ([name, item]) => `- **${name}** — ${item.severity}; direct: ${item.isDirect}; fix available: ${Boolean(item.fixAvailable)}`
+            ),
+          ].join('\n');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary + '\n');
+          console.log(summary);
+
+          for (const name of ['next', 'sharp', 'source-map-js']) {
+            const item = report.vulnerabilities?.[name];
+            if (item && ['critical', 'high'].includes(item.severity)) {
+              console.error(`Patched candidate ${name} still has a high-severity advisory.`);
+              process.exitCode = 1;
+            }
+          }
+          NODE
+
+      - name: Commit validated dependency lock
+        if: success()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "No dependency changes to commit."
+            exit 0
+          fi
+          git commit -m "security: patch Next.js and transitive dependencies"
+          git push origin "HEAD:dependency-patch-candidates-2026-10-29"
+
+      - name: Upload candidate audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-patch-candidate-audit
+          path: npm-audit-candidate.json
+          if-no-files-found: ignore
+          retention-days: 14
