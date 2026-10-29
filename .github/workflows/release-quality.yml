@@ -35,8 +35,8 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Run ESLint
-        run: npm run lint
+      # ESLint is not installed or configured in the current project yet.
+      # Add the lint step after the repository's lint toolchain is established.
 
       - name: Type-check TypeScript
         run: npx tsc --noEmit
