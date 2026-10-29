@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/repositories/profile'
 
-const MAX_KPI_RECORDS = 1000
-const MAX_RELATIONSHIPS = 2000
+const MAX_KPI_RECORDS = 800
+const MAX_RELATIONSHIPS = 800
 
 export async function GET() {
   const supabase = await createClient()
