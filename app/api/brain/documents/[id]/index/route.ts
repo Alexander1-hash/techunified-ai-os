@@ -104,7 +104,7 @@ async function extractTextFromBlob(
     return workbook.SheetNames.map((sheetName) => {
       const sheet = workbook.Sheets[sheetName];
       const csv = XLSX.utils.sheet_to_csv(sheet);
-      return `[Sheet: ${sheetName}]\\n${csv}`;
+      return `[Sheet: ${sheetName}]\n${csv}`;
     })
       .join("\n\n")
       .trim();
