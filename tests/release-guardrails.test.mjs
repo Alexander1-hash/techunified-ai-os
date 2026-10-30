@@ -55,3 +55,32 @@ test("mobile navigation exposes dialog state, focus containment, and a skip link
   assert.match(source, /Skip to main content/);
   assert.match(source, /aria-current=\{active \? "page" : undefined\}/);
 });
+
+
+test("Company Brain indexing preserves the previous index until replacement chunks are written", () => {
+  const source = read("../app/api/brain/documents/[id]/index/route.ts");
+  const upsert = source.indexOf('.upsert(rows, { onConflict: "document_id,chunk_index" })');
+  const prune = source.indexOf('.gte("chunk_index", chunks.length)');
+  assert.notEqual(upsert, -1, "index refresh must upsert chunks by stable document/chunk key");
+  assert.notEqual(prune, -1, "index refresh must prune stale tail chunks");
+  assert.ok(upsert < prune, "stale chunks must only be removed after replacement chunks are saved");
+  assert.match(source, /\.eq\("organization_id", organizationId\)/);
+});
+
+test("Company Brain answers are generated server-side from organization-scoped sources", () => {
+  const source = read("../lib/brain/server.ts");
+  assert.match(source, /\.eq\('organization_id', organizationId\)/);
+  assert.match(source, /openai\.responses\.create/);
+  assert.match(source, /buildCitations\(chunks, safeDocuments\)/);
+  assert.match(source, /Do not invent company facts, metrics, customers, policies/);
+  assert.match(source, /demo: false/);
+});
+
+
+test("Company Brain uses the maintained XLSX security fork in package and lock files", () => {
+  assert.equal(packageJson.dependencies.xlsx, "npm:@keep-lts/xlsx@0.18.6");
+  assert.equal(packageLock.packages[""].dependencies.xlsx, "npm:@keep-lts/xlsx@0.18.6");
+  assert.equal(packageLock.packages["node_modules/xlsx"].name, "@keep-lts/xlsx");
+  assert.equal(packageLock.packages["node_modules/xlsx"].version, "0.18.6");
+  assert.match(packageLock.packages["node_modules/xlsx"].resolved, /@keep-lts\/xlsx/);
+});
