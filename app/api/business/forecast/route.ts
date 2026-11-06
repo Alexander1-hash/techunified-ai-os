@@ -22,8 +22,8 @@ type KpiRow = {
 type TrendFit = {
   slope: number
   intercept: number
-  rSquared: number | null
-  rmse: number | null
+  rSquared: number
+  rmse: number
   nextValue: number
 }
 
@@ -213,9 +213,9 @@ export async function GET() {
       statisticalEvidence: {
         method,
         slopePerPeriod: fit ? round(fit.slope, 4) : null,
-        rSquared: fit?.rSquared === null || fit?.rSquared === undefined ? null : round(fit.rSquared, 4),
-        rootMeanSquaredError: fit?.rmse === null || fit?.rmse === undefined ? null : round(fit.rmse),
-        uncertaintyBand: fit?.rmse === null || fit?.rmse === undefined ? null : {
+        rSquared: fit ? round(fit.rSquared, 4) : null,
+        rootMeanSquaredError: fit ? round(fit.rmse) : null,
+        uncertaintyBand: !fit ? null : {
           lower: round(fit.nextValue - fit.rmse),
           upper: round(fit.nextValue + fit.rmse),
           meaning: 'Descriptive one-RMSE band around the trend estimate; not a calibrated prediction interval.',
