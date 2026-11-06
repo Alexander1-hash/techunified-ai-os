@@ -13,7 +13,6 @@ import {
   Zap,
 } from "lucide-react"
 
-import { createClient } from "@/lib/supabase/client"
 
 type Step = {
   id: string
@@ -137,7 +136,10 @@ export default function WorkflowEditorPage() {
   const [running, setRunning] = useState(false)
   const [message, setMessage] = useState("")
 
-  const supabase = createClient()
+  async function getSupabase() {
+    const { createClient } = await import("@/lib/supabase/client")
+    return createClient()
+  }
 
   useEffect(() => {
     if (workflowId) {
@@ -148,6 +150,8 @@ export default function WorkflowEditorPage() {
   async function loadWorkflow() {
     setLoading(true)
     setMessage("")
+
+    const supabase = await getSupabase()
 
     const { data, error } = await supabase
       .from("workflows")
@@ -246,6 +250,8 @@ export default function WorkflowEditorPage() {
       steps,
     }
 
+    const supabase = await getSupabase()
+
     const { error } = await supabase
       .from("workflows")
       .update({
@@ -280,6 +286,8 @@ export default function WorkflowEditorPage() {
   async function updateStatus(status: string) {
     setSaving(true)
     setMessage("")
+
+    const supabase = await getSupabase()
 
     const { error } = await supabase
       .from("workflows")
