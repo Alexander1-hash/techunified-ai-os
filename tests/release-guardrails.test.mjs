@@ -115,3 +115,16 @@ test("Company Brain query rejects oversized, malformed, and empty requests befor
   assert.match(source, /question\.length > 4000/);
   assert.match(source, /askCompanyBrainServer\(question\)/);
 });
+
+
+test("Company Brain browser helper delegates to the authenticated server API only", () => {
+  const source = read("../lib/brain/service.ts");
+  const helper = source.split("export async function saveConversationMessage")[0];
+  assert.match(helper, /fetch\(['"]\/api\/brain\/query['"]/);
+  assert.match(helper, /method:\s*['"]POST['"]/);
+  assert.match(helper, /JSON\.stringify\(\{ question: normalizedQuestion \}\)/);
+  assert.match(helper, /cache:\s*['"]no-store['"]/);
+  assert.doesNotMatch(helper, /\.from\(['"]knowledge_chunks['"]\)/);
+  assert.doesNotMatch(helper, /demo:\s*true/);
+  assert.match(helper, /payload\.citations as BrainAnswer\['citations'\]/);
+});
