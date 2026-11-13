@@ -56,9 +56,13 @@ type FinancialEvidence = {
   outcomeCount: number
   recordsWithFinancialValues: number
   hoursSaved: number
+  hoursSavedRecords: number
   costAvoided: number
+  costAvoidedRecords: number
   revenueImpact: number
+  revenueImpactRecords: number
   implementationCost: number
+  implementationCostRecords: number
 }
 
 type ApiResponse = {
@@ -93,7 +97,8 @@ function formatChange(value: number | null, unit: string | null) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value) + (unit ? ' ' + unit : '')
 }
 
-function formatAmount(value: number, currency: string) {
+function formatAmount(value: number, currency: string, recordCount: number) {
+  if (recordCount === 0) return 'Not recorded'
   if (currency !== 'Unspecified currency' && /^[A-Z]{3}$/.test(currency)) {
     try {
       return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
@@ -208,10 +213,10 @@ export default function DecisionEvaluationPage() {
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">{row.outcomeCount} linked outcome{row.outcomeCount === 1 ? '' : 's'} · {row.recordsWithFinancialValues} with financial values</p>
                 <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Cost avoided (recorded)</p><p className="mt-1 text-sm font-semibold">{formatAmount(row.costAvoided, row.currency)}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Revenue impact (recorded)</p><p className="mt-1 text-sm font-semibold">{formatAmount(row.revenueImpact, row.currency)}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Implementation cost</p><p className="mt-1 text-sm font-semibold">{formatAmount(row.implementationCost, row.currency)}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Hours saved (recorded)</p><p className="mt-1 text-sm font-semibold">{formatChange(row.hoursSaved, 'hours')}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Cost avoided (recorded)</p><p className="mt-1 text-sm font-semibold">{formatAmount(row.costAvoided, row.currency, row.costAvoidedRecords)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Revenue impact (recorded)</p><p className="mt-1 text-sm font-semibold">{formatAmount(row.revenueImpact, row.currency, row.revenueImpactRecords)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Implementation cost</p><p className="mt-1 text-sm font-semibold">{formatAmount(row.implementationCost, row.currency, row.implementationCostRecords)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Hours saved (recorded)</p><p className="mt-1 text-sm font-semibold">{row.hoursSavedRecords ? formatChange(row.hoursSaved, 'hours') : 'Not recorded'}</p></div>
                 </div>
               </article>
             ))}
@@ -270,9 +275,9 @@ export default function DecisionEvaluationPage() {
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-3 border-t border-border/70 pt-3">
                         {outcome.hoursSaved !== null ? <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Hours saved</p><p className="mt-1 text-xs font-medium">{formatChange(outcome.hoursSaved, 'hours')}</p></div> : null}
-                        {outcome.costAvoided !== null ? <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Cost avoided</p><p className="mt-1 text-xs font-medium">{formatAmount(outcome.costAvoided, outcome.currency || 'Unspecified currency')}</p></div> : null}
-                        {outcome.revenueImpact !== null ? <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Revenue impact</p><p className="mt-1 text-xs font-medium">{formatAmount(outcome.revenueImpact, outcome.currency || 'Unspecified currency')}</p></div> : null}
-                        {outcome.implementationCost !== null ? <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Implementation cost</p><p className="mt-1 text-xs font-medium">{formatAmount(outcome.implementationCost, outcome.currency || 'Unspecified currency')}</p></div> : null}
+                        {outcome.costAvoided !== null ? <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Cost avoided</p><p className="mt-1 text-xs font-medium">{formatAmount(outcome.costAvoided, outcome.currency || 'Unspecified currency', outcome.costAvoided === null ? 0 : 1)}</p></div> : null}
+                        {outcome.revenueImpact !== null ? <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Revenue impact</p><p className="mt-1 text-xs font-medium">{formatAmount(outcome.revenueImpact, outcome.currency || 'Unspecified currency', outcome.revenueImpact === null ? 0 : 1)}</p></div> : null}
+                        {outcome.implementationCost !== null ? <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Implementation cost</p><p className="mt-1 text-xs font-medium">{formatAmount(outcome.implementationCost, outcome.currency || 'Unspecified currency', outcome.implementationCost === null ? 0 : 1)}</p></div> : null}
                       </div>
                       <p className="mt-2 text-[11px] leading-5 text-muted-foreground">Source: {outcome.source || 'Not recorded'} · Period: {formatDate(outcome.periodStart)} – {formatDate(outcome.periodEnd)}</p>
                       {outcome.notes ? <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">{outcome.notes}</p> : null}
