@@ -1,13 +1,70 @@
 import { createClient } from '@/lib/supabase/client'
 import type { BrainAnswer, ConversationMessage } from './types'
 
-export async function askCompanyBrain(question: string, organizationId?: string | null): Promise<BrainAnswer> {
-  const supabase = createClient()
-  let query = supabase.from('knowledge_chunks').select('id,document_id,content,metadata').textSearch('content', question.split(/\s+/).slice(0, 4).join(' & ')).limit(5)
-  if (organizationId) query = query.eq('organization_id', organizationId)
-  const { data, error } = await query
-  if (error || !data?.length) return { answer: 'No indexed knowledge matched this question yet. Upload and index company documents to ground Company Brain responses.', citations: [], demo: true }
-  return { answer: `I found ${data.length} relevant knowledge ${data.length === 1 ? 'chunk' : 'chunks'}. A generation provider can now use this retrieved context to answer: “${question}”`, citations: data.map((row) => ({ documentId: row.document_id, documentName: String(row.metadata?.document_name ?? 'Knowledge document'), department: row.metadata?.department ? String(row.metadata.department) : null, excerpt: row.content.slice(0, 180) })), demo: true }
+/**
+ * Company Brain has one authoritative answer path: the authenticated server
+ * endpoint. Never query knowledge_chunks from the browser or return a
+ * placeholder answer that can be mistaken for generated intelligence.
+ *
+ * organizationId remains an optional compatibility argument for older callers.
+ * The server resolves organization membership from the signed-in user instead.
+ */
+export async function askCompanyBrain(
+  question: string,
+  organizationId?: string | null,
+): Promise<BrainAnswer> {
+  void organizationId
+
+  const normalizedQuestion = question.trim()
+  if (!normalizedQuestion) {
+    return {
+      answer: 'Ask a specific question about your organization.',
+      citations: [],
+      demo: false,
+    }
+  }
+
+  try {
+    const response = await fetch('/api/brain/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: normalizedQuestion }),
+      cache: 'no-store',
+    })
+
+    const payload = (await response.json().catch(() => null)) as
+      | { answer?: unknown; citations?: unknown; demo?: unknown; error?: unknown }
+      | null
+
+    if (!response.ok) {
+      const message =
+        payload && typeof payload.error === 'string'
+          ? payload.error
+          : 'Company Brain could not complete the request. Please try again.'
+
+      return { answer: message, citations: [], demo: false }
+    }
+
+    if (!payload || typeof payload.answer !== 'string' || !Array.isArray(payload.citations)) {
+      return {
+        answer: 'Company Brain returned an invalid response. Please try again.',
+        citations: [],
+        demo: false,
+      }
+    }
+
+    return {
+      answer: payload.answer,
+      citations: payload.citations as BrainAnswer['citations'],
+      demo: payload.demo === true,
+    }
+  } catch {
+    return {
+      answer: 'Company Brain is temporarily unavailable. Check your connection and try again.',
+      citations: [],
+      demo: false,
+    }
+  }
 }
 
 export async function saveConversationMessage(conversationId: string, message: ConversationMessage) {
