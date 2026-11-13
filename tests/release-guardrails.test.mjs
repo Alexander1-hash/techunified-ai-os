@@ -57,6 +57,7 @@ test("decision evaluation UI displays financial evidence without combining curre
   const source = read("../app/decision-evaluation/page.tsx");
   assert.match(source, /financialEvidenceByCurrency/);
   assert.match(source, /Cost avoided \(recorded\)/);
+  assert.match(source, /recordCount === 0/);
   assert.match(source, /Revenue impact \(recorded\)/);
   assert.match(source, /Implementation cost/);
   assert.match(source, /Hours saved \(recorded\)/);
