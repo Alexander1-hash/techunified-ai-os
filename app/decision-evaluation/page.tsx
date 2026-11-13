@@ -10,6 +10,7 @@ type EvaluationOutcome = {
   outcomeType: string
   evidenceStatus: string
   source: string | null
+  notes: string | null
   periodStart: string | null
   periodEnd: string | null
   unit: string | null
@@ -17,6 +18,11 @@ type EvaluationOutcome = {
   current: number | null
   change: number | null
   percentageChange: number | null
+  hoursSaved: number | null
+  costAvoided: number | null
+  revenueImpact: number | null
+  implementationCost: number | null
+  currency: string | null
   directionIsDescriptiveOnly: boolean
 }
 
@@ -40,14 +46,32 @@ type Summary = {
   completedRunsWithAttributedEvidence: number
   completedRunsWithComparableValues: number
   outcomeCoveragePercent: number | null
+  linkedOutcomesReviewed: number
+  linkedOutcomesWithFinancialValues: number
+}
+
+type FinancialEvidence = {
+  currency: string
+  evidenceStatus: string
+  outcomeCount: number
+  recordsWithFinancialValues: number
+  hoursSaved: number
+  hoursSavedRecords: number
+  costAvoided: number
+  costAvoidedRecords: number
+  revenueImpact: number
+  revenueImpactRecords: number
+  implementationCost: number
+  implementationCostRecords: number
 }
 
 type ApiResponse = {
   limits: { actionRuns: number; outcomes: number }
   summary: Summary
   evaluations: Evaluation[]
+  financialEvidenceByCurrency: FinancialEvidence[]
   generatedAt: string
-  guardrails: Record<string, boolean | number>
+  guardrails: Record<string, boolean | number | string | null>
 }
 
 const evidenceLabels: Record<string, string> = {
@@ -69,8 +93,20 @@ function formatDate(value: string | null) {
 }
 
 function formatChange(value: number | null, unit: string | null) {
-  if (value === null) return 'No baseline comparison'
+  if (value === null) return 'Not recorded'
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value) + (unit ? ' ' + unit : '')
+}
+
+function formatAmount(value: number, currency: string, recordCount: number) {
+  if (recordCount === 0) return 'Not recorded'
+  if (currency !== 'Unspecified currency' && /^[A-Z]{3}$/.test(currency)) {
+    try {
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
+    } catch {
+      // Fall through to a neutral number when the stored currency is not supported by the runtime.
+    }
+  }
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value) + (currency === 'Unspecified currency' ? ' (currency not recorded)' : ' ' + currency)
 }
 
 export default function DecisionEvaluationPage() {
@@ -102,10 +138,16 @@ export default function DecisionEvaluationPage() {
     if (filter === 'awaiting_outcome') return rows.filter((row) => row.actionStatus === 'completed' && row.outcomeCount === 0)
     if (filter === 'with_evidence') return rows.filter((row) => row.outcomeCount > 0)
     if (filter === 'measured') return rows.filter((row) => row.evidenceState === 'measured')
+    if (filter === 'attributed') return rows.filter((row) => row.evidenceState === 'attributed')
+    if (filter === 'estimated') return rows.filter((row) => row.evidenceState === 'estimated')
     return rows.filter((row) => row.actionStatus === filter)
   }, [data, filter])
 
   const summary = data?.summary
+  const financialRows = data?.financialEvidenceByCurrency ?? []
+  const partialWarning = typeof data?.guardrails?.partialResultsWarning === 'string'
+    ? data.guardrails.partialResultsWarning
+    : null
 
   return (
     <div className="space-y-6">
@@ -115,7 +157,7 @@ export default function DecisionEvaluationPage() {
             <p className="text-xs font-semibold uppercase tracking-[.18em] text-primary">Phase 13 · Evidence loop</p>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Decision Evaluation Center</h1>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              Review completed business action runs against the outcomes explicitly linked to them. Find missing follow-up evidence, inspect before-and-after values, and separate recorded measurements from estimates.
+              Trace completed business actions to the outcomes explicitly linked to them. Inspect operational and financial evidence, identify missing follow-up, and distinguish measured results from attribution and estimates.
             </p>
           </div>
           <button type="button" onClick={() => void load()} disabled={loading} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50">
@@ -131,6 +173,7 @@ export default function DecisionEvaluationPage() {
       </section>
 
       {error ? <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{error}</div> : null}
+      {partialWarning ? <div role="status" className="rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">{partialWarning}</div> : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
@@ -147,6 +190,42 @@ export default function DecisionEvaluationPage() {
       </section>
 
       <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold">Recorded financial and operational evidence</h2>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Only outcomes explicitly linked to action runs are included. Totals stay separated by currency and evidence status; they are not ROI calculations.
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground">{summary?.linkedOutcomesWithFinancialValues ?? 0} of {summary?.linkedOutcomesReviewed ?? 0} linked outcomes contain financial values</p>
+        </div>
+        {financialRows.length === 0 ? (
+          <div className="mt-4 rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            No linked financial evidence is recorded in the reviewed window yet.
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-3 xl:grid-cols-2">
+            {financialRows.map((row) => (
+              <article key={row.currency + row.evidenceStatus} className="rounded-xl border border-border/80 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold">{row.currency}</h3>
+                  <span className="rounded-full border border-border px-2 py-1 text-[10px]">{evidenceLabels[row.evidenceStatus] ?? row.evidenceStatus}</span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">{row.outcomeCount} linked outcome{row.outcomeCount === 1 ? '' : 's'} · {row.recordsWithFinancialValues} with financial values</p>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Cost avoided (recorded)</p><p className="mt-1 text-sm font-semibold">{formatAmount(row.costAvoided, row.currency, row.costAvoidedRecords)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Revenue impact (recorded)</p><p className="mt-1 text-sm font-semibold">{formatAmount(row.revenueImpact, row.currency, row.revenueImpactRecords)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Implementation cost</p><p className="mt-1 text-sm font-semibold">{formatAmount(row.implementationCost, row.currency, row.implementationCostRecords)}</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Hours saved (recorded)</p><p className="mt-1 text-sm font-semibold">{row.hoursSavedRecords ? formatChange(row.hoursSaved, 'hours') : 'Not recorded'}</p></div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+        <p className="mt-3 text-[10px] leading-4 text-muted-foreground">These are sums of stored outcome fields, grouped by their recorded evidence status. Estimates remain estimates; missing currency is never silently converted or combined.</p>
+      </section>
+
+      <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div><h2 className="text-base font-semibold">Action-run evaluations</h2><p className="mt-1 text-xs leading-5 text-muted-foreground">Up to {data?.limits?.actionRuns ?? 100} action runs and {data?.limits?.outcomes ?? 500} outcomes are checked.</p></div>
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -156,6 +235,8 @@ export default function DecisionEvaluationPage() {
               <option value="awaiting_outcome">Awaiting outcome</option>
               <option value="with_evidence">Has linked outcome</option>
               <option value="measured">Measured evidence</option>
+              <option value="attributed">Attributed evidence</option>
+              <option value="estimated">Estimate only</option>
               <option value="completed">Completed</option>
               <option value="failed">Failed</option>
             </select>
@@ -185,14 +266,21 @@ export default function DecisionEvaluationPage() {
                     <div key={outcome.id} className="rounded-lg bg-muted/40 p-3">
                       <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-medium">{outcome.title}</p><span className="rounded-full border border-border px-2 py-0.5 text-[10px]">{evidenceLabels[outcome.evidenceStatus] ?? outcome.evidenceStatus}</span></div>
                       <div className="mt-3 grid grid-cols-2 gap-3">
-                        <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Baseline</p><p className="mt-1 text-sm font-medium">{outcome.baseline === null ? 'Not recorded' : formatChange(outcome.baseline, outcome.unit)}</p></div>
-                        <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Current</p><p className="mt-1 text-sm font-medium">{outcome.current === null ? 'Not recorded' : formatChange(outcome.current, outcome.unit)}</p></div>
+                        <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Baseline</p><p className="mt-1 text-sm font-medium">{formatChange(outcome.baseline, outcome.unit)}</p></div>
+                        <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Current</p><p className="mt-1 text-sm font-medium">{formatChange(outcome.current, outcome.unit)}</p></div>
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-border/70 pt-3 text-xs">
                         <span className="text-muted-foreground">Change: <strong className="text-foreground">{formatChange(outcome.change, outcome.unit)}</strong></span>
                         {outcome.percentageChange !== null ? <span className="inline-flex items-center gap-1 text-muted-foreground">{outcome.percentageChange > 0 ? <ArrowUpRight size={13} /> : outcome.percentageChange < 0 ? <ArrowDownRight size={13} /> : null}{outcome.percentageChange.toFixed(1)}%</span> : null}
                       </div>
+                      <div className="mt-3 grid grid-cols-2 gap-3 border-t border-border/70 pt-3">
+                        {outcome.hoursSaved !== null ? <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Hours saved</p><p className="mt-1 text-xs font-medium">{formatChange(outcome.hoursSaved, 'hours')}</p></div> : null}
+                        {outcome.costAvoided !== null ? <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Cost avoided</p><p className="mt-1 text-xs font-medium">{formatAmount(outcome.costAvoided, outcome.currency || 'Unspecified currency', outcome.costAvoided === null ? 0 : 1)}</p></div> : null}
+                        {outcome.revenueImpact !== null ? <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Revenue impact</p><p className="mt-1 text-xs font-medium">{formatAmount(outcome.revenueImpact, outcome.currency || 'Unspecified currency', outcome.revenueImpact === null ? 0 : 1)}</p></div> : null}
+                        {outcome.implementationCost !== null ? <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Implementation cost</p><p className="mt-1 text-xs font-medium">{formatAmount(outcome.implementationCost, outcome.currency || 'Unspecified currency', outcome.implementationCost === null ? 0 : 1)}</p></div> : null}
+                      </div>
                       <p className="mt-2 text-[11px] leading-5 text-muted-foreground">Source: {outcome.source || 'Not recorded'} · Period: {formatDate(outcome.periodStart)} – {formatDate(outcome.periodEnd)}</p>
+                      {outcome.notes ? <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">{outcome.notes}</p> : null}
                       <p className="mt-2 text-[10px] leading-4 text-muted-foreground">Numeric direction is descriptive only. It does not prove benefit, causation, or independently verified ROI.</p>
                     </div>
                   ))}
@@ -213,6 +301,7 @@ export default function DecisionEvaluationPage() {
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>A completed workflow means the action run completed; it does not mean the business objective succeeded.</li>
           <li>Only explicit action-run links are used. Similar titles or timing are not treated as proof of attribution.</li>
+          <li>Financial figures are grouped by stored currency and evidence status. No currency conversion or ROI inference is performed.</li>
           <li>Baseline-to-current changes are descriptive; they do not establish that TechUnifedAIOS caused the change.</li>
           <li>The page reads existing organization-scoped records and does not write or upgrade evidence statuses.</li>
         </ul>
