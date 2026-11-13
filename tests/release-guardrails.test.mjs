@@ -47,6 +47,10 @@ test("decision evaluation returns action timestamps and recorded operational and
   assert.match(source, /outcome\.evidence_status \|\| 'unknown'/);
   assert.match(source, /financialFiguresAreGroupedByCurrencyAndEvidenceStatus:\s*true/);
   assert.match(source, /estimatedValuesAreNotRelabeledAsMeasured:\s*true/);
+  assert.match(source, /costAvoidedRecords/);
+  assert.match(source, /revenueImpactRecords/);
+  assert.match(source, /implementationCostRecords/);
+  assert.match(source, /hoursSavedRecords/);
 });
 
 test("decision evaluation UI displays financial evidence without combining currencies or implying ROI", () => {
