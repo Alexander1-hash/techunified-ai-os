@@ -38,9 +38,13 @@ type FinancialEvidence = {
   outcomeCount: number
   recordsWithFinancialValues: number
   hoursSaved: number
+  hoursSavedRecords: number
   costAvoided: number
+  costAvoidedRecords: number
   revenueImpact: number
+  revenueImpactRecords: number
   implementationCost: number
+  implementationCostRecords: number
 }
 
 function finiteNumber(value: unknown): number | null {
@@ -53,7 +57,6 @@ function buildFinancialEvidence(outcomes: Outcome[]): FinancialEvidence[] {
   const totals = new Map<string, FinancialEvidence>()
 
   for (const outcome of outcomes) {
-    // Financial summaries include only outcomes explicitly linked to an action run.
     if (!outcome.action_run_id) continue
 
     const currency = outcome.currency?.trim().toUpperCase() || 'Unspecified currency'
@@ -65,9 +68,13 @@ function buildFinancialEvidence(outcomes: Outcome[]): FinancialEvidence[] {
       outcomeCount: 0,
       recordsWithFinancialValues: 0,
       hoursSaved: 0,
+      hoursSavedRecords: 0,
       costAvoided: 0,
+      costAvoidedRecords: 0,
       revenueImpact: 0,
+      revenueImpactRecords: 0,
       implementationCost: 0,
+      implementationCostRecords: 0,
     }
 
     const hoursSaved = finiteNumber(outcome.hours_saved)
@@ -79,10 +86,22 @@ function buildFinancialEvidence(outcomes: Outcome[]): FinancialEvidence[] {
     if ([costAvoided, revenueImpact, implementationCost].some((value) => value !== null)) {
       row.recordsWithFinancialValues += 1
     }
-    row.hoursSaved += hoursSaved ?? 0
-    row.costAvoided += costAvoided ?? 0
-    row.revenueImpact += revenueImpact ?? 0
-    row.implementationCost += implementationCost ?? 0
+    if (hoursSaved !== null) {
+      row.hoursSaved += hoursSaved
+      row.hoursSavedRecords += 1
+    }
+    if (costAvoided !== null) {
+      row.costAvoided += costAvoided
+      row.costAvoidedRecords += 1
+    }
+    if (revenueImpact !== null) {
+      row.revenueImpact += revenueImpact
+      row.revenueImpactRecords += 1
+    }
+    if (implementationCost !== null) {
+      row.implementationCost += implementationCost
+      row.implementationCostRecords += 1
+    }
     totals.set(key, row)
   }
 
